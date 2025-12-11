@@ -37,7 +37,8 @@ logs/
 # Misc
 coverage/
 
+supabase/
 
 
 supabase/config.toml
-supabase/.temp
+supabase/migrations
