@@ -1,0 +1,117 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 130 48% 19%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 130 48% 19%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 130 48% 19%;
+
+    --primary: 130 48% 19%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 130 45% 95%;
+    --secondary-foreground: 130 48% 19%;
+
+    --muted: 130 10% 96%;
+    --muted-foreground: 130 10% 45%;
+
+    --accent: 130 55% 45%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 130 15% 90%;
+    --input: 130 15% 90%;
+    --ring: 130 48% 19%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 130 48% 19%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 130 55% 45%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 130 48% 25%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 130 48% 25%;
+    --sidebar-ring: 130 55% 45%;
+
+    --chart-1: 130 55% 45%;
+    --chart-2: 130 45% 60%;
+    --chart-3: 130 35% 75%;
+    --chart-4: 130 25% 85%;
+    --chart-5: 130 15% 90%;
+
+    --success: 142 76% 36%;
+    --warning: 45 93% 47%;
+    --info: 221 83% 53%;
+
+
+  }
+
+  .dark {
+    --background: 130 48% 12%;
+    --foreground: 0 0% 98%;
+
+    --card: 130 48% 15%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 130 48% 15%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 130 55% 45%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 130 48% 20%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 130 48% 20%;
+    --muted-foreground: 130 10% 70%;
+
+    --accent: 130 55% 45%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 130 48% 25%;
+    --input: 130 48% 25%;
+    --ring: 130 55% 45%;
+
+    --sidebar-background: 130 48% 19%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 130 55% 45%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 130 48% 25%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 130 48% 25%;
+    --sidebar-ring: 130 55% 45%;
+
+    --chart-1: 130 55% 45%;
+    --chart-2: 130 45% 60%;
+    --chart-3: 130 35% 75%;
+    --chart-4: 130 25% 85%;
+    --chart-5: 130 15% 90%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
