@@ -23,13 +23,10 @@ const Leads = () => {
   const [status, setStatus] = useState("novo");
   const [interesse, setInteresse] = useState("");
 
-  const [selectedLead, setSelectedLead] = useState(null);
-  const [leads, setLeads] = useState([]);
+  const [selectedLead, setSelectedLead] = useState<any>(null);
+  const [leads, setLeads] = useState<any[]>([]);
   const [busca, setBusca] = useState("");
 
-  // ============================
-  // LOADING STATE
-  // ============================
   const [loading, setLoading] = useState(true);
 
   async function carregarLeads() {
@@ -82,9 +79,8 @@ const Leads = () => {
   // ============================
   // ABRIR MODAL EDIT
   // ============================
-  function abrirModalEdit(lead) {
+  function abrirModalEdit(lead: any) {
     setSelectedLead(lead);
-
     setNome(lead.nome);
     setEmail(lead.email);
     setTelefone(lead.telefone || "");
@@ -118,7 +114,6 @@ const Leads = () => {
     }
 
     alert("Lead atualizado!");
-
     setOpenEdit(false);
     carregarLeads();
     limparCampos();
@@ -143,10 +138,11 @@ const Leads = () => {
   }
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="min-h-screen bg-background">
       <Sidebar />
 
-      <main className="flex-1 overflow-y-auto">
+      {/* CONTEÚDO AJUSTADO À SIDEBAR */}
+      <main className="ml-16 overflow-y-auto">
         <div className="p-8 space-y-6">
           <div className="flex items-center justify-between">
             <div>
@@ -185,23 +181,20 @@ const Leads = () => {
             </CardHeader>
 
             <CardContent>
-              {/* ANIMAÇÃO DE CARREGAMENTO */}
               {loading && (
                 <div className="space-y-4 animate-pulse">
                   <div className="text-lg font-semibold text-center opacity-70">
                     Leads carregando...
                   </div>
-
                   {[1, 2, 3, 4].map((i) => (
                     <div
                       key={i}
                       className="p-4 rounded-lg border bg-muted/30 h-20"
-                    ></div>
+                    />
                   ))}
                 </div>
               )}
 
-              {/* LISTA REAL */}
               {!loading && (
                 <div className="space-y-4">
                   {leads
@@ -217,7 +210,6 @@ const Leads = () => {
                           <div className="space-y-2 flex-1">
                             <div className="flex items-center gap-3">
                               <h3 className="font-semibold">{lead.nome}</h3>
-
                               <Badge>
                                 {lead.status === "novo"
                                   ? "Novo"
@@ -232,7 +224,7 @@ const Leads = () => {
                             </p>
 
                             {lead.interesse && (
-                              <p className="text-sm font-medium text-foreground">
+                              <p className="text-sm font-medium">
                                 Interesse: {lead.interesse}
                               </p>
                             )}
@@ -268,7 +260,6 @@ const Leads = () => {
         </div>
       </main>
 
-      {/* ======= MODAIS (mesmo código que você já tinha) ======= */}
       {/* CREATE */}
       {openCreate && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">

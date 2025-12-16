@@ -46,14 +46,26 @@ const Imoveis = () => {
   function openEdit(imovel: any) {
     setEditing(imovel);
     setSelectedFile(null);
-    setForm({ titulo: imovel.titulo, descricao: imovel.descricao, preco: imovel.preco, endereco: imovel.endereco, tipo: imovel.tipo, quartos: imovel.quartos, banheiros: imovel.banheiros, area: imovel.area });
+    setForm({
+      titulo: imovel.titulo,
+      descricao: imovel.descricao,
+      preco: imovel.preco,
+      endereco: imovel.endereco,
+      tipo: imovel.tipo,
+      quartos: imovel.quartos,
+      banheiros: imovel.banheiros,
+      area: imovel.area
+    });
     setModalOpen(true);
   }
 
   async function load() {
     let res: any = await getImoveis();
     if (res?.data && Array.isArray(res.data)) res = res.data;
-    if (!res || !Array.isArray(res)) { setImoveis([]); return; }
+    if (!res || !Array.isArray(res)) {
+      setImoveis([]);
+      return;
+    }
 
     const withUrls = await Promise.all(
       res.map(async (p: any) => {
@@ -79,7 +91,10 @@ const Imoveis = () => {
   }
 
   async function save() {
-    if (!form.titulo?.trim()) { alert("Título é obrigatório"); return; }
+    if (!form.titulo?.trim()) {
+      alert("Título é obrigatório");
+      return;
+    }
 
     const payload = {
       ...form,
@@ -92,13 +107,14 @@ const Imoveis = () => {
     try {
       if (editing) {
         await updateImovel(editing.id, payload);
+
         if (selectedFile) {
           const path = await uploadFile(editing.id, selectedFile);
           await updateImovel(editing.id, { foto_path: path });
         }
       } else {
         const created = await createImovel(payload);
-        // tentativa de pegar id do retorno (varia conforme implementação do backend)
+
         let createdId = created?.id ?? created?.data?.[0]?.id ?? null;
 
         if (!createdId) {
@@ -123,83 +139,126 @@ const Imoveis = () => {
 
   async function remove(id: string) {
     if (!confirm("Tem certeza que deseja remover este imóvel?")) return;
+
     const imovel = imoveis.find((i) => i.id === id);
     if (imovel?.foto_path) await supabase.storage.from(BUCKET).remove([imovel.foto_path]);
+
     await deleteImovel(id);
     await load();
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
-  const filtered = imoveis.filter((i) => (i.titulo || "").toLowerCase().includes(search.toLowerCase()));
+  const filtered = imoveis.filter((i) =>
+    (i.titulo || "").toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
-    <div className="flex">
+    <div className="min-h-screen bg-background">
       <Sidebar />
-      <div className="flex-1 p-8 space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Imóveis</h1>
-            <p className="text-muted-foreground mt-1">Gerencie seu portfólio de imóveis</p>
+
+      {/* CONTEÚDO AJUSTADO À SIDEBAR FIXA */}
+      <main className="ml-16 overflow-y-auto">
+        <div className="p-8 space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold">Imóveis</h1>
+              <p className="text-muted-foreground mt-1">Gerencie seu portfólio de imóveis</p>
+            </div>
+            <Button className="gap-2" onClick={openNew}>
+              <Plus className="w-4 h-4" /> Novo Imóvel
+            </Button>
           </div>
-          <Button className="gap-2" onClick={openNew}><Plus className="w-4 h-4" /> Novo Imóvel</Button>
-        </div>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4 mb-6">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input placeholder="Buscar imóveis..." className="pl-10" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4 mb-6">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar imóveis..."
+                    className="pl-10"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                </div>
+                <Button variant="outline" className="gap-2">
+                  <Filter className="w-4 h-4" /> Filtros
+                </Button>
               </div>
-              <Button variant="outline" className="gap-2"><Filter className="w-4 h-4" /> Filtros</Button>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filtered.map((property) => (
-                <Card key={property.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-                  <div className="h-48 bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
-                    {property.foto_url ? <img src={property.foto_url} alt={property.titulo} className="w-full h-full object-cover" /> : <p className="text-muted-foreground">Imagem do imóvel</p>}
-                  </div>
-                  <CardContent className="p-4 space-y-3">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h3 className="font-semibold line-clamp-1">{property.titulo}</h3>
-                        <div className="flex items-center gap-2 mt-1">
-                          <MapPin className="w-3 h-3 text-muted-foreground" />
-                          <span className="text-sm text-muted-foreground">{property.endereco}</span>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filtered.map((property) => (
+                  <Card key={property.id} className="overflow-hidden hover:shadow-lg transition-shadow">
+                    <div className="h-48 bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+                      {property.foto_url ? (
+                        <img src={property.foto_url} alt={property.titulo} className="w-full h-full object-cover" />
+                      ) : (
+                        <p className="text-muted-foreground">Imagem do imóvel</p>
+                      )}
+                    </div>
+
+                    <CardContent className="p-4 space-y-3">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h3 className="font-semibold line-clamp-1">{property.titulo}</h3>
+
+                          <div className="flex items-center gap-2 mt-1">
+                            <MapPin className="w-3 h-3 text-muted-foreground" />
+                            <span className="text-sm text-muted-foreground">{property.endereco}</span>
+                          </div>
+
+                          <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                            {property.descricao}
+                          </p>
                         </div>
-                        <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{property.descricao}</p>
+
+                        <Badge>{property.tipo || "—"}</Badge>
                       </div>
-                      <Badge>{property.tipo || "—"}</Badge>
-                    </div>
 
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <div className="flex items-center gap-1"><BedDouble className="w-4 h-4" />{property.quartos || 0}</div>
-                      <div className="flex items-center gap-1"><Bath className="w-4 h-4" />{property.banheiros || 0}</div>
-                      <div className="flex items-center gap-1"><Maximize className="w-4 h-4" />{property.area || 0}m²</div>
-                    </div>
-
-                    <div className="pt-3 border-t flex items-center justify-between">
-                      <span className="text-xl font-bold text-primary">R$ {(property.preco || 0).toLocaleString("pt-BR")}</span>
-                      <div className="flex items-center gap-2">
-                        <Button size="sm" variant="outline" onClick={() => openEdit(property)}>Editar</Button>
-                        <Button size="sm" variant="destructive" onClick={() => remove(property.id)}>Excluir</Button>
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-1"><BedDouble className="w-4 h-4" />{property.quartos || 0}</div>
+                        <div className="flex items-center gap-1"><Bath className="w-4 h-4" />{property.banheiros || 0}</div>
+                        <div className="flex items-center gap-1"><Maximize className="w-4 h-4" />{property.area || 0}m²</div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
 
-            {filtered.length === 0 && <div className="mt-6 text-center text-muted-foreground">Nenhum imóvel encontrado.</div>}
-          </CardContent>
-        </Card>
-      </div>
+                      <div className="pt-3 border-t flex items-center justify-between">
+                        <span className="text-xl font-bold text-primary">
+                          R$ {(property.preco || 0).toLocaleString("pt-BR")}
+                        </span>
+
+                        <div className="flex items-center gap-2">
+                          <Button size="sm" variant="outline" onClick={() => openEdit(property)}>
+                            Editar
+                          </Button>
+                          <Button size="sm" variant="destructive" onClick={() => remove(property.id)}>
+                            Excluir
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {filtered.length === 0 && (
+                <div className="mt-6 text-center text-muted-foreground">
+                  Nenhum imóvel encontrado.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </main>
 
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>{editing ? "Editar Imóvel" : "Novo Imóvel"}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>{editing ? "Editar Imóvel" : "Novo Imóvel"}</DialogTitle>
+          </DialogHeader>
+
           <div className="space-y-4">
             <Input placeholder="Título" value={form.titulo} onChange={(e) => setForm({ ...form, titulo: e.target.value })} />
             <Input placeholder="Descrição" value={form.descricao} onChange={(e) => setForm({ ...form, descricao: e.target.value })} />
@@ -212,11 +271,17 @@ const Imoveis = () => {
 
             <div>
               <label className="block text-sm mb-2">Foto do imóvel</label>
-              <input type="file" accept="image/*" onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} />
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+              />
               {selectedFile && <div className="text-sm mt-2">Arquivo: {selectedFile.name}</div>}
             </div>
 
-            <Button className="w-full mt-4" onClick={save}>Salvar</Button>
+            <Button className="w-full mt-4" onClick={save}>
+              Salvar
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

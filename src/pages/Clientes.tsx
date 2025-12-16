@@ -55,8 +55,8 @@ const Clientes = () => {
   );
 
   // =============================
-  // CRIAR NOVO CLIENTE (ATUALIZADO)
-  // =============================
+  // CRIAR NOVO CLIENTE (ATUALIZADO) caralhoooooo
+  // 
   const salvarNovoCliente = async () => {
     if (!form.nome || !form.email) {
       alert("Preencha nome e e-mail!");
@@ -86,11 +86,10 @@ const Clientes = () => {
   };
 
   return (
-    <div className="flex min-h-screen bg-background">
+  <div className="min-h-screen bg-background">
       <Sidebar />
-
-      <main className="flex-1 overflow-y-auto">
-        <div className="p-8 space-y-6">
+<main className="ml-16 overflow-y-auto">
+    <div className="p-8 space-y-6">
 
           {/* HEADER */}
           <div className="flex items-center justify-between">
