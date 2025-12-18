@@ -19,10 +19,10 @@ import {
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Novos Clientes", href: "/dashboard/leads", icon: Users },
+  { name: "Leads", href: "/dashboard/leads", icon: Users },
   { name: "Imóveis/Lotes", href: "/dashboard/imoveis", icon: Building2 },
-  { name: "Serviços", href: "/dashboard/servicos", icon: Briefcase },
-  { name: "Carteira De Clientes", href: "/dashboard/clientes", icon: UserCheck },
+  //{ name: "Serviços", href: "/dashboard/servicos", icon: Briefcase },
+  { name: "Clientes", href: "/dashboard/clientes", icon: UserCheck },
   { name: "Visitas", href: "/dashboard/visitas", icon: Home },
   { name: "Vendas", href: "/dashboard/financeiro", icon: DollarSign },
   { name: "Agenda", href: "/dashboard/agenda", icon: Calendar },

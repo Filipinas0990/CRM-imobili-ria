@@ -41,7 +41,7 @@ function App() {
             style={{ position: "fixed", top: 10, right: 10, zIndex: 9999 }}
             onClick={test}
           >
-            Testar Supabase
+            
           </button>
 
           <Routes>

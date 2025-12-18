@@ -6,10 +6,14 @@ import { Calendar, Clock, Plus, Trash } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
+
+
 // Funções de integração com o Supabase
 import { createAgenda } from "@/integrations/supabase/agenda/createAgenda"; // Para criar um evento
 import { deleteAgenda } from "@/integrations/supabase/agenda/deleteAgenda"; // Para excluir um evento
 import { getAgenda } from "@/integrations/supabase/agenda/getAgenda"; // Para buscar os eventos
+import { updateAgenda } from "@/integrations/supabase/agenda/updateAgenda"
+
 
 const Agenda = () => {
   const [events, setEvents] = useState<any[]>([]);
@@ -17,34 +21,41 @@ const Agenda = () => {
   const [form, setForm] = useState({ title: "", date: "", time: "", location: "" });
   const [editing, setEditing] = useState<any | null>(null);
 
-  // Função para carregar eventos
+
   const loadEvents = async () => {
     const data = await getAgenda();
     setEvents(data);
   };
 
-  // Carregar eventos assim que o componente for montado
+ 
   useEffect(() => {
     loadEvents();
   }, []);
 
-  // Abrir o modal para criar evento
+ 
   const openNew = () => {
     setEditing(null);
     setForm({ title: "", date: "", time: "", location: "" });
     setModalOpen(true);
   };
 
-  // Abrir o modal para editar evento
+  
   const openEdit = (event: any) => {
-    setEditing(event);
-    setForm({ title: event.title, date: event.date, time: event.time, location: event.location });
-    setModalOpen(true);
-  };
+  setEditing(event);
+
+  setForm({
+    title: event.title,
+    date: event.date?.split("T")[0] ?? "",
+    time: event.time,
+    location: event.location,
+  });
+
+  setModalOpen(true);
+};
 
   // Salvar evento (criar ou editar)
   const saveEvent = async () => {
-    if (!form.title || !form.date || !form.time || !form.location) {
+    if (!form.title || !form.date || !form.location) { 
       alert("Todos os campos são obrigatórios.");
       return;
     }
@@ -77,8 +88,8 @@ const Agenda = () => {
       <main className="ml-16 overflow-y-auto">
         <div className="p-8 space-y-6">
           <div className="flex items-center justify-between">
-            
-           
+
+
           </div>
           {/* Header */}
           <div className="flex items-center justify-between">
@@ -154,16 +165,27 @@ const Agenda = () => {
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
             />
-            <Input
-              placeholder="Data"
-              value={form.date}
-              onChange={(e) => setForm({ ...form, date: e.target.value })}
-            />
-            <Input
-              placeholder="Hora"
-              value={form.time}
-              onChange={(e) => setForm({ ...form, time: e.target.value })}
-            />
+
+           <input
+  type="date"
+  value={form.date}
+  onChange={(e) =>
+    setForm({ ...form, date: e.target.value })
+  }
+  className="w-full border rounded px-3 py-2"
+  required
+/>
+
+<input
+  type="time"
+  value={form.time}
+  onChange={(e) =>
+    setForm({ ...form, time: e.target.value })
+  }
+  className="w-full border rounded px-3 py-2"
+  required
+/>
+
             <Input
               placeholder="Localização"
               value={form.location}
