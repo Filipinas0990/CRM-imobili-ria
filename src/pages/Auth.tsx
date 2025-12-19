@@ -48,7 +48,7 @@ const Auth = () => {
         setLoading(false);
         return;
       }
-    
+
       if (isLogin) {
         const { error } = await supabase.auth.signInWithPassword({
           email: email.trim(),
@@ -155,31 +155,43 @@ const Auth = () => {
               />
             </div>
 
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={loading}
-          >
-            {loading ? "Aguarde..." : isLogin ? "Entrar" : "Criar conta"}
-          </Button>
-        </form>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={loading}
+            >
+              {loading ? "Aguarde..." : isLogin ? "Entrar" : "Criar conta"}
+            </Button>
+          </form>
 
-        {isLogin && (
-            <button className="text-sm text-muted-foreground hover:text-foreground transition-colors mt-4 w-full text-center">
-              Esqueci minha senha
-            </button>
-          )}
 
           <div className="mt-6 text-center">
             <button
-              onClick={() => setIsLogin(!isLogin)}
-              className="text-sm text-primary hover:underline"
+              onClick={() =>
+                window.open(
+                  "https://wa.me/5564992957973?text=Ol%C3%A1%2C%20quero%20me%20cadastrar%20no%20CRM%20Im%C3%B3veis",
+                  "_blank"
+                )
+              }
               disabled={loading}
+              className="
+    mt-6
+    w-full
+    py-2
+    text-sm
+    font-medium
+    rounded-lg
+    bg-green-600
+    text-white
+    hover:bg-green-700
+    transition
+    disabled:opacity-50
+    disabled:cursor-not-allowed
+  "
             >
-              {isLogin
-                ? "Não tem uma conta? Cadastre-se"
-                : "Já tem uma conta? Faça login"}
+              Não tem uma conta? Cadastre-se
             </button>
+
           </div>
         </div>
       </div>

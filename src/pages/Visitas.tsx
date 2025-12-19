@@ -177,9 +177,8 @@ export default function Visitas() {
                 return (
                   <div
                     key={visit.id}
-                    className={`p-5 border rounded-xl flex justify-between ${
-                      isToday ? "bg-primary/10 border-primary" : "bg-card"
-                    }`}
+                    className={`p-5 border rounded-xl flex justify-between ${isToday ? "bg-primary/10 border-primary" : "bg-card"
+                      }`}
                   >
                     <div>
                       <h3 className="font-semibold text-lg">{visit.lead?.nome}</h3>
@@ -230,21 +229,19 @@ export default function Visitas() {
                 <div className="flex border-b mb-4">
                   <button
                     onClick={() => setActiveTab("hoje")}
-                    className={`px-4 py-2 ${
-                      activeTab === "hoje"
+                    className={`px-4 py-2 ${activeTab === "hoje"
                         ? "border-b-2 border-primary font-bold"
                         : "text-muted-foreground"
-                    }`}
+                      }`}
                   >
                     Hoje
                   </button>
                   <button
                     onClick={() => setActiveTab("relatorio")}
-                    className={`px-4 py-2 ${
-                      activeTab === "relatorio"
+                    className={`px-4 py-2 ${activeTab === "relatorio"
                         ? "border-b-2 border-primary font-bold"
                         : "text-muted-foreground"
-                    }`}
+                      }`}
                   >
                     Últimos 30 dias
                   </button>

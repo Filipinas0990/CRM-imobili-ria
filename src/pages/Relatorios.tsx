@@ -30,34 +30,21 @@ const Relatorios = () => {
     <div className="flex min-h-screen bg-background">
       <Sidebar />
 
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 ml-20 p-8 space-y-8 overflow-y-auto">
+
         <div className="p-8 space-y-6">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Relatórios</h1>
+            <h1 className="text-3xl font-bold text-foreground">Página em Desenvolvimento!</h1>
             <p className="text-muted-foreground mt-2">
-              Análises e relatórios de desempenho
+              Estamos Trabalhando o máximo para trazer esta funcionalidade em breve.
             </p>
-          </div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {reports.map((report, index) => (
-              <Card
-                key={index}
-                className="hover:bg-accent/30 transition-colors cursor-pointer"
-              >
-                <CardHeader className="flex flex-row items-center gap-3">
-                  <report.icon className="w-6 h-6 text-primary" />
-                  <CardTitle>{report.title}</CardTitle>
-                </CardHeader>
-                <CardContent className="text-muted-foreground">
-                  {report.description}
-                </CardContent>
-              </Card>
-            ))}
           </div>
         </div>
       </main>
-    </div>
+      /</div>
+
+
+
   );
 };
 

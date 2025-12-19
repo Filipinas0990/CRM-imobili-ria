@@ -51,8 +51,7 @@ const ClientePerfil = () => {
         <div className="flex min-h-screen bg-background">
             <Sidebar />
 
-            <main className="flex-1 overflow-y-auto p-8 space-y-8">
-
+            <main className="flex-1 ml-20 p-8 space-y-8 overflow-y-auto">
                 {/* VOLTAR */}
                 {/* VOLTAR */}
                 <Button variant="ghost" onClick={() => navigate("/dashboard/clientes")} className="gap-2">
