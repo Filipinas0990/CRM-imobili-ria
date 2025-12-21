@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { getClientes } from "@/integrations/supabase/clientes/getClientes";
 import { createCliente } from "@/integrations/supabase/clientes/createCliente";
 import { useNavigate } from "react-router-dom";
+import { toast } from "@/components/ui/use-toast";
 
 const Clientes = () => {
   const [clientes, setClientes] = useState([]);
@@ -86,10 +87,10 @@ const Clientes = () => {
   };
 
   return (
-  <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background">
       <Sidebar />
-<main className="ml-16 overflow-y-auto">
-    <div className="p-8 space-y-6">
+      <main className="ml-16 overflow-y-auto">
+        <div className="p-8 space-y-6">
 
           {/* HEADER */}
           <div className="flex items-center justify-between">

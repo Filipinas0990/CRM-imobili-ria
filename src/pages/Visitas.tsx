@@ -16,6 +16,16 @@ import { getLeads } from "@/integrations/supabase/leads/getLeads";
 
 // IMÓVEIS
 import { getImoveis } from "@/integrations/supabase/imoveis/getImoveis";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+import { Label } from "@/components/ui/label";
+
 
 export default function Visitas() {
   const [visitas, setVisitas] = useState<any[]>([]);
@@ -230,8 +240,8 @@ export default function Visitas() {
                   <button
                     onClick={() => setActiveTab("hoje")}
                     className={`px-4 py-2 ${activeTab === "hoje"
-                        ? "border-b-2 border-primary font-bold"
-                        : "text-muted-foreground"
+                      ? "border-b-2 border-primary font-bold"
+                      : "text-muted-foreground"
                       }`}
                   >
                     Hoje
@@ -239,8 +249,8 @@ export default function Visitas() {
                   <button
                     onClick={() => setActiveTab("relatorio")}
                     className={`px-4 py-2 ${activeTab === "relatorio"
-                        ? "border-b-2 border-primary font-bold"
-                        : "text-muted-foreground"
+                      ? "border-b-2 border-primary font-bold"
+                      : "text-muted-foreground"
                       }`}
                   >
                     Últimos 30 dias
@@ -312,32 +322,47 @@ export default function Visitas() {
               value={form.data}
               onChange={(e) => setForm({ ...form, data: e.target.value })}
             />
+            <div className="space-y-2">
+              <Label>Lead</Label>
+              <Select
+                value={form.lead_id}
+                onValueChange={(value) =>
+                  setForm({ ...form, lead_id: value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o lead" />
+                </SelectTrigger>
+                <SelectContent>
+                  {leads.map((l) => (
+                    <SelectItem key={l.id} value={String(l.id)}>
+                      {l.nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-            <select
-              className="w-full border p-2 rounded"
-              value={form.lead_id}
-              onChange={(e) => setForm({ ...form, lead_id: e.target.value })}
-            >
-              <option value="">Selecione o lead</option>
-              {leads.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.nome}
-                </option>
-              ))}
-            </select>
-
-            <select
-              className="w-full border p-2 rounded"
-              value={form.imovel_id}
-              onChange={(e) => setForm({ ...form, imovel_id: e.target.value })}
-            >
-              <option value="">Selecione o imóvel</option>
-              {imoveis.map((i) => (
-                <option key={i.id} value={i.id}>
-                  {i.titulo}
-                </option>
-              ))}
-            </select>
+            <div className="space-y-2">
+              <Label>Imóvel</Label>
+              <Select
+                value={form.imovel_id}
+                onValueChange={(value) =>
+                  setForm({ ...form, imovel_id: value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o imóvel" />
+                </SelectTrigger>
+                <SelectContent>
+                  {imoveis.map((i) => (
+                    <SelectItem key={i.id} value={String(i.id)}>
+                      {i.titulo}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
             <Input
               placeholder="Anotações"

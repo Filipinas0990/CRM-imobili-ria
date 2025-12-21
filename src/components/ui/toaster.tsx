@@ -18,7 +18,25 @@ export function Toaster() {
           </Toast>
         );
       })}
-      <ToastViewport />
+      <ToastViewport
+        className="
+    fixed
+    top-4
+    right-4
+    z-[9999]
+    flex
+    max-h-screen
+    w-full
+    flex-col
+    gap-2
+    sm:max-w-[420px]
+  "
+      />
+
+
+
+
+
     </ToastProvider>
   );
 }

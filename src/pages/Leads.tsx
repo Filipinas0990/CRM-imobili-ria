@@ -11,6 +11,16 @@ import { createLead } from "@/integrations/supabase/leads/createLead";
 import { getLeads } from "@/integrations/supabase/leads/getLeads";
 import { updateLead } from "@/integrations/supabase/leads/updateLead";
 import { deleteLead } from "@/integrations/supabase/leads/deleteLead";
+import { toast } from "@/components/ui/use-toast";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+
 
 const Leads = () => {
   const [openCreate, setOpenCreate] = useState(false);
@@ -23,11 +33,20 @@ const Leads = () => {
   const [status, setStatus] = useState("novo");
   const [interesse, setInteresse] = useState("");
 
+
   const [selectedLead, setSelectedLead] = useState<any>(null);
   const [leads, setLeads] = useState<any[]>([]);
   const [busca, setBusca] = useState("");
 
   const [loading, setLoading] = useState(true);
+  const [leadId, setLeadId] = useState<string>("");
+  const [categoria, setCategoria] = useState<string>("");
+
+
+
+
+
+
 
   async function carregarLeads() {
     setLoading(true);
@@ -63,14 +82,22 @@ const Leads = () => {
       telefone,
       status,
       interesse,
+      categoria
+
+
     });
+
 
     if (r?.error) {
       alert("Erro ao criar lead: " + r.error);
       return;
     }
 
-    alert("Lead criado com sucesso!");
+    toast({
+      title: "Lead criado com sucesso 🎉",
+      description: "O lead foi cadastrado e já está disponível no sistema.",
+    });
+
     setOpenCreate(false);
     limparCampos();
     carregarLeads();
@@ -106,6 +133,7 @@ const Leads = () => {
       telefone,
       status,
       interesse,
+
     });
 
     if (r?.error) {
@@ -132,7 +160,11 @@ const Leads = () => {
       return;
     }
 
-    alert("Lead apagado!");
+    toast({
+      title: "Lead Apagado 😭😭",
+      description: "O lead já foi removido do sistema.",
+    });
+
     setOpenDelete(false);
     carregarLeads();
   }
@@ -214,8 +246,8 @@ const Leads = () => {
                                 {lead.status === "novo"
                                   ? "Novo"
                                   : lead.status === "contato"
-                                  ? "Em Contato"
-                                  : "Negociação"}
+                                    ? "Em Contato"
+                                    : "Negociação"}
                               </Badge>
                             </div>
 
@@ -267,9 +299,42 @@ const Leads = () => {
             <h2 className="text-xl font-bold">Novo Lead</h2>
 
             <Input placeholder="Nome" value={nome} onChange={(e) => setNome(e.target.value)} />
-            <Input placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
             <Input placeholder="Telefone" value={telefone} onChange={(e) => setTelefone(e.target.value)} />
-            <Input placeholder="Interesse" value={interesse} onChange={(e) => setInteresse(e.target.value)} />
+            <Input placeholder="Quem é o gestor Responsável?" value={interesse} onChange={(e) => setInteresse(e.target.value)} />
+            <Select value={categoria} onValueChange={setCategoria}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Temperatura do Lead" />
+              </SelectTrigger>
+
+              <SelectContent>
+                <SelectItem value="comprador">FRIO❄️</SelectItem>
+                <SelectItem value="vendedor">QUENTE🔥</SelectItem>
+                <SelectItem value="investidor">MORNO ⛅</SelectItem>
+
+              </SelectContent>
+
+
+
+
+            </Select>
+
+            <Select value={categoria} onValueChange={setCategoria}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Interesse do Lead" />
+              </SelectTrigger>
+
+              <SelectContent>
+                <SelectItem value="comprador">LOTE🟤</SelectItem>
+                <SelectItem value="vendedor">ALUGUEL🏚️</SelectItem>
+                <SelectItem value="investidor">FINANCIAMENTO💵</SelectItem>
+
+              </SelectContent>
+            </Select>
+
+
+
+
+
 
             <div className="flex justify-end gap-2 pt-3">
               <Button variant="outline" onClick={() => setOpenCreate(false)}>
@@ -291,16 +356,6 @@ const Leads = () => {
             <Input placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
             <Input placeholder="Telefone" value={telefone} onChange={(e) => setTelefone(e.target.value)} />
             <Input placeholder="Interesse" value={interesse} onChange={(e) => setInteresse(e.target.value)} />
-
-            <select
-              className="w-full p-2 border rounded bg-transparent"
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-            >
-              <option value="novo">Novo</option>
-              <option value="contato">Em Contato</option>
-              <option value="negociacao">Negociação</option>
-            </select>
 
             <div className="flex justify-end gap-2 pt-3">
               <Button variant="outline" onClick={() => setOpenEdit(false)}>
