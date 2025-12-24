@@ -24,7 +24,7 @@ const navigation = [
   //{ name: "Serviços", href: "/dashboard/servicos", icon: Briefcase },
   { name: "Clientes", href: "/dashboard/clientes", icon: UserCheck },
   { name: "Visitas", href: "/dashboard/visitas", icon: Home },
-  { name: "Vendas", href: "/dashboard/financeiro", icon: DollarSign },
+  { name: "Finanças", href: "/dashboard/financeiro", icon: DollarSign },
   { name: "Agenda", href: "/dashboard/agenda", icon: Calendar },
   { name: "Relatórios", href: "/dashboard/relatorios", icon: BarChart3 },
   { name: "Configurações", href: "/dashboard/configuracoes", icon: Settings },
@@ -45,7 +45,7 @@ export const Sidebar = () => {
 
   return (
     <aside className="group fixed left-0 top-0 z-40 h-screen w-16 hover:w-64 transition-all duration-300 bg-sidebar border-r border-sidebar-border overflow-hidden">
-      
+
       {/* LOGO */}
       <div className="flex h-16 items-center justify-center border-b border-sidebar-border">
         <span className="text-xl font-bold text-sidebar-foreground opacity-0 group-hover:opacity-100 transition-opacity duration-200">

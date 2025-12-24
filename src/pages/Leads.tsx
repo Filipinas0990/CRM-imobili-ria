@@ -32,18 +32,25 @@ const Leads = () => {
   const [telefone, setTelefone] = useState("");
   const [status, setStatus] = useState("novo");
   const [interesse, setInteresse] = useState("");
+  const [temperatura, setTemperatura] = useState("");
+  const temperaturaLabel: Record<string, string> = {
+    frio: "FRIO ❄️",
+    morno: "MORNO ⛅",
+    quente: "QUENTE 🔥",
+  };
+
+
+  const [origem, setOrigem] = useState("");
+  const [responsavel, setResponsavel] = useState("");
+
+
 
 
   const [selectedLead, setSelectedLead] = useState<any>(null);
   const [leads, setLeads] = useState<any[]>([]);
   const [busca, setBusca] = useState("");
-
   const [loading, setLoading] = useState(true);
   const [leadId, setLeadId] = useState<string>("");
-  const [categoria, setCategoria] = useState<string>("");
-
-
-
 
 
 
@@ -66,15 +73,12 @@ const Leads = () => {
     setStatus("novo");
     setInteresse("");
   }
-
-  // ============================
-  // CREATE
-  // ============================
   async function handleCreate() {
-    if (!nome || !email) {
-      alert("Nome e email são obrigatórios.");
+    if (!nome) {
+      alert("Nome é obrigatório.");
       return;
     }
+
 
     const r = await createLead({
       nome,
@@ -82,8 +86,8 @@ const Leads = () => {
       telefone,
       status,
       interesse,
-      categoria
-
+      origem,
+      temperatura,
 
     });
 
@@ -102,6 +106,35 @@ const Leads = () => {
     limparCampos();
     carregarLeads();
   }
+  function normalizarTemperatura(temp?: string) {
+    if (!temp) return "";
+    return temp
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z]/g, "");
+  }
+
+  // 
+  // COR DA TEMPERATURA
+  // 
+
+  function corTemperatura(temp: string) {
+    if (temp === "QUENTE🔥") return "bg-red-500 text-white";
+    if (temp === "MORNO ⛅") return "bg-green-600 text-white";
+    if (temp === "FRIO❄️") return "bg-blue-500 text-white";
+    return "bg-muted";
+  }
+
+  // FUNDO DO CARD TEMPERATURA 
+
+  function fundoTemperatura(temp: string) {
+    if (temp === "QUENTE🔥") return "bg-red-500/5";
+    if (temp === "MORNO ⛅") return "bg-green-600/5";
+
+    return "bg-background";
+  }
+
 
   // ============================
   // ABRIR MODAL EDIT
@@ -154,8 +187,8 @@ const Leads = () => {
     if (!selectedLead) return;
 
     const r = await deleteLead(selectedLead.id);
-
     if (r?.error) {
+
       alert("Erro ao excluir lead.");
       return;
     }
@@ -236,19 +269,27 @@ const Leads = () => {
                     .map((lead) => (
                       <div
                         key={lead.id}
-                        className="p-4 rounded-lg border hover:bg-accent/40 transition"
+                        className={`p-4 rounded-lg transition
+    border-2
+    ${fundoTemperatura(lead.temperatura)}
+    ${lead.temperatura === "quente"
+                            ? "border-red-500/50"
+                            : lead.temperatura === "morno"
+                              ? "border-green-600/100"
+
+                              : "border-blue-500/10"
+                          }
+  `}
                       >
+
                         <div className="flex items-start justify-between">
                           <div className="space-y-2 flex-1">
                             <div className="flex items-center gap-3">
                               <h3 className="font-semibold">{lead.nome}</h3>
-                              <Badge>
-                                {lead.status === "novo"
-                                  ? "Novo"
-                                  : lead.status === "contato"
-                                    ? "Em Contato"
-                                    : "Negociação"}
+                              <Badge className={corTemperatura(lead.temperatura)}>
+                                {lead.temperatura?.toUpperCase()}
                               </Badge>
+
                             </div>
 
                             <p className="text-sm">
@@ -300,16 +341,17 @@ const Leads = () => {
 
             <Input placeholder="Nome" value={nome} onChange={(e) => setNome(e.target.value)} />
             <Input placeholder="Telefone" value={telefone} onChange={(e) => setTelefone(e.target.value)} />
-            <Input placeholder="Quem é o gestor Responsável?" value={interesse} onChange={(e) => setInteresse(e.target.value)} />
-            <Select value={categoria} onValueChange={setCategoria}>
+
+            <Input placeholder="Quem é o gestor Responsável?" value={responsavel} onChange={(e) => setResponsavel(e.target.value)} />
+            <Select value={temperatura} onValueChange={setTemperatura}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Temperatura do Lead" />
               </SelectTrigger>
 
               <SelectContent>
-                <SelectItem value="comprador">FRIO❄️</SelectItem>
-                <SelectItem value="vendedor">QUENTE🔥</SelectItem>
-                <SelectItem value="investidor">MORNO ⛅</SelectItem>
+                <SelectItem value="FRIO❄️">FRIO❄️</SelectItem>
+                <SelectItem value="QUENTE🔥">QUENTE🔥</SelectItem>
+                <SelectItem value="MORNO⛅">MORNO⛅</SelectItem>
 
               </SelectContent>
 
@@ -318,15 +360,15 @@ const Leads = () => {
 
             </Select>
 
-            <Select value={categoria} onValueChange={setCategoria}>
+            <Select value={interesse} onValueChange={setInteresse}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Interesse do Lead" />
               </SelectTrigger>
 
               <SelectContent>
-                <SelectItem value="comprador">LOTE🟤</SelectItem>
-                <SelectItem value="vendedor">ALUGUEL🏚️</SelectItem>
-                <SelectItem value="investidor">FINANCIAMENTO💵</SelectItem>
+                <SelectItem value="LOTE🟤">LOTE🟤</SelectItem>
+                <SelectItem value="ALUGUEL🏚️">ALUGUEL🏚️</SelectItem>
+                <SelectItem value="FINANCIAMENTO💵">FINANCIAMENTO💵</SelectItem>
 
               </SelectContent>
             </Select>

@@ -11,6 +11,7 @@ export async function getLeads() {
         .select("*")
         .eq("user_id", user_id);
 
+
     if (error) return [];
 
     return data; // <-- VOLTA A RETORNAR APENAS O ARRAY

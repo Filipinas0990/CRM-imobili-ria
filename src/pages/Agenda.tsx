@@ -74,8 +74,8 @@ const Agenda = () => {
       !form.title ||
       !form.date ||
       !form.time ||
-      !form.location ||
-      !form.categoria
+      !form.location
+
     ) {
       alert("Todos os campos são obrigatórios.");
       return;
@@ -237,19 +237,19 @@ const Agenda = () => {
 
               <SelectContent>
                 <SelectItem value="Comissão de venda">
-                  Comissão de venda
+                  Reunião
                 </SelectItem>
                 <SelectItem value="Comissão de aluguel">
-                  Comissão de aluguel
+                  Ligações
                 </SelectItem>
                 <SelectItem value="Aluguel recebido">
-                  Aluguel recebido
+                  Prospecção
                 </SelectItem>
                 <SelectItem value="Taxa administrativa">
-                  Taxa administrativa
+                  Treinamento
                 </SelectItem>
                 <SelectItem value="Outros recebimentos">
-                  Outros recebimentos
+                  Pessoal
                 </SelectItem>
               </SelectContent>
             </Select>
