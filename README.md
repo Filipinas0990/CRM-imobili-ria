@@ -25,6 +25,11 @@ Facilitar o dia a dia do corretor, ajudando a:
 ## 🚀 Projeto em desenvolvimento
 Este projeto ainda está em desenvolvimento e novas funcionalidades serão adicionadas.
 
+<<<<<<< HEAD
 Sugestões, feedbacks e contribuições são muito bem-vindos! o link do projeto 👇👇👇👇👇👇👇
+=======
+Sugestões, feedbacks e contribuições são muito bem-vindos!
+o link do projeto 👇👇👇👇👇👇👇
+>>>>>>> 463424d488ec40ff0a5d35ef06eb585f88e5b384
 
 https://www.crmimobiliaria.online/
