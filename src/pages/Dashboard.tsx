@@ -2,16 +2,17 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sidebar } from "@/components/Sidebar";
 import LogoutButton from "@/components/LogoutButton";
+import { Outlet } from "react-router-dom";
 
 import { getDashboardStats } from "../integrations/supabase/dashoboard/integrations/supabase/dashboard/getDashboardStats";
 import { getRecentActivities } from "../integrations/supabase/dashoboard/integrations/supabase/dashboard/getRecentActivities";
 import { getUpcomingVisits } from "../integrations/supabase/dashoboard/integrations/supabase/dashboard/getUpcomingVisits";
-import {getConversionRate } from "../integrations/supabase/dashoboard/integrations/supabase/dashboard/getConversionRate";
+import { getConversionRate } from "../integrations/supabase/dashoboard/integrations/supabase/dashboard/getConversionRate";
 
-import { 
-  Users, 
-  Building2, 
-  TrendingUp, 
+import {
+  Users,
+  Building2,
+  TrendingUp,
   CheckCircle2,
   Clock,
   Calendar,
@@ -35,7 +36,7 @@ const Dashboard = () => {
         const stats = await getDashboardStats();
         const activities = await getRecentActivities();
         const visits = await getUpcomingVisits();
-      
+
 
         setStatsData(stats);
         setRecentActivities(activities);
@@ -194,5 +195,6 @@ const Dashboard = () => {
     </div>
   );
 };
+
 
 export default Dashboard;

@@ -15,6 +15,10 @@ import Relatorios from "./pages/Relatorios";
 import ProtectedRoute from "./components/ProtectedRoute";
 import NotFound from "./pages/NotFound";
 import Imoveis from "./pages/Imoveis";
+import Loteamentos from "./pages/loteamentos";
+import Alugueis from "./pages/Alugueis";
+
+import Financiamentos from "./pages/Financiamentos";
 import Visitas from "./pages/Visitas";
 import Servicos from "./pages/serviços";
 
@@ -41,7 +45,7 @@ function App() {
             style={{ position: "fixed", top: 10, right: 10, zIndex: 9999 }}
             onClick={test}
           >
-            
+
           </button>
 
           <Routes>
@@ -118,6 +122,32 @@ function App() {
               element={
                 <ProtectedRoute>
                   <Imoveis />
+                </ProtectedRoute>
+
+              }
+            />
+            <Route
+              path="/dashboard/loteamentos"
+              element={
+                <ProtectedRoute>
+                  <Loteamentos />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/dashboard/alugueis"
+              element={
+                <ProtectedRoute>
+                  <Alugueis />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/financiamentos"
+              element={
+                <ProtectedRoute>
+                  <Financiamentos />
                 </ProtectedRoute>
               }
             />
