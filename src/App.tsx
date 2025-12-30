@@ -16,7 +16,11 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import NotFound from "./pages/NotFound";
 import Imoveis from "./pages/Imoveis";
 import Loteamentos from "./pages/loteamentos";
+import Vendas from "./pages/Vendas";
 import Alugueis from "./pages/Alugueis";
+import PipelineLeads from "./pages/PipelineLeads";
+
+
 
 import Financiamentos from "./pages/Financiamentos";
 import Visitas from "./pages/Visitas";
@@ -82,6 +86,16 @@ function App() {
             />
 
             <Route
+              path="/dashboard/vendas"
+              element={
+                <ProtectedRoute>
+                  <Vendas />
+                </ProtectedRoute>
+              }
+            />
+
+
+            <Route
               path="/dashboard/leads"
               element={
                 <ProtectedRoute>
@@ -113,6 +127,15 @@ function App() {
               element={
                 <ProtectedRoute>
                   <Relatorios />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/dashboard/pipeline"
+              element={
+                <ProtectedRoute>
+                  <PipelineLeads />
                 </ProtectedRoute>
               }
             />
@@ -169,6 +192,8 @@ function App() {
                 </ProtectedRoute>
               }
             />
+
+
 
             <Route path="*" element={<NotFound />} />
           </Routes>

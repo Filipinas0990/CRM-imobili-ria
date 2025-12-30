@@ -5,6 +5,8 @@ import { Button } from "./ui/button";
 import { toast } from "sonner";
 import { useState } from "react";
 import { ChevronRight } from "lucide-react";
+import { Filter } from "lucide-react";
+
 
 import {
   Banknote,
@@ -45,6 +47,8 @@ const navigation = [
   },
 
   { name: "Clientes", href: "/dashboard/clientes", icon: UserCheck },
+  { name: "Vendas", href: "/dashboard/vendas", icon: CreditCard },
+  { name: "Pipeline", href: "/dashboard/Pipeline", icon: Filter },
   { name: "Visitas", href: "/dashboard/visitas", icon: Home },
   { name: "Finanças", href: "/dashboard/financeiro", icon: DollarSign },
   { name: "Agenda", href: "/dashboard/agenda", icon: Calendar },
