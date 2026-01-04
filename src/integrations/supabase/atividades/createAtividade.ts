@@ -1,27 +1,35 @@
-// src/integrations/supabase/atividades/createAtividade.ts
 import { supabase } from "@/integrations/supabase/client";
 
-type Payload = {
-    lead_id: string;
-    tipo?: string;
-    status?: string;
-    titulo?: string;
-    descricao: string;
-    next_follow_up?: string | null;
+type CreateActivityProps = {
+    title: string;
+    description?: string;
+    type: "lead" | "cliente" | "venda" | "financeiro" | "visita";
+    entity?: string;
+    entity_id?: string;
 };
 
-export async function createAtividade(payload: Payload) {
+export async function createActivity({
+    title,
+    description,
+    type,
+    entity,
+    entity_id,
+}: CreateActivityProps) {
     try {
-        const { data, error } = await supabase
-            .from("atividades")
-            .insert([payload])
-            .select()
-            .single();
+        const { error } = await supabase.from("activities").insert([
+            {
+                title,
+                description,
+                type,
+                entity,
+                entity_id,
+            },
+        ]);
 
-        if (error) return { error: error.message || error };
-        return { data };
+        if (error) {
+            console.error("Erro ao criar atividade:", error);
+        }
     } catch (err) {
-        console.error("createAtividade unexpected:", err);
-        return { error: String(err) };
+        console.error("createActivity unexpected:", err);
     }
 }

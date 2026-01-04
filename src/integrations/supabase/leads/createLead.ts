@@ -1,5 +1,5 @@
-// src/integrations/supabase/leads/createLead.ts
 import { supabase } from "@/integrations/supabase/client";
+import { createActivity } from "@/integrations/supabase/atividades/createAtividade";
 
 export async function createLead(payload: any) {
     try {
@@ -18,8 +18,16 @@ export async function createLead(payload: any) {
             return { error: error.message || error };
         }
 
-        return { data };
+        // ✅ AQUI é o lugar certo de criar a activity
+        await createActivity({
+            title: "Novo lead cadastrado",
+            description: data.nome,
+            type: "lead",
+            entity: "leads",
+            entity_id: data.id,
+        });
 
+        return { data };
     } catch (err) {
         console.error("createLead unexpected:", err);
         return { error: String(err) };

@@ -23,8 +23,8 @@ import { updateLead } from "@/integrations/supabase/leads/updateLead";
 const ETAPAS = [
     { id: "novo", title: "Leads", header: "bg-blue-500" },
     { id: "contato", title: "Em contato", header: "bg-yellow-500" },
-    { id: "proposta", title: "Proposta enviada", header: "bg-orange-500" },
-    { id: "fechamento", title: "Fechamento", header: "bg-green-600" },
+    { id: "Visista", title: "Visita Marcada", header: "bg-orange-500" },
+    { id: "Proposta", title: "Proposta Enviada", header: "bg-green-600" },
     {
         id: "desistiu",
         title: "Cliente desistiu",
@@ -75,7 +75,7 @@ export default function PipelineLeads() {
         setHoverCol(null);
 
         // 🔥 SE CAIU EM FECHAMENTO → ABRE MODAL
-        if (etapaId === "fechamento" && lead) {
+        if (etapaId === "Proposta" && lead) {
             setLeadParaVenda(lead);
             setOpenConfirmVenda(true);
         }
@@ -93,6 +93,7 @@ export default function PipelineLeads() {
 
             <main className="ml-16 p-6 h-screen overflow-hidden">
                 <h1 className="text-3xl font-bold mb-6">Pipeline de Leads</h1>
+
 
                 <div className="grid grid-cols-5 gap-4 h-[calc(100%-80px)]">
                     {ETAPAS.map((etapa) => (

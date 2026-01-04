@@ -2,20 +2,29 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sidebar } from "@/components/Sidebar";
 import LogoutButton from "@/components/LogoutButton";
-import { Outlet } from "react-router-dom";
+
+import { Wallet } from "lucide-react";
+
 
 import { getDashboardStats } from "../integrations/supabase/dashoboard/integrations/supabase/dashboard/getDashboardStats";
-import { getRecentActivities } from "../integrations/supabase/dashoboard/integrations/supabase/dashboard/getRecentActivities";
+
 import { getUpcomingVisits } from "../integrations/supabase/dashoboard/integrations/supabase/dashboard/getUpcomingVisits";
-import { getConversionRate } from "../integrations/supabase/dashoboard/integrations/supabase/dashboard/getConversionRate";
+
+import { getVendas } from "@/integrations/supabase/vendas/getVendas";
+import { getSaldoFinanceiro } from "@/integrations/supabase/Financeiros/getSaldoFinanceiro";
+import { getRecentAtividades } from "@/integrations/supabase/atividades/getRecentAtividades";
+
+
+
+
 
 import {
   Users,
   Building2,
-  TrendingUp,
+
   CheckCircle2,
   Clock,
-  Calendar,
+
   DollarSign,
   FileText
 } from "lucide-react";
@@ -27,23 +36,52 @@ const Dashboard = () => {
     totalDeals: 0,
   });
 
+  const [vendas, setVendas] = useState<any[]>([]);
+
+
+
+
   const [recentActivities, setRecentActivities] = useState<any[]>([]);
   const [upcomingVisits, setUpcomingVisits] = useState<any[]>([]);
+  const [saldoFinanceiro, setSaldoFinanceiro] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+
+
 
   useEffect(() => {
     async function loadDashboard() {
       try {
         const stats = await getDashboardStats();
-        const activities = await getRecentActivities();
+
+
+
+
         const visits = await getUpcomingVisits();
+        const vendasData = await getVendas();
+        const activities = await getRecentAtividades();
+        console.log("ATIVIDADES RAW:", activities);
 
 
+
+
+
+
+
+
+        setVendas(vendasData || []);
         setStatsData(stats);
         setRecentActivities(activities);
         setUpcomingVisits(visits);
+        const saldo = await getSaldoFinanceiro();
+        setSaldoFinanceiro(saldo);
+
       } catch (error) {
         console.error("Erro ao carregar dashboard:", error);
+      } finally {
+        setLoading(false); // 🔥 ESSENCIAL
       }
+
     }
 
     loadDashboard();
@@ -53,6 +91,9 @@ const Dashboard = () => {
     statsData.totalLeads > 0
       ? Math.round((statsData.totalDeals / statsData.totalLeads) * 100)
       : 0;
+  const totalDeals = vendas.filter(
+    (v) => v.status === "Fechada"
+  ).length;
 
   const stats = [
     {
@@ -70,20 +111,41 @@ const Dashboard = () => {
       color: "text-chart-2",
     },
     {
-      title: "Taxa de Conversão",
-      value: `${conversionRate}%`,
-      change: "Base geral",
-      icon: TrendingUp,
-      color: "text-chart-3",
+      title: "Saldo em Caixa",
+      value: saldoFinanceiro.toLocaleString("pt-BR", {
+        style: "currency",
+        currency: "BRL",
+      }),
+      change: "Financeiro",
+      icon: Wallet,
+      color: "text-success",
     },
+
     {
       title: "Negócios Fechados",
-      value: statsData.totalDeals,
+      value: totalDeals,
       change: "Total",
       icon: CheckCircle2,
       color: "text-success",
     },
+
   ];
+  if (loading) {
+    return (
+      <div className="flex min-h-screen bg-background">
+        <Sidebar />
+        <main className="ml-16 flex flex-1 items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            <p className="text-sm text-muted-foreground">
+              Carregando dashboard...
+            </p>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
 
   return (
     <div className="flex min-h-screen bg-background">

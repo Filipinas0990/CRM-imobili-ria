@@ -35,6 +35,7 @@ import {
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Leads", href: "/dashboard/leads", icon: Users },
+  { name: "Pipeline", href: "/dashboard/Pipeline", icon: Filter },
 
   {
     name: "Imóveis",
@@ -48,7 +49,7 @@ const navigation = [
 
   { name: "Clientes", href: "/dashboard/clientes", icon: UserCheck },
   { name: "Vendas", href: "/dashboard/vendas", icon: CreditCard },
-  { name: "Pipeline", href: "/dashboard/Pipeline", icon: Filter },
+
   { name: "Visitas", href: "/dashboard/visitas", icon: Home },
   { name: "Finanças", href: "/dashboard/financeiro", icon: DollarSign },
   { name: "Agenda", href: "/dashboard/agenda", icon: Calendar },
