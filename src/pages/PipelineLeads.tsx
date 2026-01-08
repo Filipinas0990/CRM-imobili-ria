@@ -91,11 +91,11 @@ export default function PipelineLeads() {
         <div className="min-h-screen bg-background">
             <Sidebar />
 
-            <main className="ml-16 p-6 h-screen overflow-hidden">
+            <main className="ml-16 p-6 h-screen overflow-y-auto">
                 <h1 className="text-3xl font-bold mb-6">Pipeline de Leads</h1>
 
 
-                <div className="grid grid-cols-5 gap-4 h-[calc(100%-80px)]">
+                <div className="grid grid-cols-5 gap-4 flex-1 min-h-0">
                     {ETAPAS.map((etapa) => (
                         <div
                             key={etapa.id}
@@ -121,34 +121,34 @@ export default function PipelineLeads() {
                             </div>
 
                             {/* BODY */}
-                            <div className="flex-1 p-3 space-y-3 overflow-y-auto">
-                                {leads
-                                    .filter((l) => l.status === etapa.id)
-                                    .map((lead) => (
-                                        <Card
-                                            key={lead.id}
-                                            draggable
-                                            onDragStart={() => setDraggingId(lead.id)}
-                                            className={clsx(
-                                                "p-3 cursor-move transition-all duration-300",
-                                                etapa.danger
-                                                    ? "bg-red-600 text-white shadow-md"
-                                                    : "bg-background shadow-sm hover:shadow-md",
-                                                lead._animate && "scale-105"
-                                            )}
-                                        >
-                                            <p className="font-semibold">{lead.nome}</p>
-                                            <p className="text-sm opacity-80">
-                                                {lead.telefone}
-                                            </p>
+                            {/* depois */}
+                            <div className="p-3 space-y-3">                                {leads
+                                .filter((l) => l.status === etapa.id)
+                                .map((lead) => (
+                                    <Card
+                                        key={lead.id}
+                                        draggable
+                                        onDragStart={() => setDraggingId(lead.id)}
+                                        className={clsx(
+                                            "p-3 cursor-move transition-all duration-300",
+                                            etapa.danger
+                                                ? "bg-red-600 text-white shadow-md"
+                                                : "bg-background shadow-sm hover:shadow-md",
+                                            lead._animate && "scale-105"
+                                        )}
+                                    >
+                                        <p className="font-semibold">{lead.nome}</p>
+                                        <p className="text-sm opacity-80">
+                                            {lead.telefone}
+                                        </p>
 
-                                            {lead.interesse && (
-                                                <p className="text-xs mt-1 opacity-80">
-                                                    Interesse: {lead.interesse}
-                                                </p>
-                                            )}
-                                        </Card>
-                                    ))}
+                                        {lead.interesse && (
+                                            <p className="text-xs mt-1 opacity-80">
+                                                Interesse: {lead.interesse}
+                                            </p>
+                                        )}
+                                    </Card>
+                                ))}
                             </div>
                         </div>
                     ))}

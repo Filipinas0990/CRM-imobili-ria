@@ -2,7 +2,15 @@ import { useState, useEffect } from "react";
 import { Sidebar } from "@/components/Sidebar";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, Clock, Plus, Trash } from "lucide-react";
+import {
+  Calendar,
+  Clock,
+  Plus,
+  Trash,
+  MapPin,
+  Search,
+  Pencil,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   Dialog,
@@ -27,6 +35,7 @@ const Agenda = () => {
   const [events, setEvents] = useState<any[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
+  const [search, setSearch] = useState("");
 
   const [form, setForm] = useState({
     title: "",
@@ -70,23 +79,15 @@ const Agenda = () => {
   };
 
   const saveEvent = async () => {
-    if (
-      !form.title ||
-      !form.date ||
-      !form.time ||
-      !form.location
-
-    ) {
+    if (!form.title || !form.date || !form.time || !form.location) {
       alert("Todos os campos são obrigatórios.");
       return;
     }
 
-    const payload = { ...form };
-
     if (editing) {
-      await createAgenda({ ...payload, id: editing.id });
+      await createAgenda({ ...form, id: editing.id });
     } else {
-      await createAgenda(payload);
+      await createAgenda(form);
     }
 
     setModalOpen(false);
@@ -99,85 +100,111 @@ const Agenda = () => {
     loadEvents();
   };
 
+  const filteredEvents = events.filter((e) =>
+    e.title.toLowerCase().includes(search.toLowerCase())
+  );
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-muted/40">
       <Sidebar />
 
-      <main className="ml-16 overflow-y-auto">
-        <div className="p-8 space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold">Agenda</h1>
-              <p className="text-muted-foreground mt-2">
-                Gerencie seus compromissos e visitas agendadas
-              </p>
-            </div>
-
-            <Button className="gap-2" onClick={openNew}>
-              <Plus className="w-4 h-4" />
-              Novo Evento
-            </Button>
+      <main className="ml-16 p-8">
+        {/* HEADER */}
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-bold">Agenda</h1>
+            <p className="text-muted-foreground mt-1">
+              Gerencie seus compromissos e visitas agendadas
+            </p>
           </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Próximos Compromissos</CardTitle>
-            </CardHeader>
+          <Button className="gap-2" onClick={openNew}>
+            <Plus className="w-4 h-4" />
+            Novo Evento
+          </Button>
+        </div>
 
-            <CardContent className="space-y-4">
-              {events.map((event) => (
-                <div
-                  key={event.id}
-                  className="p-4 rounded-lg border hover:bg-accent/50 transition"
-                >
-                  <div className="flex justify-between items-start">
-                    <div className="space-y-2">
-                      <h3 className="font-semibold">{event.title}</h3>
+        {/* CARD PRINCIPAL */}
+        <Card className="shadow-lg">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-primary" />
+              Próximos Compromissos
+            </CardTitle>
+          </CardHeader>
 
-                      <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-                        <div className="flex items-center gap-2">
-                          <Calendar className="w-4 h-4" />
-                          {event.date}
-                        </div>
+          <CardContent className="space-y-6">
+            {/* BUSCA */}
+            <div className="relative">
+              <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar compromisso..."
+                className="pl-9"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
 
-                        <div className="flex items-center gap-2">
-                          <Clock className="w-4 h-4" />
-                          {event.time}
-                        </div>
+            {/* LISTA */}
+            {filteredEvents.map((event) => (
+              <div
+                key={event.id}
+                className="flex items-center justify-between bg-background border rounded-xl p-4 shadow-sm hover:shadow-md transition"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="bg-primary/10 text-primary rounded-xl p-3">
+                    <Calendar className="w-5 h-5" />
+                  </div>
 
-                        <span className="font-medium">
-                          {event.location}
-                        </span>
-                      </div>
+                  <div className="space-y-1">
+                    <h3 className="font-semibold">{event.title}</h3>
 
-                      <p className="text-sm text-muted-foreground">
-                        {event.categoria}
-                      </p>
+                    <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <Calendar className="w-4 h-4" />
+                        {event.date}
+                      </span>
+
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-4 h-4" />
+                        {event.time}
+                      </span>
+
+                      <span className="flex items-center gap-1">
+                        <MapPin className="w-4 h-4" />
+                        {event.location}
+                      </span>
                     </div>
 
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => openEdit(event)}
-                      >
-                        Editar
-                      </Button>
-
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => deleteEvent(event.id)}
-                      >
-                        <Trash className="w-4 h-4" />
-                      </Button>
-                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {event.categoria}
+                    </span>
                   </div>
                 </div>
-              ))}
-            </CardContent>
-          </Card>
-        </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1"
+                    onClick={() => openEdit(event)}
+                  >
+                    <Pencil className="w-4 h-4" />
+                    Editar
+                  </Button>
+
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => deleteEvent(event.id)}
+                  >
+                    <Trash className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
       </main>
 
       {/* MODAL */}
@@ -204,7 +231,7 @@ const Agenda = () => {
               onChange={(e) =>
                 setForm({ ...form, date: e.target.value })
               }
-              className="w-full border rounded px-3 py-2"
+              className="w-full border rounded-md px-3 py-2"
             />
 
             <input
@@ -213,7 +240,7 @@ const Agenda = () => {
               onChange={(e) =>
                 setForm({ ...form, time: e.target.value })
               }
-              className="w-full border rounded px-3 py-2"
+              className="w-full border rounded-md px-3 py-2"
             />
 
             <Input
@@ -224,37 +251,26 @@ const Agenda = () => {
               }
             />
 
-            {/* SELECT CATEGORIA */}
             <Select
               value={form.categoria}
               onValueChange={(value) =>
                 setForm({ ...form, categoria: value })
               }
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger>
                 <SelectValue placeholder="Selecione a categoria" />
               </SelectTrigger>
 
               <SelectContent>
-                <SelectItem value="Comissão de venda">
-                  Reunião
-                </SelectItem>
-                <SelectItem value="Comissão de aluguel">
-                  Ligações
-                </SelectItem>
-                <SelectItem value="Aluguel recebido">
-                  Prospecção
-                </SelectItem>
-                <SelectItem value="Taxa administrativa">
-                  Treinamento
-                </SelectItem>
-                <SelectItem value="Outros recebimentos">
-                  Pessoal
-                </SelectItem>
+                <SelectItem value="Reunião">Reunião</SelectItem>
+                <SelectItem value="Ligações">Ligações</SelectItem>
+                <SelectItem value="Prospecção">Prospecção</SelectItem>
+                <SelectItem value="Treinamento">Treinamento</SelectItem>
+                <SelectItem value="Pessoal">Pessoal</SelectItem>
               </SelectContent>
             </Select>
 
-            <Button className="w-full mt-4" onClick={saveEvent}>
+            <Button className="w-full" onClick={saveEvent}>
               Salvar
             </Button>
           </div>

@@ -33,7 +33,8 @@ export async function getVisitas() {
             id: v.id,
             data: v.data,
             anotacoes: v.anotacoes,
-            cliente: v.clientes, // 🔄 renomeado
+            lead: v.clientes,
+            // 🔄 renomeado
             imovel: v.imoveis,   // 🔄 renomeado
         }));
 

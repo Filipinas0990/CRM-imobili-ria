@@ -8,7 +8,21 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { Pencil, Trash2 } from "lucide-react";
+import {
+    Pencil,
+    Trash2,
+    Wallet,
+    CheckCircle2,
+    Clock,
+} from "lucide-react";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+
 
 import { getVendas } from "@/integrations/supabase/vendas/getVendas";
 import { getLeads } from "@/integrations/supabase/leads/getLeads";
@@ -18,14 +32,6 @@ import { updateVendaStatus } from "@/integrations/supabase/vendas/updateVenda";
 import { deleteVenda } from "@/integrations/supabase/vendas/deleteVendas";
 import { Sidebar } from "@/components/Sidebar";
 import { useToast } from "@/components/ui/use-toast";
-
-type VendaStatus =
-    | "Em negociação"
-    | "Proposta enviada"
-    | "Fechada"
-    | "Perdida";
-
-
 
 type Venda = {
     id: string;
@@ -41,10 +47,13 @@ export default function Vendas() {
     const [leads, setLeads] = useState<any[]>([]);
     const [imoveis, setImoveis] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [filtroStatus, setFiltroStatus] = useState("todos");
+    const [filtroTipo, setFiltroTipo] = useState("todos");
+    const [busca, setBusca] = useState("");
+
 
     const { toast } = useToast();
 
-    // modal nova venda
     const [open, setOpen] = useState(false);
     const [leadId, setLeadId] = useState("");
     const [imovelId, setImovelId] = useState("");
@@ -52,28 +61,21 @@ export default function Vendas() {
     const [status, setStatus] = useState("Em negociação");
     const [valor, setValor] = useState("");
 
-    // editar status
     const [openEdit, setOpenEdit] = useState(false);
     const [vendaEditando, setVendaEditando] = useState<Venda | null>(null);
     const [novoStatus, setNovoStatus] = useState("");
 
     async function loadAll() {
         setLoading(true);
-        try {
-            const [vendasData, leadsData, imoveisData] = await Promise.all([
-                getVendas(),
-                getLeads(),
-                getImoveis(),
-            ]);
-
-            setVendas(vendasData || []);
-            setLeads(leadsData || []);
-            setImoveis(imoveisData || []);
-        } catch (e) {
-            console.error("Erro ao carregar dados:", e);
-        } finally {
-            setLoading(false);
-        }
+        const [vendasData, leadsData, imoveisData] = await Promise.all([
+            getVendas(),
+            getLeads(),
+            getImoveis(),
+        ]);
+        setVendas(vendasData || []);
+        setLeads(leadsData || []);
+        setImoveis(imoveisData || []);
+        setLoading(false);
     }
 
     useEffect(() => {
@@ -90,9 +92,8 @@ export default function Vendas() {
         });
 
         toast({
-            title: "Venda cadastrada com sucesso!",
-            description: "A venda foi salva no sistema.",
-            className: "bg-green-500 text-white",
+            title: "Venda cadastrada!",
+            className: "bg-green-600 text-white",
         });
 
         setOpen(false);
@@ -106,61 +107,180 @@ export default function Vendas() {
     }
 
     function getLeadNome(id: string | null) {
+        if (loading) return "Carregando lead...";
         if (!id) return "Lead não informado";
-        return leads.find((l) => l.id === id)?.nome || "Lead não encontrado";
+
+        const lead = leads.find((l) => l.id === id);
+        return lead ? lead.nome : "Lead não encontrado";
     }
 
     function getImovelTitulo(id: string | null) {
+        if (loading) return "Carregando imóvel...";
         if (!id) return "Imóvel não informado";
-        return imoveis.find((i) => i.id === id)?.titulo || "Imóvel não encontrado";
+
+        const imovel = imoveis.find((i) => i.id === id);
+        return imovel ? imovel.titulo : "Imóvel não encontrado";
     }
 
+    const totalVendas = vendas.length;
+    const vendasFechadas = vendas.filter((v) => v.status === "Fechada");
+    const vendasAbertas = vendas.filter((v) => v.status !== "Fechada");
+    const vendasFiltradas = vendas.filter((v) => {
+
+
+
+
+        const statusOk =
+            filtroStatus === "todos" || v.status === filtroStatus;
+
+        const tipoOk =
+            filtroTipo === "todos" || v.tipo === filtroTipo;
+
+        const textoBusca = busca.toLowerCase();
+
+        const leadNome = getLeadNome(v.lead_id).toLowerCase();
+        const imovelNome = getImovelTitulo(v.imovel_id).toLowerCase();
+
+        const buscaOk =
+            leadNome.includes(textoBusca) ||
+            imovelNome.includes(textoBusca);
+
+        return statusOk && tipoOk && buscaOk;
+    });
+
+
     return (
-        <div className="min-h-screen bg-background">
+        <div className="min-h-screen bg-muted/40">
             <Sidebar />
 
-            <main className="ml-16 overflow-y-auto">
-                <div className="p-8 space-y-6">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <h1 className="text-2xl font-bold">Gestão de Vendas</h1>
-                            <p className="text-muted-foreground">
-                                Aqui você pode gerenciar todas as vendas.
-                            </p>
+            <main className="ml-16 p-8 space-y-6">
+                {/* HEADER */}
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h1 className="text-2xl font-bold">Gestão de Vendas</h1>
+                        <p className="text-muted-foreground">
+                            Aqui você pode gerenciar todas as vendas.
+                        </p>
+                        {/* FILTROS */}
+                        <div className="bg-white rounded-xl shadow-sm p-4 flex flex-wrap items-center gap-3">
+
+
+                            {/* Status */}
+                            <Select value={filtroStatus} onValueChange={setFiltroStatus}>
+                                <SelectTrigger className="w-[180px] h-11">
+                                    <SelectValue placeholder="Status" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="todos">Todos</SelectItem>
+                                    <SelectItem value="Em negociação">Em negociação</SelectItem>
+                                    <SelectItem value="Proposta enviada">Proposta enviada</SelectItem>
+                                    <SelectItem value="Fechada">Fechada</SelectItem>
+                                    <SelectItem value="Perdida">Perdida</SelectItem>
+                                </SelectContent>
+                            </Select>
+
+                            {/* Tipo */}
+                            <Select value={filtroTipo} onValueChange={setFiltroTipo}>
+                                <SelectTrigger className="w-[180px] h-11">
+                                    <SelectValue placeholder="Tipo" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="todos">Todos</SelectItem>
+                                    <SelectItem value="Venda">Venda</SelectItem>
+                                    <SelectItem value="Locação">Locação</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            {/* Empreendimento (placeholder visual) */}
+                            <Select>
+                                <SelectTrigger className="w-[220px] h-11">
+                                    <SelectValue placeholder="Empreendimento" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="todos">Todos</SelectItem>
+                                </SelectContent>
+                            </Select>
+
+                            {/* Busca */}
+                            <div className="relative flex-1 min-w-[220px]">
+                                <input
+                                    placeholder="Buscar por venda..."
+                                    value={busca}
+                                    onChange={(e) => setBusca(e.target.value)}
+                                    className="h-11 w-full rounded-lg border border-input bg-background px-4 pr-10 text-sm shadow-sm focus:ring-2 focus:ring-green-600"
+                                />
+
+                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                                    🔍
+                                </span>
+                            </div>
                         </div>
-                        <Button onClick={() => setOpen(true)}>Nova Venda</Button>
+
+
                     </div>
 
-                    {/* LISTA */}
+                    <Button className="bg-green-700 hover:bg-green-800" onClick={() => setOpen(true)}>
+                        + Nova Venda
+                    </Button>
+                </div>
+
+                {/* RESUMO */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-white rounded-xl p-5 shadow-sm flex items-center gap-4">
+                        <Wallet className="text-green-700" />
+                        <div>
+                            <p className="text-sm text-muted-foreground">Total de Vendas</p>
+                            <p className="text-2xl font-bold">{totalVendas}</p>
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-xl p-5 shadow-sm flex items-center gap-4">
+                        <Clock className="text-orange-500" />
+                        <div>
+                            <p className="text-sm text-muted-foreground">Vendas em Aberto</p>
+                            <p className="text-2xl font-bold">{vendasAbertas.length}</p>
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-xl p-5 shadow-sm flex items-center gap-4">
+                        <CheckCircle2 className="text-blue-600" />
+                        <div>
+                            <p className="text-sm text-muted-foreground">Vendas Fechadas</p>
+                            <p className="text-2xl font-bold">{vendasFechadas.length}</p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* LISTA */}
+                <div className="bg-white rounded-xl shadow-sm divide-y">
                     {loading ? (
-                        <p className="text-muted-foreground">Carregando vendas...</p>
-                    ) : vendas.length === 0 ? (
-                        <p className="text-muted-foreground">
-                            Nenhuma venda cadastrada.
-                        </p>
+                        <p className="p-6 text-muted-foreground">Carregando vendas...</p>
+                    ) : vendasFiltradas.length === 0 ? (
+                        <p className="p-6 text-muted-foreground">Nenhuma venda cadastrada.</p>
                     ) : (
-                        vendas.map((v) => (
-                            <div
-                                key={v.id}
-                                className="flex justify-between items-center border rounded-lg p-4"
-                            >
-                                <div>
-                                    <p className="font-medium">{getLeadNome(v.lead_id)}</p>
-                                    <p className="text-sm text-muted-foreground">
-                                        {getImovelTitulo(v.imovel_id)}
-                                    </p>
+                        vendasFiltradas.map((v) => (
+                            <div key={v.id} className="flex items-center justify-between p-5">
+                                <div className="flex items-center gap-4">
+                                    <div className="h-10 w-10 rounded-lg bg-green-100 flex items-center justify-center">
+                                        <Wallet className="text-green-700 h-5 w-5" />
+                                    </div>
+                                    <div>
+                                        <p className="font-medium">{getLeadNome(v.lead_id)}</p>
+                                        <p className="text-sm text-muted-foreground">
+                                            {getImovelTitulo(v.imovel_id)}
+                                        </p>
+                                    </div>
                                 </div>
 
-                                <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-4">
                                     <Badge variant="outline">{v.tipo}</Badge>
                                     <Badge className="bg-blue-600">{v.status}</Badge>
 
-                                    <span className="font-semibold">
+                                    <span className="font-semibold min-w-[120px] text-right">
                                         R$ {v.valor.toLocaleString("pt-BR")}
                                     </span>
 
                                     <Button
-                                        variant="outline"
+                                        variant="ghost"
                                         size="icon"
                                         onClick={() => {
                                             setVendaEditando(v);
@@ -172,19 +292,11 @@ export default function Vendas() {
                                     </Button>
 
                                     <Button
-                                        variant="outline"
+                                        variant="ghost"
                                         size="icon"
                                         onClick={async () => {
                                             if (!confirm("Deseja apagar esta venda?")) return;
-
                                             await deleteVenda(v.id);
-
-                                            toast({
-                                                title: "Venda removida",
-                                                description: "A venda foi apagada com sucesso.",
-                                                variant: "destructive",
-                                            });
-
                                             loadAll();
                                         }}
                                     >
@@ -197,58 +309,79 @@ export default function Vendas() {
                 </div>
             </main>
 
-            {/* MODAL NOVA VENDA */}
+            {/* MODAIS (sem alteração funcional) */}
             <Dialog open={open} onOpenChange={setOpen}>
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>Nova Venda</DialogTitle>
                     </DialogHeader>
 
-                    <select
-                        className="w-full border rounded-md px-3 py-2"
-                        value={leadId}
-                        onChange={(e) => setLeadId(e.target.value)}
-                    >
-                        <option value="">Selecione o lead</option>
-                        {leads.map((l) => (
-                            <option key={l.id} value={l.id}>
-                                {l.nome}
-                            </option>
-                        ))}
-                    </select>
+                    <div className="space-y-1">
+                        <label className="text-sm font-medium">Lead</label>
 
-                    <select
-                        className="w-full border rounded-md px-3 py-2"
-                        value={imovelId}
-                        onChange={(e) => setImovelId(e.target.value)}
-                    >
-                        <option value="">Selecione o imóvel</option>
-                        {imoveis.map((i) => (
-                            <option key={i.id} value={i.id}>
-                                {i.titulo}
-                            </option>
-                        ))}
-                    </select>
+                        <Select value={leadId} onValueChange={setLeadId}>
+                            <SelectTrigger className="h-11">
+                                <SelectValue placeholder="Selecione o lead" />
+                            </SelectTrigger>
 
-                    <select
-                        className="w-full border rounded-md px-3 py-2"
-                        value={tipo}
-                        onChange={(e) => setTipo(e.target.value)}
-                    >
-                        <option value="Venda">Venda</option>
-                        <option value="Locação">Locação</option>
-                    </select>
+                            <SelectContent>
+                                {leads.map((l) => (
+                                    <SelectItem key={l.id} value={l.id}>
+                                        {l.nome}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-1">
+                        <label className="text-sm font-medium">Imóvel</label>
 
-                    <select
-                        className="w-full border rounded-md px-3 py-2"
-                        value={status}
-                        onChange={(e) => setStatus(e.target.value)}
-                    >
-                        <option value="Em negociação">Em negociação</option>
-                        <option value="Proposta enviada">Proposta enviada</option>
-                        <option value="Fechada">Venda realizada</option>
-                        <option value="Perdida">Cliente desistiu</option>
-                    </select>
+                        <Select value={imovelId} onValueChange={setImovelId}>
+                            <SelectTrigger className="h-11">
+                                <SelectValue placeholder="Selecione o imóvel" />
+                            </SelectTrigger>
+
+                            <SelectContent>
+                                {imoveis.map((i) => (
+                                    <SelectItem key={i.id} value={i.id}>
+                                        {i.titulo}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="space-y-1">
+                        <label className="text-sm font-medium">Tipo</label>
+
+                        <Select value={tipo} onValueChange={setTipo}>
+                            <SelectTrigger className="h-11">
+                                <SelectValue placeholder="Selecione o tipo" />
+                            </SelectTrigger>
+
+                            <SelectContent>
+                                <SelectItem value="Venda">Venda</SelectItem>
+                                <SelectItem value="Locação">Locação</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-1">
+                        <label className="text-sm font-medium">Status</label>
+
+                        <Select value={status} onValueChange={setStatus}>
+                            <SelectTrigger className="h-11">
+                                <SelectValue placeholder="Selecione o status" />
+                            </SelectTrigger>
+
+                            <SelectContent>
+                                <SelectItem value="Em negociação">Em negociação</SelectItem>
+                                <SelectItem value="Proposta enviada">Proposta enviada</SelectItem>
+                                <SelectItem value="Fechada">Venda realizada</SelectItem>
+                                <SelectItem value="Perdida">Cliente desistiu</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+
 
                     <input
                         type="number"
@@ -264,18 +397,13 @@ export default function Vendas() {
                 </DialogContent>
             </Dialog>
 
-            {/* MODAL EDITAR STATUS */}
             <Dialog open={openEdit} onOpenChange={setOpenEdit}>
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>Editar status</DialogTitle>
                     </DialogHeader>
 
-                    <select
-                        className="w-full border rounded-md px-3 py-2"
-                        value={novoStatus}
-                        onChange={(e) => setNovoStatus(e.target.value)}
-                    >
+                    <select className="input" value={novoStatus} onChange={(e) => setNovoStatus(e.target.value)}>
                         <option value="Em negociação">Em negociação</option>
                         <option value="Proposta enviada">Proposta enviada</option>
                         <option value="Fechada">Venda realizada</option>
@@ -300,3 +428,5 @@ export default function Vendas() {
         </div>
     );
 }
+
+
