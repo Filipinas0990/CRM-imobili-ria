@@ -3,11 +3,9 @@ import clsx from "clsx";
 
 import { Sidebar } from "@/components/Sidebar";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-
-
-
 
 import {
     Dialog,
@@ -21,16 +19,11 @@ import { getLeads } from "@/integrations/supabase/leads/getLeads";
 import { updateLead } from "@/integrations/supabase/leads/updateLead";
 
 const ETAPAS = [
-    { id: "novo", title: "Leads", header: "bg-blue-500" },
-    { id: "contato", title: "Em contato", header: "bg-yellow-500" },
-    { id: "Visista", title: "Visita Marcada", header: "bg-orange-500" },
-    { id: "Proposta", title: "Proposta Enviada", header: "bg-green-600" },
-    {
-        id: "desistiu",
-        title: "Cliente desistiu",
-        header: "bg-red-600",
-        danger: true,
-    },
+    { id: "novo", title: "Leads", color: "border-blue-500 text-blue-600" },
+    { id: "contato", title: "Em contato", color: "border-yellow-500 text-yellow-600" },
+    { id: "Visista", title: "Visita Marcada", color: "border-orange-500 text-orange-600" },
+    { id: "Proposta", title: "Proposta Enviada", color: "border-green-600 text-green-600" },
+    { id: "desistiu", title: "Cliente desistiu", color: "border-red-600 text-red-600" },
 ];
 
 export default function PipelineLeads() {
@@ -38,14 +31,10 @@ export default function PipelineLeads() {
     const [draggingId, setDraggingId] = useState<string | null>(null);
     const [hoverCol, setHoverCol] = useState<string | null>(null);
 
-    // 🔥 estados do fluxo de venda
     const [openConfirmVenda, setOpenConfirmVenda] = useState(false);
     const [leadParaVenda, setLeadParaVenda] = useState<any>(null);
 
-    const [openVenda, setOpenVenda] = useState(false);
-    const [leadSelecionado, setLeadSelecionado] = useState<any>(null);
     const navigate = useNavigate();
-
 
     async function carregar() {
         const data = await getLeads();
@@ -65,97 +54,119 @@ export default function PipelineLeads() {
 
         setLeads((prev) =>
             prev.map((l) =>
-                l.id === draggingId
-                    ? { ...l, status: etapaId, _animate: true }
-                    : l
+                l.id === draggingId ? { ...l, status: etapaId, _animate: true } : l
             )
         );
 
         setDraggingId(null);
         setHoverCol(null);
 
-        // 🔥 SE CAIU EM FECHAMENTO → ABRE MODAL
         if (etapaId === "Proposta" && lead) {
             setLeadParaVenda(lead);
             setOpenConfirmVenda(true);
         }
 
         setTimeout(() => {
-            setLeads((prev) =>
-                prev.map((l) => ({ ...l, _animate: false }))
-            );
+            setLeads((prev) => prev.map((l) => ({ ...l, _animate: false })));
         }, 300);
     }
 
     return (
-        <div className="min-h-screen bg-background">
+        <div className="min-h-screen bg-muted/30">
             <Sidebar />
 
-            <main className="ml-16 p-6 h-screen overflow-y-auto">
-                <h1 className="text-3xl font-bold mb-6">Pipeline de Leads</h1>
+            <main className="ml-16 p-6 h-screen overflow-hidden">
+                <div className="flex items-center justify-between mb-6">
+                    <div>
+                        <h1 className="text-3xl font-bold">Pipeline</h1>
+                        <p className="text-sm text-muted-foreground">
+                            Arraste os leads entre as etapas do funil
+                        </p>
+                    </div>
+                </div>
 
+                {/* BOARD COM SCROLL HORIZONTAL */}
+                <div className="flex gap-4 overflow-x-auto pb-4 h-[calc(100vh-180px)]">
 
-                <div className="grid grid-cols-5 gap-4 flex-1 min-h-0">
-                    {ETAPAS.map((etapa) => (
-                        <div
-                            key={etapa.id}
-                            className={clsx(
-                                "flex flex-col rounded-xl border transition-colors",
-                                hoverCol === etapa.id && "bg-accent/40"
-                            )}
-                            onDragOver={(e) => {
-                                e.preventDefault();
-                                setHoverCol(etapa.id);
-                            }}
-                            onDragLeave={() => setHoverCol(null)}
-                            onDrop={() => onDrop(etapa.id)}
-                        >
-                            {/* HEADER */}
+                    {ETAPAS.map((etapa) => {
+                        const leadsDaEtapa = leads.filter(
+                            (l) => l.status === etapa.id
+                        );
+
+                        return (
                             <div
+                                key={etapa.id}
                                 className={clsx(
-                                    "px-4 py-3 rounded-t-xl font-semibold text-white",
-                                    etapa.header
+                                    "flex flex-col min-w-[300px] max-w-[300px] rounded-2xl bg-muted/40 border transition h-full",
+                                    hoverCol === etapa.id && "ring-2 ring-primary/30"
                                 )}
+                                onDragOver={(e) => {
+                                    e.preventDefault();
+                                    setHoverCol(etapa.id);
+                                }}
+                                onDragLeave={() => setHoverCol(null)}
+                                onDrop={() => onDrop(etapa.id)}
                             >
-                                {etapa.title}
-                            </div>
+                                {/* HEADER */}
+                                <div
+                                    className={clsx(
+                                        "px-4 py-3 border-t-4 rounded-t-2xl shrink-0",
+                                        etapa.color
+                                    )}
+                                >
+                                    <div className="flex items-center justify-between">
+                                        <span className="font-semibold">{etapa.title}</span>
+                                        <Badge variant="secondary">{leadsDaEtapa.length}</Badge>
+                                    </div>
+                                </div>
 
-                            {/* BODY */}
-                            {/* depois */}
-                            <div className="p-3 space-y-3">                                {leads
-                                .filter((l) => l.status === etapa.id)
-                                .map((lead) => (
-                                    <Card
-                                        key={lead.id}
-                                        draggable
-                                        onDragStart={() => setDraggingId(lead.id)}
-                                        className={clsx(
-                                            "p-3 cursor-move transition-all duration-300",
-                                            etapa.danger
-                                                ? "bg-red-600 text-white shadow-md"
-                                                : "bg-background shadow-sm hover:shadow-md",
-                                            lead._animate && "scale-105"
-                                        )}
-                                    >
-                                        <p className="font-semibold">{lead.nome}</p>
-                                        <p className="text-sm opacity-80">
-                                            {lead.telefone}
-                                        </p>
+                                {/* BODY COM SCROLL INTERNO */}
+                                <div className="p-3 space-y-3 overflow-y-auto flex-1">
 
-                                        {lead.interesse && (
-                                            <p className="text-xs mt-1 opacity-80">
-                                                Interesse: {lead.interesse}
+                                    {leadsDaEtapa.map((lead) => (
+                                        <Card
+                                            key={lead.id}
+                                            draggable
+                                            onDragStart={() => setDraggingId(lead.id)}
+                                            className={clsx(
+                                                "p-4 cursor-move rounded-xl shadow-sm hover:shadow-md transition-all min-h-[90px]",
+
+                                                // animação quando troca de coluna
+                                                lead._animate && "animate-fireworks",
+
+                                                // cor vermelha se desistiu
+                                                lead.status === "desistiu"
+                                                    ? "bg-red-100 border border-red-400 text-red-700"
+                                                    : "bg-background"
+                                            )}
+                                        >
+
+
+                                            <p className="font-semibold">{lead.nome}</p>
+
+                                            <p className="text-sm text-muted-foreground">
+                                                {lead.telefone}
                                             </p>
-                                        )}
-                                    </Card>
-                                ))}
+
+                                            {lead.interesse && (
+                                                <Badge
+                                                    variant="outline"
+                                                    className="mt-2 text-xs"
+                                                >
+                                                    {lead.interesse}
+                                                </Badge>
+                                            )}
+                                        </Card>
+                                    ))}
+
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             </main>
 
-            {/* 🔥 MODAL CONFIRMAR VENDA */}
+            {/* MODAL */}
             <Dialog open={openConfirmVenda} onOpenChange={setOpenConfirmVenda}>
                 <DialogContent>
                     <DialogHeader>

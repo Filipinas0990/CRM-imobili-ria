@@ -19,6 +19,9 @@ import Loteamentos from "./pages/loteamentos";
 import Vendas from "./pages/Vendas";
 import Alugueis from "./pages/Alugueis";
 import PipelineLeads from "./pages/PipelineLeads";
+import Tarafas from "./pages/Tarefas";
+
+
 
 
 
@@ -75,6 +78,15 @@ function App() {
               }
             />
 
+            <Route
+              path="/dashboard/tarefas"
+              element={
+                <ProtectedRoute>
+                  <Tarafas />
+                </ProtectedRoute>
+              }
+            />
+
             {/* PERFIL INDIVIDUAL DO CLIENTE (NOVA ROTA) */}
             <Route
               path="/dashboard/clientes/:id"
@@ -93,6 +105,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
+
 
 
             <Route

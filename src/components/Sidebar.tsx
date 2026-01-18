@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { Filter } from "lucide-react";
+import { CheckSquare } from "lucide-react";
 
 
 import {
@@ -37,6 +38,7 @@ const navigation = [
   { name: "Leads", href: "/dashboard/leads", icon: Users },
   { name: "Pipeline", href: "/dashboard/Pipeline", icon: Filter },
 
+
   {
     name: "Imóveis",
     icon: Home,
@@ -49,8 +51,10 @@ const navigation = [
 
   { name: "Clientes", href: "/dashboard/clientes", icon: UserCheck },
   { name: "Vendas", href: "/dashboard/vendas", icon: CreditCard },
+  { name: "Tarefas", href: "/dashboard/tarefas", icon: CheckSquare },
 
   { name: "Visitas", href: "/dashboard/visitas", icon: Home },
+
   { name: "Finanças", href: "/dashboard/financeiro", icon: DollarSign },
   { name: "Agenda", href: "/dashboard/agenda", icon: Calendar },
   { name: "Relatórios", href: "/dashboard/relatorios", icon: BarChart3 },
@@ -82,7 +86,7 @@ export const Sidebar = () => {
       {/* LOGO */}
       <div className="flex h-16 items-center justify-center border-b border-sidebar-border">
         <span className="text-xl font-bold text-sidebar-foreground opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-          CRM Imóveis
+          KELMOR CRM
         </span>
       </div>
 

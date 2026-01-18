@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Sidebar } from "@/components/Sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowUp, ArrowDown, Wallet, Plus } from "lucide-react";
+import { ArrowUp, ArrowDown, Wallet, Plus, Trash } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 import {
@@ -34,6 +34,12 @@ type Transaction = {
 export default function Financeiro() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [open, setOpen] = useState(false);
+
+  // delete
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [senha, setSenha] = useState("");
+  const [openDelete, setOpenDelete] = useState(false);
+  const [loadingDelete, setLoadingDelete] = useState(false);
 
   const [descricao, setDescricao] = useState("");
   const [valor, setValor] = useState("");
@@ -96,12 +102,46 @@ export default function Financeiro() {
     loadFinanceiro();
   }
 
+  async function confirmarDelete() {
+    if (!deleteId || !senha) return;
+
+    setLoadingDelete(true);
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user?.email) {
+      alert("Usuário não autenticado");
+      setLoadingDelete(false);
+      return;
+    }
+
+    const { error: authError } = await supabase.auth.signInWithPassword({
+      email: user.email,
+      password: senha,
+    });
+
+    if (authError) {
+      alert("Senha incorreta");
+      setLoadingDelete(false);
+      return;
+    }
+
+    await supabase.from("financeiro").delete().eq("id", deleteId);
+
+    setSenha("");
+    setDeleteId(null);
+    setOpenDelete(false);
+    setLoadingDelete(false);
+    loadFinanceiro();
+  }
+
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar />
 
-     <main className="flex-1 ml-20 p-8 space-y-8 overflow-y-auto">
-
+      <main className="flex-1 ml-20 p-8 space-y-8 overflow-y-auto">
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
@@ -125,16 +165,11 @@ export default function Financeiro() {
               </DialogHeader>
 
               <div className="space-y-4">
-                {/* Descrição */}
                 <div className="space-y-2">
                   <Label>Descrição</Label>
-                  <Input
-                    value={descricao}
-                    onChange={(e) => setDescricao(e.target.value)}
-                  />
+                  <Input value={descricao} onChange={(e) => setDescricao(e.target.value)} />
                 </div>
 
-                {/* Tipo + Data */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Tipo</Label>
@@ -151,15 +186,10 @@ export default function Financeiro() {
 
                   <div className="space-y-2">
                     <Label>Data</Label>
-                    <Input
-                      type="date"
-                      value={data}
-                      onChange={(e) => setData(e.target.value)}
-                    />
+                    <Input type="date" value={data} onChange={(e) => setData(e.target.value)} />
                   </div>
                 </div>
 
-                {/* Categoria */}
                 <div className="space-y-2">
                   <Label>Categoria</Label>
                   <Select value={categoria} onValueChange={setCategoria}>
@@ -176,7 +206,6 @@ export default function Financeiro() {
                           <SelectItem value="Outros recebimentos">Outros recebimentos</SelectItem>
                         </>
                       )}
-
                       {tipo === "saida" && (
                         <>
                           <SelectItem value="Comissão corretor">Comissão corretor</SelectItem>
@@ -193,24 +222,16 @@ export default function Financeiro() {
                   </Select>
                 </div>
 
-                {/* Valor */}
                 <div className="space-y-2">
                   <Label>Valor</Label>
-                  <Input
-                    value={valor}
-                    onChange={(e) => setValor(e.target.value)}
-                    placeholder="Ex: 3500 ou 3.500,00"
-                  />
+                  <Input value={valor} onChange={(e) => setValor(e.target.value)} />
                 </div>
 
-                {/* Botões */}
                 <div className="flex justify-end gap-2 pt-2">
                   <Button variant="outline" onClick={() => setOpen(false)}>
                     Cancelar
                   </Button>
-                  <Button onClick={salvar}>
-                    Salvar
-                  </Button>
+                  <Button onClick={salvar}>Salvar</Button>
                 </div>
               </div>
             </DialogContent>
@@ -267,19 +288,73 @@ export default function Financeiro() {
                     {new Date(t.data).toLocaleDateString("pt-BR")}
                   </p>
                 </div>
-                <span
-                  className={`font-bold ${
-                    t.tipo === "entrada" ? "text-green-600" : "text-red-600"
-                  }`}
-                >
-                  {t.tipo === "entrada" ? "+" : "-"} R${" "}
-                  {Number(t.valor).toLocaleString("pt-BR")}
-                </span>
+
+                <div className="flex items-center gap-4">
+                  <span
+                    className={`font-bold ${t.tipo === "entrada" ? "text-green-600" : "text-red-600"
+                      }`}
+                  >
+                    {t.tipo === "entrada" ? "+" : "-"} R${" "}
+                    {Number(t.valor).toLocaleString("pt-BR")}
+                  </span>
+                  <Button
+                    size="icon"
+                    className="
+    bg-red-500 
+    hover:bg-red-600 
+    text-white 
+    rounded-lg
+  "
+                    onClick={() => {
+                      setDeleteId(t.id);
+                      setOpenDelete(true);
+                    }}
+                  >
+                    <Trash className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
             ))}
           </CardContent>
         </Card>
       </main>
+
+      {/* Modal Delete */}
+      <Dialog open={openDelete} onOpenChange={setOpenDelete}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>Confirmar exclusão</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Digite sua senha para confirmar a exclusão desta transação.
+            </p>
+
+            <div className="space-y-2">
+              <Label>Senha</Label>
+              <Input
+                type="password"
+                value={senha}
+                onChange={(e) => setSenha(e.target.value)}
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setOpenDelete(false)}>
+                Cancelar
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={confirmarDelete}
+                disabled={loadingDelete}
+              >
+                {loadingDelete ? "Excluindo..." : "Excluir"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
