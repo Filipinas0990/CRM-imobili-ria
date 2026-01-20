@@ -20,6 +20,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+import { LeadDetailDrawer } from "@/pages/LeadDetailDrawer";
+import { useNavigate } from "react-router-dom";
+
 
 
 const Leads = () => {
@@ -52,6 +55,15 @@ const Leads = () => {
   const [loading, setLoading] = useState(true);
   const [leadId, setLeadId] = useState<string>("");
 
+  const [openDetail, setOpenDetail] = useState(false);
+  const [openDrawer, setOpenDrawer] = useState(false);
+
+  const navigate = useNavigate();
+  const [observacoes, setObservacoes] = useState("");
+
+
+
+
 
 
 
@@ -72,6 +84,7 @@ const Leads = () => {
     setTelefone("");
     setStatus("novo");
     setInteresse("");
+    setObservacoes(""); // ✅
   }
   async function handleCreate() {
     if (!nome) {
@@ -88,6 +101,7 @@ const Leads = () => {
       interesse,
       origem,
       temperatura,
+      observacoes, // ✅
 
     });
 
@@ -145,6 +159,7 @@ const Leads = () => {
     setEmail(lead.email);
     setTelefone(lead.telefone || "");
     setInteresse(lead.interesse || "");
+    setObservacoes(lead.observacoes || ""); // ✅ AQUI
 
     const normalized = lead.status
       .normalize("NFD")
@@ -166,6 +181,7 @@ const Leads = () => {
       telefone,
       status,
       interesse,
+      observacoes
 
     });
 
@@ -202,12 +218,22 @@ const Leads = () => {
     carregarLeads();
   }
 
+  function abrirDetalhesLead(lead: any) {
+    setSelectedLead(lead);
+    setOpenDetail(true);
+  }
+
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="h-screen flex bg-background overflow-hidden">
+
+
+
       <Sidebar />
 
       {/* CONTEÚDO AJUSTADO À SIDEBAR */}
-      <main className="ml-16 overflow-y-auto">
+      <main className="ml-16 flex-1 overflow-y-auto">
+
         <div className="p-8 space-y-6">
           <div className="flex items-center justify-between">
             <div>
@@ -269,18 +295,22 @@ const Leads = () => {
                     .map((lead) => (
                       <div
                         key={lead.id}
-                        className={`p-4 rounded-lg transition
-    border-2
+                        onClick={() => {
+                          setSelectedLead(lead);
+                          setOpenDrawer(true);
+                        }}
+
+
+                        className={`p-4 rounded-lg transition border-2 cursor-pointer hover:bg-muted/30
     ${fundoTemperatura(lead.temperatura)}
     ${lead.temperatura === "quente"
                             ? "border-red-500/50"
                             : lead.temperatura === "morno"
                               ? "border-green-600/100"
-
-                              : "border-blue-500/10"
-                          }
+                              : "border-blue-500/10"}
   `}
                       >
+
 
                         <div className="flex items-start justify-between">
                           <div className="space-y-2 flex-1">
@@ -307,7 +337,10 @@ const Leads = () => {
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => abrirModalEdit(lead)}
+                              onClick={(e) => {
+                                e.stopPropagation(); // 🚫 impede abrir o modal de detalhes
+                                abrirModalEdit(lead);
+                              }}
                             >
                               <Edit className="w-4 h-4" />
                             </Button>
@@ -315,7 +348,8 @@ const Leads = () => {
                             <Button
                               size="sm"
                               variant="destructive"
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation(); // 🚫 impede abrir o modal de detalhes
                                 setSelectedLead(lead);
                                 setOpenDelete(true);
                               }}
@@ -323,6 +357,7 @@ const Leads = () => {
                               <Trash className="w-4 h-4" />
                             </Button>
                           </div>
+
                         </div>
                       </div>
                     ))}
@@ -372,6 +407,14 @@ const Leads = () => {
 
               </SelectContent>
             </Select>
+
+            <textarea
+              placeholder="Observações sobre o lead..."
+              value={observacoes}
+              onChange={(e) => setObservacoes(e.target.value)}
+              className="w-full min-h-[100px] resize-none rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+
 
 
 
@@ -429,7 +472,38 @@ const Leads = () => {
           </div>
         </div>
       )}
+
+
+
+
+      {/* AQUI 👇 */}
+      <LeadDetailDrawer
+        open={openDrawer}
+        onClose={() => setOpenDrawer(false)}
+        lead={selectedLead}
+
+        onEdit={(lead) => {
+          abrirModalEdit(lead); // 🔥 USA SUA FUNÇÃO CORRETA
+          setOpenDrawer(false);
+        }}
+
+        onDelete={(lead) => {
+          setSelectedLead(lead);
+          setOpenDelete(true);
+          setOpenDrawer(false);
+        }}
+
+        onFollowUp={(lead) => {
+          navigate(`/dashboard/tarefas?lead=${lead.id}`);
+          setOpenDrawer(false);
+        }}
+      />
+
+
     </div>
+
+
+
   );
 };
 
