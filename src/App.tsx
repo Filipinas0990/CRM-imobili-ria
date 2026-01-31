@@ -20,6 +20,7 @@ import Vendas from "./pages/Vendas";
 import Alugueis from "./pages/Alugueis";
 import PipelineLeads from "./pages/PipelineLeads";
 import Tarafas from "./pages/Tarefas";
+import WhatsApp from "./pages/WhatsApp";
 
 
 
@@ -77,6 +78,16 @@ function App() {
                 </ProtectedRoute>
               }
             />
+
+            <Route
+              path="/dashboard/whatsapp"
+              element={
+                <ProtectedRoute>
+                  <WhatsApp />
+                </ProtectedRoute>
+              }
+            />
+
 
             <Route
               path="/dashboard/tarefas"

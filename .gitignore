@@ -44,3 +44,4 @@ supabase/config.toml
 supabase/migrations
 
 .vercel
+.env*.local
