@@ -100,7 +100,7 @@ const Landing = () => {
                 className="px-10 py-6 text-lg w-full sm:w-auto"
                 onClick={() => navigate("/auth")}
               >
-                Testar gratuitamente
+                Entrar na sua conta!
               </Button>
               <span className="text-sm text-white/60">
                 Automações sem código • Dados em tempo real
@@ -156,95 +156,95 @@ const Landing = () => {
         </div>
       </section>
       {/* BLOCO AUTOMAÇÕES – DIFERENCIAL */}
-<section className="py-20 px-6 bg-black text-white">
-  <div className="container mx-auto max-w-5xl text-center">
-    <h2 className="text-3xl md:text-4xl font-bold mb-6">
-      Automação que trabalha por você
-    </h2>
+      <section className="py-20 px-6 bg-black text-white">
+        <div className="container mx-auto max-w-5xl text-center">
+          <h2 className="text-3xl md:text-4xl font-bold mb-6">
+            Automação que trabalha por você
+          </h2>
 
-    <p className="text-base md:text-lg text-white/70 max-w-3xl mx-auto mb-10">
-      Nosso CRM não apenas organiza dados. Ele executa ações automáticas,
-      envia alertas, move etapas e integra sistemas sem esforço manual.
-    </p>
+          <p className="text-base md:text-lg text-white/70 max-w-3xl mx-auto mb-10">
+            Nosso CRM não apenas organiza dados. Ele executa ações automáticas,
+            envia alertas, move etapas e integra sistemas sem esforço manual.
+          </p>
 
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-      <div className="border border-white/10 rounded-xl p-6">
-        <p className="text-green-500 font-semibold mb-2">Eventos automáticos</p>
-        <p className="text-white/70 text-sm">
-          Ações disparadas por status, datas e comportamento do cliente
-        </p>
-      </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <div className="border border-white/10 rounded-xl p-6">
+              <p className="text-green-500 font-semibold mb-2">Eventos automáticos</p>
+              <p className="text-white/70 text-sm">
+                Ações disparadas por status, datas e comportamento do cliente
+              </p>
+            </div>
 
-      <div className="border border-white/10 rounded-xl p-6">
-        <p className="text-green-500 font-semibold mb-2">Integração com n8n</p>
-        <p className="text-white/70 text-sm">
-          Conecte WhatsApp, e-mail, planilhas, APIs e outros sistemas
-        </p>
-      </div>
+            <div className="border border-white/10 rounded-xl p-6">
+              <p className="text-green-500 font-semibold mb-2">Integração com n8n</p>
+              <p className="text-white/70 text-sm">
+                Conecte WhatsApp, e-mail, planilhas, APIs e outros sistemas
+              </p>
+            </div>
 
-      <div className="border border-white/10 rounded-xl p-6">
-        <p className="text-green-500 font-semibold mb-2">Menos tarefas manuais</p>
-        <p className="text-white/70 text-sm">
-          O sistema executa processos repetitivos sozinho
-        </p>
-      </div>
-    </div>
-  </div>
-</section>
+            <div className="border border-white/10 rounded-xl p-6">
+              <p className="text-green-500 font-semibold mb-2">Menos tarefas manuais</p>
+              <p className="text-white/70 text-sm">
+                O sistema executa processos repetitivos sozinho
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* FEATURES */}
       {/* FEATURES – FUNDO BRANCO */}
-<section className="py-20 px-6 bg-white">
-  <div className="container mx-auto max-w-6xl">
-    <h2 className="text-3xl md:text-4xl font-bold text-center mb-4 text-black">
-      Funcionalidades completas
-    </h2>
-    <p className="text-center text-neutral-600 mb-12">
-      Tudo que você precisa em um único sistema
-    </p>
+      <section className="py-20 px-6 bg-white">
+        <div className="container mx-auto max-w-6xl">
+          <h2 className="text-3xl md:text-4xl font-bold text-center mb-4 text-black">
+            Funcionalidades completas
+          </h2>
+          <p className="text-center text-neutral-600 mb-12">
+            Tudo que você precisa em um único sistema
+          </p>
 
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-      {features.map((f, i) => (
-        <Card
-          key={i}
-          className="bg-white border border-neutral-200 shadow-sm hover:shadow-md transition"
-        >
-          <CardHeader>
-            <f.icon className="w-7 h-7 text-green-600 mb-4" />
-            <CardTitle className="text-black text-base">
-              {f.title}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <CardDescription className="text-neutral-700">
-              {f.description}
-            </CardDescription>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  </div>
-</section>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {features.map((f, i) => (
+              <Card
+                key={i}
+                className="bg-white border border-neutral-200 shadow-sm hover:shadow-md transition"
+              >
+                <CardHeader>
+                  <f.icon className="w-7 h-7 text-green-600 mb-4" />
+                  <CardTitle className="text-black text-base">
+                    {f.title}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <CardDescription className="text-neutral-700">
+                    {f.description}
+                  </CardDescription>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {/* CTA */}
-    {/* CTA – VERDE (IDENTIDADE DO CRM) */}
-<section className="py-20 px-6 bg-gradient-to-r from-green-500 to-emerald-600 text-black">
-  <div className="container mx-auto max-w-4xl text-center">
-    <h2 className="text-3xl md:text-4xl font-bold mb-6 text-white">
-      Seu CRM precisa pensar sozinho
-    </h2>
-    <p className="text-base md:text-lg mb-8 text-white/80">
-      Automatize processos, elimine tarefas manuais e escale com inteligência
-    </p>
-    <Button
-      size="lg"
-      className="bg-white text-green-700 hover:bg-neutral-100 px-10 py-6 text-lg"
-      onClick={() => navigate("/auth")}
-    >
-      Começar agora
-    </Button>
-  </div>
-</section>
+      {/* CTA – VERDE (IDENTIDADE DO CRM) */}
+      <section className="py-20 px-6 bg-gradient-to-r from-green-500 to-emerald-600 text-black">
+        <div className="container mx-auto max-w-4xl text-center">
+          <h2 className="text-3xl md:text-4xl font-bold mb-6 text-white">
+            Seu CRM precisa pensar sozinho
+          </h2>
+          <p className="text-base md:text-lg mb-8 text-white/80">
+            Automatize processos, elimine tarefas manuais e escale com inteligência
+          </p>
+          <Button
+            size="lg"
+            className="bg-white text-green-700 hover:bg-neutral-100 px-10 py-6 text-lg"
+            onClick={() => navigate("/auth")}
+          >
+            Começar agora
+          </Button>
+        </div>
+      </section>
       <footer className="py-8 text-center text-Whit-500 px-6 bg-gradient-to-r from-green-500 to-emerald-600 text-black">
         © 2025 • CRM Inteligente
       </footer>
