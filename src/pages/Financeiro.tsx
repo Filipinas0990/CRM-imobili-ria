@@ -31,7 +31,7 @@ type Transaction = {
   data: string;
 };
 
-export default function Financeiro() {
+export default function Balanco() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [open, setOpen] = useState(false);
 

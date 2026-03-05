@@ -20,6 +20,7 @@ import {
   Home,
   LogOut,
 } from "lucide-react";
+import { i } from "node_modules/framer-motion/dist/types.d-DagZKalS";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -39,7 +40,15 @@ const navigation = [
   { name: "Vendas", href: "/dashboard/vendas", icon: CreditCard },
   { name: "Tarefas", href: "/dashboard/tarefas", icon: CheckSquare },
   { name: "Visitas", href: "/dashboard/visitas", icon: Home },
-  { name: "Finanças", href: "/dashboard/financeiro", icon: DollarSign },
+  {
+    name: "Fluxo de Caixa",
+    icon: DollarSign,
+    children: [
+      { name: "Balanço", href: "/dashboard/balanco", icon: DollarSign },
+      { name: "Despesas Fixas", href: "/dashboard/despesas", icon: DollarSign },
+    ]
+  },
+  //{ name: "Fluxo de Caixa", href: "/dashboard/financeiro", icon: DollarSign },
   // { name: "Agenda", href: "/dashboard/agenda", icon: Calendar },
   { name: "Relatórios", href: "/dashboard/relatorios", icon: BarChart3 },
 ];

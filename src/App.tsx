@@ -21,10 +21,11 @@ import Alugueis from "./pages/Alugueis";
 import PipelineLeads from "./pages/PipelineLeads";
 import Tarafas from "./pages/Tarefas";
 import WhatsApp from "./pages/WhatsApp";
+import DespesasFixas from "./pages/DespesasFixas";
 
 
 
-
+console.log("Olá mundo! Este é um teste para verificar se o console.log está funcionando corretamente.");
 
 import Financiamentos from "./pages/Financiamentos";
 import Visitas from "./pages/Visitas";
@@ -33,6 +34,7 @@ import Servicos from "./pages/serviços";
 import ClientePerfil from "./pages/ClientePerfil"; // <<< IMPORTAÇÃO ADICIONADA
 
 import { supabase } from "./lib/supabaseClient";
+import Balanco from "./pages/Financeiro";
 
 const queryClient = new QueryClient();
 
@@ -88,6 +90,15 @@ function App() {
               }
             />
 
+            <Route
+              path="/dashboard/despesas"
+              element={
+                <ProtectedRoute>
+                  <DespesasFixas />
+                </ProtectedRoute>
+              }
+            />
+
 
             <Route
               path="/dashboard/tarefas"
@@ -136,15 +147,15 @@ function App() {
                 </ProtectedRoute>
               }
             />
-
             <Route
-              path="/dashboard/financeiro"
+              path="/dashboard/balanco"
               element={
                 <ProtectedRoute>
-                  <Financeiro />
+                  <Balanco />
                 </ProtectedRoute>
               }
             />
+
 
             <Route
               path="/dashboard/relatorios"
