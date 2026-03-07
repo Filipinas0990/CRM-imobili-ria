@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+
 type Transaction = {
   id: number;
   descricao: string;
@@ -55,7 +56,7 @@ export default function Balanco() {
   async function loadFinanceiro() {
     const { data, error } = await supabase
       .from("financeiro")
-      .select("*")
+      .select("id, descricao, valor, tipo, categoria, data")
       .eq("status", "confirmado")
       .order("data", { ascending: false });
 
@@ -83,16 +84,29 @@ export default function Balanco() {
   async function salvar() {
     if (!descricao || !valor || !categoria) return;
 
-    await supabase.from("financeiro").insert([
-      {
-        descricao,
-        valor: Number(valor),
-        categoria,
-        tipo,
-        data,
-        status: "confirmado",
-      },
-    ]);
+    const row = {
+      descricao,
+      valor: Number(valor),
+      categoria,
+      tipo,
+      data,
+      status: "confirmado",
+    };
+
+    console.log("ROW:", row);
+
+    const { error } = await supabase
+      .from("financeiro")
+      .insert([row]);
+
+    if (error) {
+      console.log("ERRO SUPABASE:", error);
+      return;
+    }
+
+
+
+
 
     setDescricao("");
     setValor("");

@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Sidebar } from "@/components/Sidebar";
+import { ca } from "date-fns/locale";
 
 export type DespesaFixa = {
   id: string;
@@ -93,15 +94,15 @@ const emptyForm: {
 function mapRowToDespesa(r: Record<string, unknown>): DespesaFixa {
   return {
     id: String(r.id),
-    descricao: String(r.descricao ?? ""),
-    valor: Number(r.valor ?? 0),
-    categoria: String(r.categoria ?? ""),
+    descricao: String(r.descricao_depesas ?? ""),
+    valor: Number(r.valor_despesas ?? 0),
+    categoria: String(r.categoria_despesas ?? ""),
     diaVencimento: Number(r.dia_vencimento ?? 1),
-    formaPagamento: String(r.forma_pagamento ?? ""),
-    status: (r.status === "inativa" ? "inativa" : "ativa") as "ativa" | "inativa",
-    observacoes: r.observacoes != null ? String(r.observacoes) : undefined,
-    centroCusto: r.centro_custo != null ? String(r.centro_custo) : undefined,
-    contaVinculada: r.conta_vinculada != null ? String(r.conta_vinculada) : undefined,
+    formaPagamento: String(r.forma_pagamento_despesas ?? ""),
+    status: (r.status_despesas === "inativa" ? "inativa" : "ativa"),
+    observacoes: r.observacoes_despesas != null ? String(r.observacoes_despesas) : undefined,
+    centroCusto: r.centro_custo_despeas != null ? String(r.centro_custo_despeas) : undefined,
+    contaVinculada: r.conta_vinculada_depesas != null ? String(r.conta_vinculada_depesas) : undefined,
   };
 }
 
@@ -126,7 +127,20 @@ export default function DespesasFixas() {
     setLoading(true);
     const { data, error } = await supabase
       .from("financeiro")
-      .select("*")
+      .select(`
+    id,
+    descricao_depesas,
+  valor_despesas,
+   categoria_despesas,
+    dia_vencimento,
+   forma_pagamento_despesas,
+    status_despesas,
+    observacoes_despesas,
+    centro_custo_despeas,
+    conta_vinculada_depesas
+    
+  `)
+      .eq("tipo", "financeiro")
       .order("dia_vencimento", { ascending: true });
     if (!error && data) {
       setDespesas(data.map(mapRowToDespesa));
@@ -216,30 +230,49 @@ export default function DespesasFixas() {
     }
 
     const row = {
-      descricao: form.descricao.trim(),
-      valor,
-      categoria: form.categoria,
+      descricao: form.descricao.trim(), // ← coluna obrigatória do banco
+      valor: valor, // ← coluna obrigatória do banco
+      data: new Date().toISOString(), // ← coluna obrigatória do banco
+      tipo: "financeiro", // ← coluna obrigatória do banco
+      categoria: "despesa", // ← necessário para passar no CHECK
+
+
+
+
+      descricao_depesas: form.descricao.trim(),
+      valor_despesas: valor,
+      categoria_despesas: form.categoria,
       dia_vencimento: dia,
-      forma_pagamento: form.formaPagamento,
-      status: form.status,
-      observacoes: form.observacoes.trim() || null,
-      centro_custo: form.centroCusto.trim() || null,
-      conta_vinculada: form.contaVinculada.trim() || null,
+      forma_pagamento_despesas: form.formaPagamento,
+      status_despesas: form.status,
+      observacoes_despesas: form.observacoes.trim() || null,
+      centro_custo_despeas: form.centroCusto.trim() || null,
+      conta_vinculada_depesas: form.contaVinculada.trim() || null,
+
     };
 
     if (editId) {
-      const { error } = await supabase.from("despesas_fixas").update(row).eq("id", editId);
+      const { error } = await supabase.from("financeiro").update(row).eq("id", editId);
       if (error) {
         toast({ title: "Erro ao atualizar", variant: "destructive" });
         return;
       }
       toast({ title: "Despesa atualizada com sucesso!" });
     } else {
-      const { error } = await supabase.from("despesas_fixas").insert([row]);
+      const { data, error } = await supabase.from("financeiro").insert([row]);
+
       if (error) {
-        toast({ title: "Erro ao cadastrar", variant: "destructive" });
+        console.error("ERRO SUPABASE:", error);
+
+        toast({
+          title: "Erro ao cadastrar",
+          description: error.message,
+          variant: "destructive",
+        });
+
         return;
       }
+
       toast({ title: "Despesa cadastrada com sucesso!" });
     }
     setDialogOpen(false);
@@ -248,7 +281,7 @@ export default function DespesasFixas() {
 
   const handleToggleStatus = async (d: DespesaFixa) => {
     const newStatus = d.status === "ativa" ? "inativa" : "ativa";
-    const { error } = await supabase.from("despesas_fixas").update({ status: newStatus }).eq("id", d.id);
+    const { error } = await supabase.from("financeiro").update({ status: newStatus }).eq("id", d.id);
     if (error) {
       toast({ title: "Erro ao atualizar status", variant: "destructive" });
       return;
@@ -258,7 +291,7 @@ export default function DespesasFixas() {
   };
 
   const handleDelete = async (id: string) => {
-    const { error } = await supabase.from("despesas_fixas").delete().eq("id", id);
+    const { error } = await supabase.from("financeiro").delete().eq("id", id);
     if (error) {
       toast({ title: "Erro ao excluir", variant: "destructive" });
       return;
@@ -393,8 +426,7 @@ export default function DespesasFixas() {
                           placeholder="Nova categoria"
                           maxLength={50}
                         />
-                        <Button size="sm" onClick={handleAddCategoria}>OK</Button>
-                        <Button variant="outline" size="sm" onClick={() => setShowNovaCategoria(false)}>✕</Button>
+
                       </div>
                     )}
                   </div>
