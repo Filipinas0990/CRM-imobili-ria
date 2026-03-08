@@ -50,8 +50,8 @@ const DEFAULT_CATEGORIAS = [
   "Impostos", "Marketing", "Portais imobiliários", "Ferramentas / Sistemas", "Outros",
 ];
 
-// Comissão média simulada baseada em histórico
-const COMISSAO_MEDIA_POR_VENDA = 31200; // R$ 31.200 média
+
+const COMISSAO_MEDIA_POR_VENDA = 1500; // R$ 1.500 média
 
 const CHART_COLORS = [
   "hsl(var(--primary))",
@@ -281,13 +281,26 @@ export default function DespesasFixas() {
 
   const handleToggleStatus = async (d: DespesaFixa) => {
     const newStatus = d.status === "ativa" ? "inativa" : "ativa";
-    const { error } = await supabase.from("financeiro").update({ status: newStatus }).eq("id", d.id);
+
+
+    const { error } = await supabase
+      .from("financeiro")
+
+      .update({ status_despesas: newStatus })
+
+      .eq("id", d.id);
+
     if (error) {
       toast({ title: "Erro ao atualizar status", variant: "destructive" });
       return;
     }
     refresh();
-    toast({ title: d.status === "ativa" ? "Despesa pausada" : "Despesa reativada" });
+
+    toast({
+      title: d.status === "ativa"
+        ? "Despesa pausada" :
+        "Despesa reativada"
+    });
   };
 
   const handleDelete = async (id: string) => {

@@ -58,6 +58,7 @@ export default function Balanco() {
       .from("financeiro")
       .select("id, descricao, valor, tipo, categoria, data")
       .eq("status", "confirmado")
+      .in("tipo", ["entrada", "saida"])
       .order("data", { ascending: false });
 
     if (!error && data) {
