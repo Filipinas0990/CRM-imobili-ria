@@ -34,6 +34,7 @@ const navigation = [
       { name: "Loteamentos", href: "/dashboard/loteamentos", icon: Landmark },
       { name: "Aluguéis", href: "/dashboard/alugueis", icon: Wallet },
       { name: "Financiamentos", href: "/dashboard/financiamentos", icon: Banknote },
+
     ],
   },
   { name: "Clientes", href: "/dashboard/clientes", icon: UserCheck },
@@ -44,8 +45,9 @@ const navigation = [
     name: "Fluxo de Caixa",
     icon: DollarSign,
     children: [
-      { name: "Balanço", href: "/dashboard/balanco", icon: DollarSign },
+      { name: "Finanças", href: "/dashboard/balanco", icon: DollarSign },
       { name: "Despesas Fixas", href: "/dashboard/despesas", icon: DollarSign },
+      { name: "Balanço", href: "/dashboard/visao", icon: DollarSign },
     ]
   },
   //{ name: "Fluxo de Caixa", href: "/dashboard/financeiro", icon: DollarSign },

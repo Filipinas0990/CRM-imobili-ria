@@ -1,4 +1,4 @@
-{/* import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
     DollarSign,
     TrendingUp,
@@ -12,117 +12,45 @@ import {
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line, Legend } from "recharts";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import { DespesaFixa } from "./DespesasFixas";
+import { supabase } from "@/integrations/supabase/client";
+import { Sidebar } from "@/components/Sidebar";
+import {
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+    LineChart, Line, Legend, ResponsiveContainer,
+} from "recharts";
 
-// Mock data por mês
-const vendasPorMes: Record<string, Array<{
-    imovel: string;
-    valor: number;
-    comissaoPercent: number;
-    status: "fechado" | "em_andamento";
-    comissaoStatus: "recebido" | "pendente";
-    dataFechamento: string;
-    dataRecebimento?: string;
-}>> = {
-    "2026-02": [
-        { imovel: "Apt 301 - Ed. Aurora", valor: 450000, comissaoPercent: 6, status: "fechado", comissaoStatus: "recebido", dataFechamento: "2026-02-05", dataRecebimento: "2026-02-15" },
-        { imovel: "Casa Jardim Europa", valor: 780000, comissaoPercent: 6, status: "fechado", comissaoStatus: "recebido", dataFechamento: "2026-02-10", dataRecebimento: "2026-02-20" },
-        { imovel: "Sala Comercial 12", valor: 3500, comissaoPercent: 10, status: "fechado", comissaoStatus: "pendente", dataFechamento: "2026-02-12" },
-        { imovel: "Apt 502 - Ed. Sol", valor: 520000, comissaoPercent: 6, status: "fechado", comissaoStatus: "pendente", dataFechamento: "2026-02-18" },
-        { imovel: "Cobertura Premium", valor: 1200000, comissaoPercent: 6, status: "em_andamento", comissaoStatus: "pendente", dataFechamento: "2026-02-22" },
-    ],
-    "2026-01": [
-        { imovel: "Apt 101 - Ed. Brisa", valor: 380000, comissaoPercent: 6, status: "fechado", comissaoStatus: "recebido", dataFechamento: "2026-01-08", dataRecebimento: "2026-01-18" },
-        { imovel: "Casa Vila Nova", valor: 620000, comissaoPercent: 6, status: "fechado", comissaoStatus: "recebido", dataFechamento: "2026-01-15", dataRecebimento: "2026-01-25" },
-        { imovel: "Loja Centro", valor: 4200, comissaoPercent: 10, status: "fechado", comissaoStatus: "recebido", dataFechamento: "2026-01-20", dataRecebimento: "2026-01-30" },
-    ],
-    "2025-12": [
-        { imovel: "Apt 201 - Ed. Monte", valor: 410000, comissaoPercent: 6, status: "fechado", comissaoStatus: "recebido", dataFechamento: "2025-12-05", dataRecebimento: "2025-12-15" },
-        { imovel: "Terreno Alphaville", valor: 350000, comissaoPercent: 6, status: "fechado", comissaoStatus: "recebido", dataFechamento: "2025-12-12", dataRecebimento: "2025-12-22" },
-    ],
-};
+// ─── Tipos ───────────────────────────────────────────────────────────────────
 
-const despesasVariaveisPorMes: Record<string, Array<{
+type Transacao = {
+    id: string;
     descricao: string;
     valor: number;
-    tipo: "profissional" | "pessoal";
+    tipo: "entrada" | "saida";
+    categoria: string;
     data: string;
-}>> = {
-    "2026-02": [
-        { descricao: "Combustível visitas", valor: 850, tipo: "profissional", data: "2026-02-05" },
-        { descricao: "Anúncios portais", valor: 1200, tipo: "profissional", data: "2026-02-10" },
-        { descricao: "Fotos profissionais", valor: 600, tipo: "profissional", data: "2026-02-14" },
-    ],
-    "2026-01": [
-        { descricao: "Combustível visitas", valor: 720, tipo: "profissional", data: "2026-01-05" },
-        { descricao: "Anúncios portais", valor: 1200, tipo: "profissional", data: "2026-01-10" },
-    ],
-    "2025-12": [
-        { descricao: "Combustível visitas", valor: 680, tipo: "profissional", data: "2025-12-05" },
-        { descricao: "Anúncios portais", valor: 1200, tipo: "profissional", data: "2025-12-10" },
-    ],
 };
 
-const meses = [
-    { value: "2026-02", label: "Fevereiro 2026" },
-    { value: "2026-01", label: "Janeiro 2026" },
-    { value: "2025-12", label: "Dezembro 2025" },
-    { value: "2025-11", label: "Novembro 2025" },
-];
-
-function calcularBalanco(mes: string) {
-    const vendas = vendasPorMes[mes] || [];
-    const despesasVar = despesasVariaveisPorMes[mes] || [];
-    const custoFixo = DespesaFixa();
-
-    const vendasFechadas = vendas.filter((v) => v.status === "fechado");
-
-    const comissaoPrevista = vendasFechadas.reduce(
-        (acc, v) => acc + v.valor * (v.comissaoPercent / 100),
-        0
-    );
-
-    const comissaoRecebida = vendasFechadas
-        .filter((v) => v.comissaoStatus === "recebido" || v.dataRecebimento)
-        .reduce((acc, v) => acc + v.valor * (v.comissaoPercent / 100), 0);
-
-    const comissaoAReceber = comissaoPrevista - comissaoRecebida;
-
-    const despesasVariaveis = despesasVar
-        .filter((d) => d.tipo === "profissional")
-        .reduce((acc, d) => acc + d.valor, 0);
-
-    const despesasTotais = despesasVariaveis + custoFixo;
-    const lucroLiquido = comissaoRecebida - despesasTotais;
-    const percentualDespesas = comissaoRecebida > 0 ? (custoFixo / comissaoRecebida) * 100 : 0;
-
-    return {
-        comissaoPrevista,
-        comissaoRecebida,
-        comissaoAReceber,
-        despesasVariaveis,
-        custoFixo,
-        despesasTotais,
-        lucroLiquido,
-        percentualDespesas,
-    };
-}
-
-const chartConfig = {
-    recebida: { label: "Recebida", color: "hsl(var(--success))" },
-    despesas: { label: "Despesas", color: "hsl(var(--destructive))" },
-    lucro: { label: "Lucro", color: "hsl(var(--primary))" },
-    mesAtual: { label: "Mês Atual", color: "hsl(var(--primary))" },
-    mesAnterior: { label: "Mês Anterior", color: "hsl(var(--muted-foreground))" },
+type DespesaFixa = {
+    id: string;
+    descricao: string;
+    valor: number;
+    categoria: string;
+    diaVencimento: number;
+    status: "ativa" | "inativa";
 };
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function formatCurrency(value: number) {
     return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
+
+const MESES_FULL = [
+    "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+    "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+];
 
 function getMesAnterior(mes: string) {
     const [ano, m] = mes.split("-").map(Number);
@@ -131,306 +59,428 @@ function getMesAnterior(mes: string) {
     return `${novoAno}-${String(novoMes).padStart(2, "0")}`;
 }
 
-export default function BalancoMensal() {
-    const [mesSelecionado, setMesSelecionado] = useState("2026-02");
+function formatMesLabel(key: string) {
+    const [ano, mes] = key.split("-");
+    return `${MESES_FULL[parseInt(mes) - 1]} ${ano}`;
+}
 
-    const balanco = useMemo(() => calcularBalanco(mesSelecionado), [mesSelecionado]);
-    const mesAnteriorKey = getMesAnterior(mesSelecionado);
-    const balancoAnterior = useMemo(() => calcularBalanco(mesAnteriorKey), [mesAnteriorKey]);
-    const despesasFixasAtivas = getDespesasFixasAtivas();
+function keyFromDate(dateStr: string) {
+    const d = new Date(dateStr);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
 
-    const variacao = (atual: number, anterior: number) => {
+function mapRowToDespesaFixa(r: Record<string, unknown>): DespesaFixa {
+    return {
+        id: String(r.id),
+        descricao: String(r.descricao_depesas ?? ""),
+        valor: Number(r.valor_despesas ?? 0),
+        categoria: String(r.categoria_despesas ?? ""),
+        diaVencimento: Number(r.dia_vencimento ?? 1),
+        status: r.status_despesas === "inativa" ? "inativa" : "ativa",
+    };
+}
+
+// ─── Componente ──────────────────────────────────────────────────────────────
+
+export default function Visao() {
+    const hoje = new Date();
+    const mesAtualKey = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}`;
+
+    const [mesSelecionado, setMesSelecionado] = useState(mesAtualKey);
+    const [transacoes, setTransacoes] = useState<Transacao[]>([]);
+    const [despesasFixas, setDespesasFixas] = useState<DespesaFixa[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    // ── Carrega dados ──────────────────────────────────────────────────────────
+
+    useEffect(() => {
+        async function load() {
+            setLoading(true);
+
+            // Entradas e saídas variáveis
+            const { data: transData } = await supabase
+                .from("financeiro")
+                .select("id, descricao, valor, tipo, categoria, data")
+                .eq("status", "confirmado")
+                .in("tipo", ["entrada", "saida"])
+                .order("data", { ascending: false });
+
+            // Despesas fixas
+            const { data: fixasData } = await supabase
+                .from("financeiro")
+                .select(`id, descricao_depesas, valor_despesas, categoria_despesas,
+                 dia_vencimento, status_despesas`)
+                .eq("tipo", "financeiro");
+
+            if (transData) setTransacoes(transData as Transacao[]);
+            if (fixasData) setDespesasFixas(fixasData.map(mapRowToDespesaFixa));
+
+            setLoading(false);
+        }
+        load();
+    }, []);
+
+    // ── Meses disponíveis no dropdown ─────────────────────────────────────────
+
+    const mesesDisponiveis = useMemo(() => {
+        const set = new Set<string>();
+        set.add(mesAtualKey);
+        transacoes.forEach((t) => set.add(keyFromDate(t.data)));
+        return Array.from(set).sort((a, b) => b.localeCompare(a));
+    }, [transacoes]);
+
+    // ── Filtra transações pelo mês ────────────────────────────────────────────
+
+    function transacoesDo(mes: string) {
+        return transacoes.filter((t) => keyFromDate(t.data) === mes);
+    }
+
+    // ── Calcula balanço de um mês ─────────────────────────────────────────────
+
+    function calcularBalanco(mes: string) {
+        const trans = transacoesDo(mes);
+        const fixasAtivas = despesasFixas.filter((d) => d.status === "ativa");
+
+        const entradas = trans
+            .filter((t) => t.tipo === "entrada")
+            .reduce((acc, t) => acc + Number(t.valor), 0);
+
+        const saidasVariaveis = trans
+            .filter((t) => t.tipo === "saida")
+            .reduce((acc, t) => acc + Number(t.valor), 0);
+
+        const custoFixo = fixasAtivas.reduce((acc, d) => acc + d.valor, 0);
+        const despesasTotais = saidasVariaveis + custoFixo;
+        const lucroLiquido = entradas - despesasTotais;
+        const percentualDespesas = entradas > 0 ? (despesasTotais / entradas) * 100 : 0;
+
+        return { entradas, saidasVariaveis, custoFixo, despesasTotais, lucroLiquido, percentualDespesas };
+    }
+
+    const balanco = useMemo(() => calcularBalanco(mesSelecionado), [mesSelecionado, transacoes, despesasFixas]);
+    const balancoAnterior = useMemo(() => calcularBalanco(getMesAnterior(mesSelecionado)), [mesSelecionado, transacoes, despesasFixas]);
+
+    // ── Variação % entre meses ────────────────────────────────────────────────
+
+    function variacao(atual: number, anterior: number) {
         if (anterior === 0) return atual > 0 ? 100 : 0;
         return ((atual - anterior) / anterior) * 100;
-    };
+    }
 
-    const risco =
-        balanco.percentualDespesas > 70 ? "alto" : balanco.percentualDespesas > 40 ? "moderado" : "saudável";
-    const riscoColor =
-        risco === "alto" ? "text-destructive" : risco === "moderado" ? "text-warning" : "text-success";
-    const riscoBg =
-        risco === "alto" ? "bg-destructive/10" : risco === "moderado" ? "bg-warning/10" : "bg-success/10";
+    // ── Risco financeiro ──────────────────────────────────────────────────────
 
-    const barData = [
-        { name: "Recebida", valor: balanco.comissaoRecebida, fill: "hsl(var(--success))" },
-        { name: "Fixas", valor: balanco.custoFixo, fill: "hsl(var(--warning))" },
-        { name: "Variáveis", valor: balanco.despesasVariaveis, fill: "hsl(var(--destructive))" },
-        { name: "Lucro", valor: Math.max(0, balanco.lucroLiquido), fill: "hsl(var(--primary))" },
-    ];
+    const risco = balanco.percentualDespesas > 70 ? "alto" : balanco.percentualDespesas > 40 ? "moderado" : "saudável";
+    const riscoColor = risco === "alto" ? "text-red-500" : risco === "moderado" ? "text-yellow-500" : "text-green-500";
+    const riscoBg = risco === "alto" ? "bg-red-500/10" : risco === "moderado" ? "bg-yellow-500/10" : "bg-green-500/10";
 
-    const comparativoData = [
-        { metrica: "Prevista", mesAtual: balanco.comissaoPrevista, mesAnterior: balancoAnterior.comissaoPrevista },
-        { metrica: "Recebida", mesAtual: balanco.comissaoRecebida, mesAnterior: balancoAnterior.comissaoRecebida },
-        { metrica: "Despesas", mesAtual: balanco.despesasTotais, mesAnterior: balancoAnterior.despesasTotais },
-        { metrica: "Lucro", mesAtual: balanco.lucroLiquido, mesAnterior: balancoAnterior.lucroLiquido },
-    ];
+    // ── Cards KPI ─────────────────────────────────────────────────────────────
 
     const cards = [
         {
-            title: "Comissão Prevista",
-            value: balanco.comissaoPrevista,
+            title: "Entradas",
+            value: balanco.entradas,
             icon: TrendingUp,
-            variacao: variacao(balanco.comissaoPrevista, balancoAnterior.comissaoPrevista),
-            color: "text-primary",
-            bgColor: "bg-primary/10",
+            var: variacao(balanco.entradas, balancoAnterior.entradas),
+            color: "text-green-500",
+            bg: "bg-green-500/10",
         },
         {
-            title: "Comissão Recebida",
-            value: balanco.comissaoRecebida,
+            title: "Despesas Fixas",
+            value: balanco.custoFixo,
+            icon: Receipt,
+            var: variacao(balanco.custoFixo, balancoAnterior.custoFixo),
+            color: "text-yellow-500",
+            bg: "bg-yellow-500/10",
+            inverso: true,
+        },
+        {
+            title: "Despesas Variáveis",
+            value: balanco.saidasVariaveis,
             icon: DollarSign,
-            variacao: variacao(balanco.comissaoRecebida, balancoAnterior.comissaoRecebida),
-            color: "text-success",
-            bgColor: "bg-success/10",
-        },
-        {
-            title: "A Receber",
-            value: balanco.comissaoAReceber,
-            icon: Clock,
-            variacao: variacao(balanco.comissaoAReceber, balancoAnterior.comissaoAReceber),
-            color: "text-warning",
-            bgColor: "bg-warning/10",
+            var: variacao(balanco.saidasVariaveis, balancoAnterior.saidasVariaveis),
+            color: "text-red-500",
+            bg: "bg-red-500/10",
+            inverso: true,
         },
         {
             title: "Despesas Totais",
             value: balanco.despesasTotais,
-            icon: Receipt,
-            variacao: variacao(balanco.despesasTotais, balancoAnterior.despesasTotais),
-            color: "text-destructive",
-            bgColor: "bg-destructive/10",
+            icon: Wallet,
+            var: variacao(balanco.despesasTotais, balancoAnterior.despesasTotais),
+            color: "text-red-500",
+            bg: "bg-red-500/10",
             inverso: true,
         },
         {
             title: "Lucro Líquido",
             value: balanco.lucroLiquido,
-            icon: Wallet,
-            variacao: variacao(balanco.lucroLiquido, balancoAnterior.lucroLiquido),
-            color: balanco.lucroLiquido >= 0 ? "text-success" : "text-destructive",
-            bgColor: balanco.lucroLiquido >= 0 ? "bg-success/10" : "bg-destructive/10",
+            icon: Target,
+            var: variacao(balanco.lucroLiquido, balancoAnterior.lucroLiquido),
+            color: balanco.lucroLiquido >= 0 ? "text-green-500" : "text-red-500",
+            bg: balanco.lucroLiquido >= 0 ? "bg-green-500/10" : "bg-red-500/10",
         },
     ];
-    */}
 
-{/* 
+    // ── Dados para gráfico de barras ──────────────────────────────────────────
+
+    const barData = [
+        { name: "Entradas", valor: balanco.entradas, fill: "#22c55e" },
+        { name: "Fixas", valor: balanco.custoFixo, fill: "#eab308" },
+        { name: "Variáveis", valor: balanco.saidasVariaveis, fill: "#ef4444" },
+        { name: "Lucro", valor: Math.max(0, balanco.lucroLiquido), fill: "#3b82f6" },
+    ];
+
+    // ── Dados para gráfico comparativo ───────────────────────────────────────
+
+    const comparativoData = [
+        { metrica: "Entradas", mesAtual: balanco.entradas, mesAnterior: balancoAnterior.entradas },
+        { metrica: "Fixas", mesAtual: balanco.custoFixo, mesAnterior: balancoAnterior.custoFixo },
+        { metrica: "Variáveis", mesAtual: balanco.saidasVariaveis, mesAnterior: balancoAnterior.saidasVariaveis },
+        { metrica: "Lucro", mesAtual: balanco.lucroLiquido, mesAnterior: balancoAnterior.lucroLiquido },
+    ];
+
+    // ── Transações do mês selecionado ─────────────────────────────────────────
+
+    const transacoesMes = useMemo(() => transacoesDo(mesSelecionado), [mesSelecionado, transacoes]);
+    const fixasAtivas = despesasFixas.filter((d) => d.status === "ativa");
+
+    // ─────────────────────────────────────────────────────────────────────────
 
     return (
-        <div className="space-y-6">
-            {/* Header 
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold text-foreground">Balanço Mensal</h1>
-                    <p className="text-muted-foreground">Visão financeira completa do mês</p>
-                </div>
-                <Select value={mesSelecionado} onValueChange={setMesSelecionado}>
-                    <SelectTrigger className="w-[200px]">
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {meses.map((m) => (
-                            <SelectItem key={m.value} value={m.value}>
-                                {m.label}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-            </div>
+        <div className="flex min-h-screen bg-background">
+            <Sidebar />
 
-            {/* KPI Cards 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                {cards.map((card) => {
-                    const isPositive = card.inverso ? card.variacao <= 0 : card.variacao >= 0;
-                    return (
-                        <Card key={card.title} className="shadow-card hover:shadow-card-hover transition-all">
-                            <CardContent className="p-5">
-                                <div className="flex items-start justify-between mb-3">
-                                    <p className="text-sm font-medium text-muted-foreground">{card.title}</p>
-                                    <div className={cn("p-2 rounded-lg", card.bgColor)}>
-                                        <card.icon className={cn("w-4 h-4", card.color)} />
-                                    </div>
-                                </div>
-                                <p className={cn("text-xl font-bold", card.color)}>
-                                    {formatCurrency(card.value)}
-                                </p>
-                                <div className="flex items-center gap-1 mt-2">
-                                    {isPositive ? (
-                                        <ArrowUpRight className="w-3 h-3 text-success" />
-                                    ) : (
-                                        <ArrowDownRight className="w-3 h-3 text-destructive" />
-                                    )}
-                                    <span className={cn("text-xs font-medium", isPositive ? "text-success" : "text-destructive")}>
-                                        {Math.abs(card.variacao).toFixed(1)}%
-                                    </span>
-                                    <span className="text-xs text-muted-foreground">vs mês anterior</span>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    );
-                })}
-            </div>
-            
+            <main className="flex-1 ml-20 p-8 space-y-8 overflow-y-auto">
 
-            {/* Custo Operacional Fixo - NEW INTEGRATION *
-            <Card className="border-2 border-dashed border-warning/30">
-                <CardHeader className="pb-3">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                        <Target className="w-5 h-5 text-warning" />
-                        Custo Operacional Fixo
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-                        <div className="space-y-1">
-                            <p className="text-xs text-muted-foreground">Despesas Fixas</p>
-                            <p className="text-lg font-bold text-warning">{formatCurrency(balanco.custoFixo)}</p>
-                            <p className="text-xs text-muted-foreground">{despesasFixasAtivas.length} itens ativos</p>
-                        </div>
-                        <div className="space-y-1">
-                            <p className="text-xs text-muted-foreground">Despesas Variáveis</p>
-                            <p className="text-lg font-bold text-destructive">{formatCurrency(balanco.despesasVariaveis)}</p>
-                        </div>
-                        <div className="space-y-1">
-                            <p className="text-xs text-muted-foreground">% Fixas sobre Receita</p>
-                            <p className={cn("text-lg font-bold", riscoColor)}>
-                                {balanco.percentualDespesas.toFixed(1)}%
-                            </p>
-                            <Progress value={Math.min(balanco.percentualDespesas, 100)} className="h-2 mt-1" />
-                        </div>
-                        <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                                <AlertTriangle className={cn("w-4 h-4", riscoColor)} />
-                                <p className="text-xs text-muted-foreground">Risco Financeiro</p>
-                            </div>
-                            <div className={cn("inline-flex items-center px-3 py-1 rounded-full text-sm font-bold capitalize", riscoBg, riscoColor)}>
-                                {risco}
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                                Margem bruta: {(100 - balanco.percentualDespesas).toFixed(1)}%
-                            </p>
-                        </div>
+                {/* Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div>
+                        <h1 className="text-3xl font-bold">Balanço Mensal</h1>
+                        <p className="text-muted-foreground mt-1">Visão financeira completa do mês</p>
                     </div>
-                </CardContent>
-            </Card>
-            */}
+                    <Select value={mesSelecionado} onValueChange={setMesSelecionado}>
+                        <SelectTrigger className="w-[200px]">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {mesesDisponiveis.map((m) => (
+                                <SelectItem key={m} value={m}>{formatMesLabel(m)}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
 
-{/*
-
-            {/* Charts *
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-lg">Resumo do Mês</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <ChartContainer config={chartConfig} className="h-[300px] w-full">
-                            <BarChart data={barData}>
-                                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                                <XAxis dataKey="name" className="text-xs" />
-                                <YAxis tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} className="text-xs" />
-                                <ChartTooltip
-                                    content={<ChartTooltipContent formatter={(value) => formatCurrency(Number(value))} />}
-                                />
-                                <Bar dataKey="valor" radius={[6, 6, 0, 0]} />
-                            </BarChart>
-                        </ChartContainer>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-lg">Comparativo com Mês Anterior</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <ChartContainer config={chartConfig} className="h-[300px] w-full">
-                            <LineChart data={comparativoData}>
-                                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                                <XAxis dataKey="metrica" className="text-xs" />
-                                <YAxis tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} className="text-xs" />
-                                <ChartTooltip
-                                    content={<ChartTooltipContent formatter={(value) => formatCurrency(Number(value))} />}
-                                />
-                                <Line type="monotone" dataKey="mesAtual" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 5 }} name="Mês Atual" />
-                                <Line type="monotone" dataKey="mesAnterior" stroke="hsl(var(--muted-foreground))" strokeWidth={2} strokeDasharray="5 5" dot={{ r: 5 }} name="Mês Anterior" />
-                                <Legend />
-                            </LineChart>
-                        </ChartContainer>
-                    </CardContent>
-                </Card>
-            </div>
-
-            {/* Detail Tables *
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-lg">Vendas Fechadas no Mês</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="space-y-3">
-                            {(vendasPorMes[mesSelecionado] || [])
-                                .filter((v) => v.status === "fechado")
-                                .map((v, i) => (
-                                    <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                                        <div>
-                                            <p className="text-sm font-medium text-foreground">{v.imovel}</p>
-                                            <p className="text-xs text-muted-foreground">
-                                                Comissão: {formatCurrency(v.valor * (v.comissaoPercent / 100))}
-                                            </p>
+                {/* KPI Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                    {cards.map((card) => {
+                        const isPositive = card.inverso ? card.var <= 0 : card.var >= 0;
+                        return (
+                            <Card key={card.title}>
+                                <CardContent className="p-5">
+                                    <div className="flex items-start justify-between mb-3">
+                                        <p className="text-sm font-medium text-muted-foreground">{card.title}</p>
+                                        <div className={cn("p-2 rounded-lg", card.bg)}>
+                                            <card.icon className={cn("w-4 h-4", card.color)} />
                                         </div>
-                                        <span className={cn("text-xs font-medium px-2 py-1 rounded-full", v.comissaoStatus === "recebido" ? "bg-success/10 text-success" : "bg-warning/10 text-warning")}>
-                                            {v.comissaoStatus === "recebido" ? "Recebido" : "Pendente"}
-                                        </span>
                                     </div>
-                                ))}
-                            {!(vendasPorMes[mesSelecionado] || []).filter((v) => v.status === "fechado").length && (
-                                <p className="text-sm text-muted-foreground text-center py-4">Nenhuma venda fechada neste mês</p>
-                            )}
+                                    <p className={cn("text-xl font-bold", card.color)}>
+                                        {formatCurrency(card.value)}
+                                    </p>
+                                    <div className="flex items-center gap-1 mt-2">
+                                        {isPositive
+                                            ? <ArrowUpRight className="w-3 h-3 text-green-500" />
+                                            : <ArrowDownRight className="w-3 h-3 text-red-500" />}
+                                        <span className={cn("text-xs font-medium", isPositive ? "text-green-500" : "text-red-500")}>
+                                            {Math.abs(card.var).toFixed(1)}%
+                                        </span>
+                                        <span className="text-xs text-muted-foreground">vs mês anterior</span>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        );
+                    })}
+                </div>
+
+                {/* Risco Operacional */}
+                <Card className="border-dashed border-2">
+                    <CardHeader className="pb-3">
+                        <CardTitle className="text-lg flex items-center gap-2">
+                            <AlertTriangle className="w-5 h-5 text-yellow-500" />
+                            Saúde Operacional
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-6">
+                            <div className="space-y-1">
+                                <p className="text-xs text-muted-foreground">Despesas Fixas</p>
+                                <p className="text-lg font-bold text-yellow-500">{formatCurrency(balanco.custoFixo)}</p>
+                                <p className="text-xs text-muted-foreground">{fixasAtivas.length} itens ativos</p>
+                            </div>
+                            <div className="space-y-1">
+                                <p className="text-xs text-muted-foreground">Despesas Variáveis</p>
+                                <p className="text-lg font-bold text-red-500">{formatCurrency(balanco.saidasVariaveis)}</p>
+                                <p className="text-xs text-muted-foreground">{transacoesMes.filter(t => t.tipo === "saida").length} lançamentos</p>
+                            </div>
+                            <div className="space-y-1">
+                                <p className="text-xs text-muted-foreground">% Despesas sobre Receita</p>
+                                <p className={cn("text-lg font-bold", riscoColor)}>
+                                    {balanco.percentualDespesas.toFixed(1)}%
+                                </p>
+                                <Progress value={Math.min(balanco.percentualDespesas, 100)} className="h-2 mt-1" />
+                            </div>
+                            <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                    <AlertTriangle className={cn("w-4 h-4", riscoColor)} />
+                                    <p className="text-xs text-muted-foreground">Risco Financeiro</p>
+                                </div>
+                                <div className={cn("inline-flex items-center px-3 py-1 rounded-full text-sm font-bold capitalize", riscoBg, riscoColor)}>
+                                    {risco}
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    Margem: {(100 - balanco.percentualDespesas).toFixed(1)}%
+                                </p>
+                            </div>
                         </div>
                     </CardContent>
                 </Card>
 
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-lg">Despesas do Mês</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="space-y-3">
-                            {/* Despesas Fixas 
-                            {despesasFixasAtivas.length > 0 && (
-                                <div className="mb-2">
-                                    <p className="text-xs font-semibold text-warning uppercase tracking-wider mb-2">Fixas (recorrentes)</p>
-                                    {despesasFixasAtivas.map((d) => (
-                                        <div key={d.id} className="flex items-center justify-between p-3 rounded-lg bg-warning/5 mb-2">
-                                            <div>
-                                                <p className="text-sm font-medium text-foreground">{d.descricao}</p>
-                                                <p className="text-xs text-muted-foreground">{d.categoria} • Venc. dia {d.diaVencimento}</p>
-                                            </div>
-                                            <span className="text-sm font-semibold text-warning">-{formatCurrency(d.valor)}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                            {/* Despesas Variáveis 
-                            {(despesasVariaveisPorMes[mesSelecionado] || []).filter((d) => d.tipo === "profissional").length > 0 && (
-                                <div>
-                                    <p className="text-xs font-semibold text-destructive uppercase tracking-wider mb-2">Variáveis</p>
-                                    {(despesasVariaveisPorMes[mesSelecionado] || [])
-                                        .filter((d) => d.tipo === "profissional")
-                                        .map((d, i) => (
-                                            <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-muted/50 mb-2">
+                {/* Gráficos */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-base">Resumo do Mês</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <ResponsiveContainer width="100%" height={280}>
+                                <BarChart data={barData} barCategoryGap="35%">
+                                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                                    <XAxis dataKey="name" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
+                                    <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false}
+                                        tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} />
+                                    <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                                    <Bar dataKey="valor" radius={[6, 6, 0, 0]}>
+                                        {barData.map((entry, i) => (
+                                            <rect key={i} fill={entry.fill} />
+                                        ))}
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-base">Comparativo com Mês Anterior</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <ResponsiveContainer width="100%" height={280}>
+                                <LineChart data={comparativoData}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                                    <XAxis dataKey="metrica" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
+                                    <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false}
+                                        tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} />
+                                    <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                                    <Line type="monotone" dataKey="mesAtual" stroke="#22c55e" strokeWidth={2}
+                                        dot={{ r: 5 }} name={formatMesLabel(mesSelecionado)} />
+                                    <Line type="monotone" dataKey="mesAnterior" stroke="#94a3b8" strokeWidth={2}
+                                        strokeDasharray="5 5" dot={{ r: 5 }} name={formatMesLabel(getMesAnterior(mesSelecionado))} />
+                                    <Legend />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                {/* Tabelas de detalhe */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+                    {/* Entradas do mês */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-base">Entradas do Mês</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-3 max-h-80 overflow-y-auto">
+                                {transacoesMes.filter((t) => t.tipo === "entrada").length > 0 ? (
+                                    transacoesMes
+                                        .filter((t) => t.tipo === "entrada")
+                                        .map((t) => (
+                                            <div key={t.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                                                 <div>
-                                                    <p className="text-sm font-medium text-foreground">{d.descricao}</p>
-                                                    <p className="text-xs text-muted-foreground">{d.data}</p>
+                                                    <p className="text-sm font-medium">{t.descricao}</p>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {t.categoria} • {new Date(t.data).toLocaleDateString("pt-BR")}
+                                                    </p>
                                                 </div>
-                                                <span className="text-sm font-semibold text-destructive">-{formatCurrency(d.valor)}</span>
+                                                <span className="text-sm font-bold text-green-500">
+                                                    +{formatCurrency(Number(t.valor))}
+                                                </span>
+                                            </div>
+                                        ))
+                                ) : (
+                                    <p className="text-sm text-muted-foreground text-center py-8">Nenhuma entrada neste mês</p>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Despesas do mês */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-base">Despesas do Mês</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-3 max-h-80 overflow-y-auto">
+
+                                {/* Fixas */}
+                                {fixasAtivas.length > 0 && (
+                                    <div>
+                                        <p className="text-xs font-semibold text-yellow-500 uppercase tracking-wider mb-2">
+                                            Fixas (recorrentes)
+                                        </p>
+                                        {fixasAtivas.map((d) => (
+                                            <div key={d.id} className="flex items-center justify-between p-3 rounded-lg bg-yellow-500/5 mb-2">
+                                                <div>
+                                                    <p className="text-sm font-medium">{d.descricao}</p>
+                                                    <p className="text-xs text-muted-foreground">{d.categoria} • Venc. dia {d.diaVencimento}</p>
+                                                </div>
+                                                <span className="text-sm font-bold text-yellow-500">-{formatCurrency(d.valor)}</span>
                                             </div>
                                         ))}
-                                </div>
-                            )}
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
+                                    </div>
+                                )}
+
+                                {/* Variáveis */}
+                                {transacoesMes.filter((t) => t.tipo === "saida").length > 0 && (
+                                    <div>
+                                        <p className="text-xs font-semibold text-red-500 uppercase tracking-wider mb-2">
+                                            Variáveis
+                                        </p>
+                                        {transacoesMes
+                                            .filter((t) => t.tipo === "saida")
+                                            .map((t) => (
+                                                <div key={t.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50 mb-2">
+                                                    <div>
+                                                        <p className="text-sm font-medium">{t.descricao}</p>
+                                                        <p className="text-xs text-muted-foreground">
+                                                            {t.categoria} • {new Date(t.data).toLocaleDateString("pt-BR")}
+                                                        </p>
+                                                    </div>
+                                                    <span className="text-sm font-bold text-red-500">-{formatCurrency(Number(t.valor))}</span>
+                                                </div>
+                                            ))}
+                                    </div>
+                                )}
+
+                                {fixasAtivas.length === 0 && transacoesMes.filter((t) => t.tipo === "saida").length === 0 && (
+                                    <p className="text-sm text-muted-foreground text-center py-8">Nenhuma despesa neste mês</p>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+
+            </main>
         </div>
-
     );
-    */}
-
-
+}

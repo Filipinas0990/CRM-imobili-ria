@@ -22,6 +22,7 @@ import PipelineLeads from "./pages/PipelineLeads";
 import Tarafas from "./pages/Tarefas";
 import WhatsApp from "./pages/WhatsApp";
 import DespesasFixas from "./pages/DespesasFixas";
+import visao from "./pages/Visao";
 
 
 
@@ -35,6 +36,7 @@ import ClientePerfil from "./pages/ClientePerfil"; // <<< IMPORTAÇÃO ADICIONAD
 
 import { supabase } from "./lib/supabaseClient";
 import Balanco from "./pages/Financeiro";
+import Visao from "./pages/Visao";
 
 const queryClient = new QueryClient();
 
@@ -95,6 +97,15 @@ function App() {
               element={
                 <ProtectedRoute>
                   <DespesasFixas />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/dashboard/visao"
+              element={
+                <ProtectedRoute>
+                  <Visao />
                 </ProtectedRoute>
               }
             />
@@ -234,7 +245,7 @@ function App() {
           </Routes>
         </BrowserRouter>
       </TooltipProvider>
-    </QueryClientProvider>
+    </QueryClientProvider >
   );
 }
 
