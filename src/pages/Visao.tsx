@@ -21,7 +21,7 @@ import {
     LineChart, Line, Legend, ResponsiveContainer,
 } from "recharts";
 
-// ─── Tipos ───────────────────────────────────────────────────────────────────
+
 
 type Transacao = {
     id: string;
@@ -41,7 +41,7 @@ type DespesaFixa = {
     status: "ativa" | "inativa";
 };
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+
 
 function formatCurrency(value: number) {
     return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -80,7 +80,7 @@ function mapRowToDespesaFixa(r: Record<string, unknown>): DespesaFixa {
     };
 }
 
-// ─── Componente ──────────────────────────────────────────────────────────────
+
 
 export default function Visao() {
     const hoje = new Date();
@@ -91,7 +91,7 @@ export default function Visao() {
     const [despesasFixas, setDespesasFixas] = useState<DespesaFixa[]>([]);
     const [loading, setLoading] = useState(true);
 
-    // ── Carrega dados ──────────────────────────────────────────────────────────
+
 
     useEffect(() => {
         async function load() {
@@ -120,7 +120,7 @@ export default function Visao() {
         load();
     }, []);
 
-    // ── Meses disponíveis no dropdown ─────────────────────────────────────────
+
 
     const mesesDisponiveis = useMemo(() => {
         const set = new Set<string>();
@@ -129,13 +129,13 @@ export default function Visao() {
         return Array.from(set).sort((a, b) => b.localeCompare(a));
     }, [transacoes]);
 
-    // ── Filtra transações pelo mês ────────────────────────────────────────────
+
 
     function transacoesDo(mes: string) {
         return transacoes.filter((t) => keyFromDate(t.data) === mes);
     }
 
-    // ── Calcula balanço de um mês ─────────────────────────────────────────────
+
 
     function calcularBalanco(mes: string) {
         const trans = transacoesDo(mes);
@@ -160,20 +160,19 @@ export default function Visao() {
     const balanco = useMemo(() => calcularBalanco(mesSelecionado), [mesSelecionado, transacoes, despesasFixas]);
     const balancoAnterior = useMemo(() => calcularBalanco(getMesAnterior(mesSelecionado)), [mesSelecionado, transacoes, despesasFixas]);
 
-    // ── Variação % entre meses ────────────────────────────────────────────────
+
 
     function variacao(atual: number, anterior: number) {
         if (anterior === 0) return atual > 0 ? 100 : 0;
         return ((atual - anterior) / anterior) * 100;
     }
 
-    // ── Risco financeiro ──────────────────────────────────────────────────────
 
     const risco = balanco.percentualDespesas > 70 ? "alto" : balanco.percentualDespesas > 40 ? "moderado" : "saudável";
     const riscoColor = risco === "alto" ? "text-red-500" : risco === "moderado" ? "text-yellow-500" : "text-green-500";
     const riscoBg = risco === "alto" ? "bg-red-500/10" : risco === "moderado" ? "bg-yellow-500/10" : "bg-green-500/10";
 
-    // ── Cards KPI ─────────────────────────────────────────────────────────────
+
 
     const cards = [
         {
@@ -221,7 +220,7 @@ export default function Visao() {
         },
     ];
 
-    // ── Dados para gráfico de barras ──────────────────────────────────────────
+
 
     const barData = [
         { name: "Entradas", valor: balanco.entradas, fill: "#22c55e" },
@@ -230,7 +229,7 @@ export default function Visao() {
         { name: "Lucro", valor: Math.max(0, balanco.lucroLiquido), fill: "#3b82f6" },
     ];
 
-    // ── Dados para gráfico comparativo ───────────────────────────────────────
+
 
     const comparativoData = [
         { metrica: "Entradas", mesAtual: balanco.entradas, mesAnterior: balancoAnterior.entradas },
@@ -239,12 +238,12 @@ export default function Visao() {
         { metrica: "Lucro", mesAtual: balanco.lucroLiquido, mesAnterior: balancoAnterior.lucroLiquido },
     ];
 
-    // ── Transações do mês selecionado ─────────────────────────────────────────
+
 
     const transacoesMes = useMemo(() => transacoesDo(mesSelecionado), [mesSelecionado, transacoes]);
     const fixasAtivas = despesasFixas.filter((d) => d.status === "ativa");
 
-    // ─────────────────────────────────────────────────────────────────────────
+
 
     return (
         <div className="flex min-h-screen bg-background">
