@@ -8,13 +8,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import {
-    Pencil,
-    Trash2,
-    Wallet,
-    CheckCircle2,
-    Clock,
-} from "lucide-react";
+import { Pencil, Trash2, Wallet, CheckCircle2, Clock } from "lucide-react";
 import {
     Select,
     SelectContent,
@@ -22,7 +16,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-
 
 import { getVendas } from "@/integrations/supabase/vendas/getVendas";
 import { getLeads } from "@/integrations/supabase/leads/getLeads";
@@ -50,7 +43,6 @@ export default function Vendas() {
     const [filtroStatus, setFiltroStatus] = useState("todos");
     const [filtroTipo, setFiltroTipo] = useState("todos");
     const [busca, setBusca] = useState("");
-
 
     const { toast } = useToast();
 
@@ -91,10 +83,7 @@ export default function Vendas() {
             status,
         });
 
-        toast({
-            title: "Venda cadastrada!",
-            className: "bg-green-600 text-white",
-        });
+        toast({ title: "Venda cadastrada!", className: "bg-green-600 text-white" });
 
         setOpen(false);
         setLeadId("");
@@ -109,7 +98,6 @@ export default function Vendas() {
     function getLeadNome(id: string | null) {
         if (loading) return "Carregando lead...";
         if (!id) return "Lead não informado";
-
         const lead = leads.find((l) => l.id === id);
         return lead ? lead.nome : "Lead não encontrado";
     }
@@ -117,7 +105,6 @@ export default function Vendas() {
     function getImovelTitulo(id: string | null) {
         if (loading) return "Carregando imóvel...";
         if (!id) return "Imóvel não informado";
-
         const imovel = imoveis.find((i) => i.id === id);
         return imovel ? imovel.titulo : "Imóvel não encontrado";
     }
@@ -126,48 +113,34 @@ export default function Vendas() {
     const vendasFechadas = vendas.filter((v) => v.status === "Fechada");
     const vendasAbertas = vendas.filter((v) => v.status !== "Fechada");
     const vendasFiltradas = vendas.filter((v) => {
-
-
-
-
-        const statusOk =
-            filtroStatus === "todos" || v.status === filtroStatus;
-
-        const tipoOk =
-            filtroTipo === "todos" || v.tipo === filtroTipo;
-
+        const statusOk = filtroStatus === "todos" || v.status === filtroStatus;
+        const tipoOk = filtroTipo === "todos" || v.tipo === filtroTipo;
         const textoBusca = busca.toLowerCase();
-
         const leadNome = getLeadNome(v.lead_id).toLowerCase();
         const imovelNome = getImovelTitulo(v.imovel_id).toLowerCase();
-
-        const buscaOk =
-            leadNome.includes(textoBusca) ||
-            imovelNome.includes(textoBusca);
-
+        const buscaOk = leadNome.includes(textoBusca) || imovelNome.includes(textoBusca);
         return statusOk && tipoOk && buscaOk;
     });
 
-
     return (
-        <div className="min-h-screen bg-muted/40">
+        <div className="min-h-screen bg-background">
             <Sidebar />
 
             <main className="ml-16 p-8 space-y-6">
                 {/* HEADER */}
                 <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-2xl font-bold">Gestão de Vendas</h1>
-                        <p className="text-muted-foreground">
-                            Aqui você pode gerenciar todas as vendas.
-                        </p>
+                    <div className="space-y-3">
+                        <div>
+                            <h1 className="text-2xl font-bold">Gestão de Vendas</h1>
+                            <p className="text-muted-foreground">
+                                Aqui você pode gerenciar todas as vendas.
+                            </p>
+                        </div>
+
                         {/* FILTROS */}
-                        <div className="bg-white rounded-xl shadow-sm p-4 flex flex-wrap items-center gap-3">
-
-
-                            {/* Status */}
+                        <div className="bg-card border border-border rounded-xl shadow-sm p-4 flex flex-wrap items-center gap-3">
                             <Select value={filtroStatus} onValueChange={setFiltroStatus}>
-                                <SelectTrigger className="w-[180px] h-11">
+                                <SelectTrigger className="w-[180px] h-11 bg-background">
                                     <SelectValue placeholder="Status" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -179,9 +152,8 @@ export default function Vendas() {
                                 </SelectContent>
                             </Select>
 
-                            {/* Tipo */}
                             <Select value={filtroTipo} onValueChange={setFiltroTipo}>
-                                <SelectTrigger className="w-[180px] h-11">
+                                <SelectTrigger className="w-[180px] h-11 bg-background">
                                     <SelectValue placeholder="Tipo" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -190,9 +162,9 @@ export default function Vendas() {
                                     <SelectItem value="Locação">Locação</SelectItem>
                                 </SelectContent>
                             </Select>
-                            {/* Empreendimento (placeholder visual) */}
+
                             <Select>
-                                <SelectTrigger className="w-[220px] h-11">
+                                <SelectTrigger className="w-[220px] h-11 bg-background">
                                     <SelectValue placeholder="Empreendimento" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -200,22 +172,18 @@ export default function Vendas() {
                                 </SelectContent>
                             </Select>
 
-                            {/* Busca */}
                             <div className="relative flex-1 min-w-[220px]">
                                 <input
                                     placeholder="Buscar por venda..."
                                     value={busca}
                                     onChange={(e) => setBusca(e.target.value)}
-                                    className="h-11 w-full rounded-lg border border-input bg-background px-4 pr-10 text-sm shadow-sm focus:ring-2 focus:ring-green-600"
+                                    className="h-11 w-full rounded-lg border border-border bg-background px-4 pr-10 text-sm text-foreground shadow-sm focus:ring-2 focus:ring-green-600 outline-none"
                                 />
-
                                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                                     🔍
                                 </span>
                             </div>
                         </div>
-
-
                     </div>
 
                     <Button className="bg-green-700 hover:bg-green-800" onClick={() => setOpen(true)}>
@@ -225,57 +193,54 @@ export default function Vendas() {
 
                 {/* RESUMO */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-white rounded-xl p-5 shadow-sm flex items-center gap-4">
+                    <div className="bg-card border border-border rounded-xl p-5 shadow-sm flex items-center gap-4">
                         <Wallet className="text-green-700" />
                         <div>
                             <p className="text-sm text-muted-foreground">Total de Vendas</p>
-                            <p className="text-2xl font-bold">{totalVendas}</p>
+                            <p className="text-2xl font-bold text-foreground">{totalVendas}</p>
                         </div>
                     </div>
 
-                    <div className="bg-white rounded-xl p-5 shadow-sm flex items-center gap-4">
+                    <div className="bg-card border border-border rounded-xl p-5 shadow-sm flex items-center gap-4">
                         <Clock className="text-orange-500" />
                         <div>
                             <p className="text-sm text-muted-foreground">Vendas em Aberto</p>
-                            <p className="text-2xl font-bold">{vendasAbertas.length}</p>
+                            <p className="text-2xl font-bold text-foreground">{vendasAbertas.length}</p>
                         </div>
                     </div>
 
-                    <div className="bg-white rounded-xl p-5 shadow-sm flex items-center gap-4">
+                    <div className="bg-card border border-border rounded-xl p-5 shadow-sm flex items-center gap-4">
                         <CheckCircle2 className="text-blue-600" />
                         <div>
                             <p className="text-sm text-muted-foreground">Vendas Fechadas</p>
-                            <p className="text-2xl font-bold">{vendasFechadas.length}</p>
+                            <p className="text-2xl font-bold text-foreground">{vendasFechadas.length}</p>
                         </div>
                     </div>
                 </div>
 
                 {/* LISTA */}
-                <div className="bg-white rounded-xl shadow-sm divide-y">
+                <div className="bg-card border border-border rounded-xl shadow-sm divide-y divide-border">
                     {loading ? (
                         <p className="p-6 text-muted-foreground">Carregando vendas...</p>
                     ) : vendasFiltradas.length === 0 ? (
                         <p className="p-6 text-muted-foreground">Nenhuma venda cadastrada.</p>
                     ) : (
                         vendasFiltradas.map((v) => (
-                            <div key={v.id} className="flex items-center justify-between p-5">
+                            <div key={v.id} className="flex items-center justify-between p-5 hover:bg-muted/40 transition">
                                 <div className="flex items-center gap-4">
-                                    <div className="h-10 w-10 rounded-lg bg-green-100 flex items-center justify-center">
+                                    <div className="h-10 w-10 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
                                         <Wallet className="text-green-700 h-5 w-5" />
                                     </div>
                                     <div>
-                                        <p className="font-medium">{getLeadNome(v.lead_id)}</p>
-                                        <p className="text-sm text-muted-foreground">
-                                            {getImovelTitulo(v.imovel_id)}
-                                        </p>
+                                        <p className="font-medium text-foreground">{getLeadNome(v.lead_id)}</p>
+                                        <p className="text-sm text-muted-foreground">{getImovelTitulo(v.imovel_id)}</p>
                                     </div>
                                 </div>
 
                                 <div className="flex items-center gap-4">
                                     <Badge variant="outline">{v.tipo}</Badge>
                                     <Badge className="bg-blue-600">{v.status}</Badge>
-
-                                    <span className="font-semibold min-w-[120px] text-right">
+                                    <span className="font-semibold min-w-[120px] text-right text-foreground">
                                         R$ {v.valor.toLocaleString("pt-BR")}
                                     </span>
 
@@ -309,7 +274,7 @@ export default function Vendas() {
                 </div>
             </main>
 
-            {/* MODAIS (sem alteração funcional) */}
+            {/* MODAL NOVA VENDA */}
             <Dialog open={open} onOpenChange={setOpen}>
                 <DialogContent>
                     <DialogHeader>
@@ -318,34 +283,27 @@ export default function Vendas() {
 
                     <div className="space-y-1">
                         <label className="text-sm font-medium">Lead</label>
-
                         <Select value={leadId} onValueChange={setLeadId}>
                             <SelectTrigger className="h-11">
                                 <SelectValue placeholder="Selecione o lead" />
                             </SelectTrigger>
-
                             <SelectContent>
                                 {leads.map((l) => (
-                                    <SelectItem key={l.id} value={l.id}>
-                                        {l.nome}
-                                    </SelectItem>
+                                    <SelectItem key={l.id} value={l.id}>{l.nome}</SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
                     </div>
+
                     <div className="space-y-1">
                         <label className="text-sm font-medium">Imóvel</label>
-
                         <Select value={imovelId} onValueChange={setImovelId}>
                             <SelectTrigger className="h-11">
                                 <SelectValue placeholder="Selecione o imóvel" />
                             </SelectTrigger>
-
                             <SelectContent>
                                 {imoveis.map((i) => (
-                                    <SelectItem key={i.id} value={i.id}>
-                                        {i.titulo}
-                                    </SelectItem>
+                                    <SelectItem key={i.id} value={i.id}>{i.titulo}</SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
@@ -353,26 +311,23 @@ export default function Vendas() {
 
                     <div className="space-y-1">
                         <label className="text-sm font-medium">Tipo</label>
-
                         <Select value={tipo} onValueChange={setTipo}>
                             <SelectTrigger className="h-11">
                                 <SelectValue placeholder="Selecione o tipo" />
                             </SelectTrigger>
-
                             <SelectContent>
                                 <SelectItem value="Venda">Venda</SelectItem>
                                 <SelectItem value="Locação">Locação</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
+
                     <div className="space-y-1">
                         <label className="text-sm font-medium">Status</label>
-
                         <Select value={status} onValueChange={setStatus}>
                             <SelectTrigger className="h-11">
                                 <SelectValue placeholder="Selecione o status" />
                             </SelectTrigger>
-
                             <SelectContent>
                                 <SelectItem value="Em negociação">Em negociação</SelectItem>
                                 <SelectItem value="Proposta enviada">Proposta enviada</SelectItem>
@@ -382,10 +337,9 @@ export default function Vendas() {
                         </Select>
                     </div>
 
-
                     <input
                         type="number"
-                        className="w-full border rounded-md px-3 py-2"
+                        className="w-full border border-border rounded-md px-3 py-2 bg-background text-foreground"
                         placeholder="Valor"
                         value={valor}
                         onChange={(e) => setValor(e.target.value)}
@@ -397,13 +351,18 @@ export default function Vendas() {
                 </DialogContent>
             </Dialog>
 
+            {/* MODAL EDITAR STATUS */}
             <Dialog open={openEdit} onOpenChange={setOpenEdit}>
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>Editar status</DialogTitle>
                     </DialogHeader>
 
-                    <select className="input" value={novoStatus} onChange={(e) => setNovoStatus(e.target.value)}>
+                    <select
+                        className="w-full border border-border rounded-md px-3 py-2 bg-background text-foreground"
+                        value={novoStatus}
+                        onChange={(e) => setNovoStatus(e.target.value)}
+                    >
                         <option value="Em negociação">Em negociação</option>
                         <option value="Proposta enviada">Proposta enviada</option>
                         <option value="Fechada">Venda realizada</option>

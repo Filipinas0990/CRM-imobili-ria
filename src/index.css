@@ -2,10 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
-
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -56,46 +52,44 @@ All colors MUST be HSL.
     --success: 142 76% 36%;
     --warning: 45 93% 47%;
     --info: 221 83% 53%;
-
-
   }
 
   .dark {
-    --background: 130 48% 12%;
+    --background: 222 47% 9%;
     --foreground: 0 0% 98%;
 
-    --card: 130 48% 15%;
+    --card: 222 47% 13%;
     --card-foreground: 0 0% 98%;
 
-    --popover: 130 48% 15%;
+    --popover: 222 47% 13%;
     --popover-foreground: 0 0% 98%;
 
     --primary: 130 55% 45%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 130 48% 20%;
+    --secondary: 222 47% 18%;
     --secondary-foreground: 0 0% 98%;
 
-    --muted: 130 48% 20%;
-    --muted-foreground: 130 10% 70%;
+    --muted: 222 47% 16%;
+    --muted-foreground: 215 20% 65%;
 
     --accent: 130 55% 45%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 62.8% 30.6%;
+    --destructive: 0 62.8% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 130 48% 25%;
-    --input: 130 48% 25%;
+    --border: 222 47% 20%;
+    --input: 222 47% 18%;
     --ring: 130 55% 45%;
 
-    --sidebar-background: 130 48% 19%;
+    --sidebar-background: 222 47% 9%;
     --sidebar-foreground: 0 0% 100%;
     --sidebar-primary: 130 55% 45%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 130 48% 25%;
+    --sidebar-accent: 222 47% 16%;
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 130 48% 25%;
+    --sidebar-border: 222 47% 18%;
     --sidebar-ring: 130 55% 45%;
 
     --chart-1: 130 55% 45%;
@@ -103,6 +97,10 @@ All colors MUST be HSL.
     --chart-3: 130 35% 75%;
     --chart-4: 130 25% 85%;
     --chart-5: 130 15% 90%;
+
+    --success: 142 76% 36%;
+    --warning: 45 93% 47%;
+    --info: 221 83% 53%;
   }
 }
 
@@ -132,7 +130,6 @@ All colors MUST be HSL.
   animation: fireworks 0.6s ease-out;
 }
 
-
 @layer base {
   * {
     @apply border-border;
@@ -140,5 +137,55 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+  }
+
+  .dark input,
+  .dark select,
+  .dark textarea {
+    background-color: hsl(222, 47%, 16%);
+    border-color: hsl(222, 47%, 22%);
+    color: white;
+  }
+
+  .dark [data-radix-popper-content-wrapper]>* {
+    background-color: hsl(222, 47%, 13%) !important;
+    border-color: hsl(222, 47%, 20%) !important;
+    color: white !important;
+  }
+
+  .dark table {
+    background-color: hsl(222, 47%, 13%);
+  }
+
+  .dark thead {
+    background-color: hsl(222, 47%, 11%);
+  }
+
+  .dark tr {
+    border-color: hsl(222, 47%, 20%);
+  }
+
+  .dark td,
+  .dark th {
+    color: rgb(226, 232, 240);
+    border-color: hsl(222, 47%, 20%);
+  }
+
+  .dark ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .dark ::-webkit-scrollbar-track {
+    background: hsl(222, 47%, 11%);
+  }
+
+  .dark ::-webkit-scrollbar-thumb {
+    background: hsl(222, 47%, 25%);
+    border-radius: 3px;
+  }
+
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background: hsl(222, 47%, 35%);
   }
 }
