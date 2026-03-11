@@ -53,8 +53,12 @@ const navigation = [
       { name: "Balanço", href: "/dashboard/visao", icon: DollarSign, darkColor: "text-yellow-300", lightColor: "text-white" },
     ],
   },
+
   { name: "Relatórios", href: "/dashboard/relatorios", icon: BarChart3, darkColor: "text-indigo-400", lightColor: "text-white" },
-];
+
+  { name: "Configurações", href: "/dashboard/configuracoes", icon: Home, darkColor: "text-gray-400", lightColor: "text-white" },
+]
+  ;
 
 export const Sidebar = () => {
   const [openMenu, setOpenMenu] = useState<string | null>(null);

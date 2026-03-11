@@ -37,6 +37,7 @@ import ClientePerfil from "./pages/ClientePerfil"; // <<< IMPORTAÇÃO ADICIONAD
 import { supabase } from "./lib/supabaseClient";
 import Balanco from "./pages/Financeiro";
 import Visao from "./pages/Visao";
+import Configuracoes from "./pages/Configuracoes";
 
 const queryClient = new QueryClient();
 
@@ -118,7 +119,7 @@ function App() {
                   <Tarafas />
                 </ProtectedRoute>
               }
-            />
+            />w
 
             {/* PERFIL INDIVIDUAL DO CLIENTE (NOVA ROTA) */}
             <Route
@@ -235,6 +236,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <Servicos />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/configuracoes"
+              element={
+                <ProtectedRoute>
+                  <Configuracoes />
                 </ProtectedRoute>
               }
             />
