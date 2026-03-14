@@ -101,7 +101,7 @@ function Avatar({ nome }: { nome: string }) {
     );
 }
 
-// ─── Campo de input reutilizável ──────────────────────────────────────────────
+
 function Field({
     label, value, onChange, type = "text", placeholder = "", required = false,
 }: {
@@ -124,9 +124,9 @@ function Field({
     );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
+
 // ABA EQUIPE
-// ═══════════════════════════════════════════════════════════════════════════════
+
 function TabEquipe() {
     const [colaboradores, setColaboradores] = useState<Colaborador[]>([]);
     const [loading, setLoading] = useState(true);
@@ -373,9 +373,9 @@ function TabEquipe() {
     );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
+
 // ABA EMPRESA
-// ═══════════════════════════════════════════════════════════════════════════════
+
 function TabEmpresa() {
     const [emp, setEmp] = useState<Empresa>(EMP_VAZIO);
     const [empId, setEmpId] = useState<string | null>(null);
@@ -491,12 +491,10 @@ function TabEmpresa() {
     );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// PÁGINA PRINCIPAL
-// ═══════════════════════════════════════════════════════════════════════════════
+
 const TABS = [
     { id: "equipe", label: "Equipe" },
-    { id: "empresa", label: "Empresa" },
+    //{ id: "empresa", label: "Empresa" },
 ];
 
 export default function Configuracoes() {
