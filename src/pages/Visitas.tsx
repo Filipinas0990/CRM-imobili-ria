@@ -34,8 +34,10 @@ import { cn } from "@/lib/utils";
 import {
   format,
   isSameDay,
-  addDays,
-  startOfWeek,
+  isSameMonth,
+  startOfMonth,
+  endOfMonth,
+  eachDayOfInterval,
   isToday,
   isBefore,
   startOfDay,
@@ -118,13 +120,9 @@ export default function Agenda() {
   const [visitas, setVisitas] = useState<Visita[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [imoveis, setImoveis] = useState<Imovel[]>([]);
-  const [semanaAtual, setSemanaAtual] = useState<Date>(
-    startOfWeek(new Date(), { weekStartsOn: 1 })
-  );
+  const [mesAtual, setMesAtual] = useState<Date>(startOfMonth(new Date()));
   const [dialogAberto, setDialogAberto] = useState(false);
-  const [visitaSelecionada, setVisitaSelecionada] = useState<Visita | null>(
-    null
-  );
+  const [visitaSelecionada, setVisitaSelecionada] = useState<Visita | null>(null);
   const [filtroStatus, setFiltroStatus] = useState<string>("todas");
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
@@ -209,17 +207,17 @@ export default function Agenda() {
     }
   };
 
-  const diasSemana = Array.from({ length: 7 }, (_, i) =>
-    addDays(semanaAtual, i)
-  );
+  const diasDoMes = eachDayOfInterval({
+    start: startOfMonth(mesAtual),
+    end: endOfMonth(mesAtual),
+  });
 
   const visitasData = (data: Date) =>
     visitas
       .filter((v) => isSameDay(v.data, data))
       .filter((v) => filtroStatus === "todas" || v.status === filtroStatus);
 
-  const handleHoje = () =>
-    setSemanaAtual(startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const handleHoje = () => setMesAtual(startOfMonth(new Date()));
 
   const handleCriarVisita = async () => {
     if (!novaVisita.lead_id || !novaVisita.imovel_id) {
@@ -256,10 +254,7 @@ export default function Agenda() {
     }
   };
 
-  const handleAtualizarStatus = async (
-    id: string,
-    status: Visita["status"]
-  ) => {
+  const handleAtualizarStatus = async (id: string, status: Visita["status"]) => {
     setVisitas(visitas.map((v) => (v.id === id ? { ...v, status } : v)));
     if (visitaSelecionada?.id === id) {
       setVisitaSelecionada({ ...visitaSelecionada, status });
@@ -284,18 +279,11 @@ export default function Agenda() {
   const visitasHoje = visitas.filter(
     (v) => isSameDay(v.data, hoje) && v.status !== "cancelada"
   ).length;
-  const visitasSemana = visitas.filter(
-    (v) =>
-      v.data >= semanaAtual &&
-      v.data < addDays(semanaAtual, 7) &&
-      v.status !== "cancelada"
+  const visitasMes = visitas.filter(
+    (v) => isSameMonth(v.data, mesAtual) && v.status !== "cancelada"
   ).length;
-  const visitasPendentes = visitas.filter(
-    (v) => v.status === "agendada"
-  ).length;
-  const visitasConfirmadas = visitas.filter(
-    (v) => v.status === "confirmada"
-  ).length;
+  const visitasPendentes = visitas.filter((v) => v.status === "agendada").length;
+  const visitasConfirmadas = visitas.filter((v) => v.status === "confirmada").length;
 
   const VisitaCard = ({ visita }: { visita: Visita }) => {
     const config = statusConfig[visita.status];
@@ -316,9 +304,7 @@ export default function Agenda() {
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-2">
-                <Badge
-                  className={cn("text-xs font-medium border", config.color)}
-                >
+                <Badge className={cn("text-xs font-medium border", config.color)}>
                   {config.label}
                 </Badge>
               </div>
@@ -383,6 +369,7 @@ export default function Agenda() {
           </Button>
         </div>
 
+        {/* CARDS DE RESUMO */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
             <CardContent className="p-4">
@@ -401,10 +388,8 @@ export default function Agenda() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Esta Semana</p>
-                  <p className="text-2xl font-bold text-blue-600">
-                    {visitasSemana}
-                  </p>
+                  <p className="text-sm text-muted-foreground">Este Mês</p>
+                  <p className="text-2xl font-bold text-blue-600">{visitasMes}</p>
                 </div>
                 <div className="h-10 w-10 rounded-full bg-blue-500/10 flex items-center justify-center">
                   <CalendarCheck className="h-5 w-5 text-blue-600" />
@@ -417,9 +402,7 @@ export default function Agenda() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Aguardando</p>
-                  <p className="text-2xl font-bold text-amber-600">
-                    {visitasPendentes}
-                  </p>
+                  <p className="text-2xl font-bold text-amber-600">{visitasPendentes}</p>
                 </div>
                 <div className="h-10 w-10 rounded-full bg-amber-500/10 flex items-center justify-center">
                   <Clock className="h-5 w-5 text-amber-600" />
@@ -432,9 +415,7 @@ export default function Agenda() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Confirmadas</p>
-                  <p className="text-2xl font-bold text-emerald-600">
-                    {visitasConfirmadas}
-                  </p>
+                  <p className="text-2xl font-bold text-emerald-600">{visitasConfirmadas}</p>
                 </div>
                 <div className="h-10 w-10 rounded-full bg-emerald-500/10 flex items-center justify-center">
                   <Check className="h-5 w-5 text-emerald-600" />
@@ -444,13 +425,14 @@ export default function Agenda() {
           </Card>
         </div>
 
+        {/* NAVEGAÇÃO */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <Button variant="outline" size="sm" onClick={handleHoje}>
               Hoje
             </Button>
             <span className="text-lg font-semibold capitalize">
-              {format(semanaAtual, "MMMM yyyy", { locale: ptBR })}
+              {format(mesAtual, "MMMM yyyy", { locale: ptBR })}
             </span>
           </div>
           <Select value={filtroStatus} onValueChange={setFiltroStatus}>
@@ -467,14 +449,17 @@ export default function Agenda() {
           </Select>
         </div>
 
+        {/* CALENDÁRIO + LISTA */}
         <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
           <Card className="h-fit">
             <CardContent className="p-4">
               <Calendar
                 mode="single"
-                selected={semanaAtual}
+                selected={undefined}
+                month={mesAtual}
+                onMonthChange={(date) => setMesAtual(startOfMonth(date))}
                 onSelect={(date) =>
-                  date && setSemanaAtual(startOfWeek(date, { weekStartsOn: 1 }))
+                  date && setMesAtual(startOfMonth(date))
                 }
                 locale={ptBR}
                 className="pointer-events-auto"
@@ -488,10 +473,8 @@ export default function Agenda() {
             </CardContent>
           </Card>
 
-
-
           <div className="space-y-4">
-            {diasSemana.map((dia) => {
+            {diasDoMes.map((dia) => {
               const visitasNoDia = visitasData(dia);
               const ehHoje = isToday(dia);
 
@@ -564,14 +547,14 @@ export default function Agenda() {
               );
             })}
 
-            {diasSemana.every(
+            {diasDoMes.every(
               (dia) => visitasData(dia).length === 0 && !isToday(dia)
             ) && (
                 <Card className="border-dashed">
                   <CardContent className="p-8 text-center">
                     <CalendarCheck className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
                     <p className="text-lg font-medium text-muted-foreground">
-                      Nenhuma visita esta semana
+                      Nenhuma visita este mês
                     </p>
                     <p className="text-sm text-muted-foreground mt-1">
                       Use o calendário para navegar ou agende uma nova visita
@@ -585,9 +568,9 @@ export default function Agenda() {
               )}
           </div>
         </div>
-
       </main>
 
+      {/* DIALOG NOVA VISITA */}
       <Dialog open={dialogAberto} onOpenChange={setDialogAberto}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
@@ -722,6 +705,7 @@ export default function Agenda() {
         </DialogContent>
       </Dialog>
 
+      {/* DIALOG DETALHES DA VISITA */}
       <Dialog
         open={!!visitaSelecionada}
         onOpenChange={(open) => !open && setVisitaSelecionada(null)}
@@ -775,9 +759,7 @@ export default function Agenda() {
                         <User className="h-5 w-5 text-primary" />
                       </div>
                       <div>
-                        <p className="font-medium">
-                          {visitaSelecionada.clienteNome}
-                        </p>
+                        <p className="font-medium">{visitaSelecionada.clienteNome}</p>
                         <p className="text-sm text-muted-foreground">
                           {visitaSelecionada.clienteTelefone}
                         </p>
@@ -802,9 +784,7 @@ export default function Agenda() {
                     <div className="flex items-start gap-3">
                       <Home className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
                       <div>
-                        <p className="font-medium">
-                          {visitaSelecionada.imovelNome}
-                        </p>
+                        <p className="font-medium">{visitaSelecionada.imovelNome}</p>
                         <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
                           <MapPin className="h-3.5 w-3.5" />
                           {visitaSelecionada.imovelEndereco}
@@ -832,10 +812,7 @@ export default function Agenda() {
                     <Button
                       className="flex-1"
                       onClick={() =>
-                        handleAtualizarStatus(
-                          visitaSelecionada.id,
-                          "confirmada"
-                        )
+                        handleAtualizarStatus(visitaSelecionada.id, "confirmada")
                       }
                     >
                       <Check className="h-4 w-4 mr-2" />
