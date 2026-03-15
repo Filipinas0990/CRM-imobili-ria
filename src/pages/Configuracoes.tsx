@@ -19,12 +19,12 @@ import { Pencil, Trash2, Users, UserCheck, UserX, Building2, Upload } from "luci
 import { Sidebar } from "@/components/Sidebar";
 import { useToast } from "@/components/ui/use-toast";
 
-import { getColaboradores } from "@/integrations/supabase/Configurações/Getcolaboradores";
-import { createColaborador } from "@/integrations/supabase/Configurações/Createcolaborador";
-import { updateColaborador } from "@/integrations/supabase/Configurações/updateColaborador";
-import { deleteColaborador } from "@/integrations/supabase/Configurações/deleteColaborador";
-import { getEmpresa } from "@/integrations/supabase/Configurações/geteEmpresa";
-import { upsertEmpresa } from "@/integrations/supabase/Configurações/upsertEmpresa";
+import { getColaboradores } from "@/integrations/supabase/Configuracoes/Getcolaboradores";
+import { createColaborador } from "@/integrations/supabase/Configuracoes/Createcolaborador";
+import { updateColaborador } from "@/integrations/supabase/Configuracoes/updateColaborador";
+import { deleteColaborador } from "@/integrations/supabase/Configuracoes/deleteColaborador";
+import { getEmpresa } from "@/integrations/supabase/Configuracoes/geteEmpresa";
+import { upsertEmpresa } from "@/integrations/supabase/Configuracoes/Upsertempresa";
 
 type Colaborador = {
     id: string;
