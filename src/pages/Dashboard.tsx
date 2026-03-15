@@ -1,33 +1,35 @@
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Sidebar } from "@/components/Sidebar";
 import LogoutButton from "@/components/LogoutButton";
-
-import { Wallet } from "lucide-react";
-
-
-import { getDashboardStats } from "../integrations/supabase/dashoboard/integrations/supabase/dashboard/getDashboardStats";
-
-import { getUpcomingVisits } from "../integrations/supabase/dashoboard/integrations/supabase/dashboard/getUpcomingVisits";
-
-import { getVendas } from "@/integrations/supabase/vendas/getVendas";
-import { getSaldoFinanceiro } from "@/integrations/supabase/Financeiros/getSaldoFinanceiro";
-import { getRecentAtividades } from "@/integrations/supabase/atividades/getRecentAtividades";
-
-
-
-
-
 import {
+  Wallet,
   Users,
   Building2,
-
   CheckCircle2,
   Clock,
-
-  DollarSign,
-  FileText
 } from "lucide-react";
+
+import { getDashboardStats } from "../integrations/supabase/dashoboard/integrations/supabase/dashboard/getDashboardStats";
+import { getUpcomingVisits } from "../integrations/supabase/dashoboard/integrations/supabase/dashboard/getUpcomingVisits";
+import { getVendas } from "@/integrations/supabase/vendas/getVendas";
+import { getSaldoFinanceiro } from "@/integrations/supabase/Financeiros/getSaldoFinanceiro";
+import { getLeads } from "@/integrations/supabase/leads/getLeads";
+
+// Etapas espelhando exatamente o Kanban (PipelineLeads.tsx)
+const ETAPAS = [
+  { id: "novo", title: "Leads Novos", color: "bg-blue-500" },
+  { id: "contato", title: "Em Contato", color: "bg-yellow-500" },
+  { id: "Visista", title: "Visita Marcada", color: "bg-orange-500" },
+  { id: "Proposta", title: "Proposta Enviada", color: "bg-green-600" },
+  { id: "desistiu", title: "Cliente Desistiu", color: "bg-red-500" },
+];
 
 const Dashboard = () => {
   const [statsData, setStatsData] = useState({
@@ -35,65 +37,40 @@ const Dashboard = () => {
     totalProperties: 0,
     totalDeals: 0,
   });
-
   const [vendas, setVendas] = useState<any[]>([]);
-
-
-
-
-  const [recentActivities, setRecentActivities] = useState<any[]>([]);
+  const [leads, setLeads] = useState<any[]>([]);
   const [upcomingVisits, setUpcomingVisits] = useState<any[]>([]);
   const [saldoFinanceiro, setSaldoFinanceiro] = useState(0);
   const [loading, setLoading] = useState(true);
 
-
-
-
   useEffect(() => {
     async function loadDashboard() {
       try {
-        const stats = await getDashboardStats();
+        const [stats, visits, vendasData, leadsData, saldo] = await Promise.all([
+          getDashboardStats(),
+          getUpcomingVisits(),
+          getVendas(),
+          getLeads(),
+          getSaldoFinanceiro(),
+        ]);
 
-
-
-
-        const visits = await getUpcomingVisits();
-        const vendasData = await getVendas();
-        const activities = await getRecentAtividades();
-        console.log("ATIVIDADES RAW:", activities);
-
-
-
-
-
-
-
-
-        setVendas(vendasData || []);
         setStatsData(stats);
-        setRecentActivities(activities);
         setUpcomingVisits(visits);
-        const saldo = await getSaldoFinanceiro();
+        setVendas(vendasData || []);
+        setLeads(leadsData || []);
         setSaldoFinanceiro(saldo);
-
       } catch (error) {
         console.error("Erro ao carregar dashboard:", error);
       } finally {
-        setLoading(false); // 🔥 ESSENCIAL
+        setLoading(false);
       }
-
     }
 
     loadDashboard();
   }, []);
 
-  const conversionRate =
-    statsData.totalLeads > 0
-      ? Math.round((statsData.totalDeals / statsData.totalLeads) * 100)
-      : 0;
-  const totalDeals = vendas.filter(
-    (v) => v.status === "Fechada"
-  ).length;
+  const totalDeals = vendas.filter((v) => v.status === "Fechada").length;
+  const totalLeadsGeral = leads.length > 0 ? leads.length : 1; // evita divisão por zero
 
   const stats = [
     {
@@ -120,7 +97,6 @@ const Dashboard = () => {
       icon: Wallet,
       color: "text-success",
     },
-
     {
       title: "Negócios Fechados",
       value: totalDeals,
@@ -128,8 +104,8 @@ const Dashboard = () => {
       icon: CheckCircle2,
       color: "text-success",
     },
-
   ];
+
   if (loading) {
     return (
       <div className="flex min-h-screen bg-background">
@@ -146,13 +122,14 @@ const Dashboard = () => {
     );
   }
 
-
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar />
 
       <main className="ml-16 w-full overflow-y-auto">
         <div className="p-8">
+
+          {/* HEADER */}
           <div className="mb-8 flex justify-between items-start">
             <div>
               <h1 className="text-3xl font-bold text-foreground mb-2">
@@ -165,7 +142,7 @@ const Dashboard = () => {
             <LogoutButton />
           </div>
 
-          {/* STATS */}
+          {/* CARDS DE STATS */}
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
             {stats.map((stat, index) => (
               <Card key={index}>
@@ -188,34 +165,51 @@ const Dashboard = () => {
           </div>
 
           <div className="grid gap-6 lg:grid-cols-2">
-            {/* ÚLTIMAS ATIVIDADES */}
+
+            {/* FUNIL DE VENDAS */}
             <Card>
               <CardHeader>
-                <CardTitle>Últimas Atividades</CardTitle>
+                <CardTitle>Funil de Vendas</CardTitle>
                 <CardDescription>
-                  Acompanhe as ações mais recentes
+                  Distribuição dos leads por etapa
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {recentActivities.map((activity, index) => (
-                  <div key={index} className="flex items-start gap-4">
-                    <div className="rounded-full bg-primary/10 p-2">
-                      <FileText className="h-4 w-4 text-primary" />
+                {ETAPAS.map((etapa) => {
+                  const count = leads.filter(
+                    (l) => l.status === etapa.id
+                  ).length;
+                  const percent = Math.round(
+                    (count / totalLeadsGeral) * 100
+                  );
+
+                  return (
+                    <div key={etapa.id}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-medium">
+                          {etapa.title}
+                        </span>
+                        <span className="text-sm text-muted-foreground">
+                          {count} lead{count !== 1 ? "s" : ""}
+                        </span>
+                      </div>
+                      <div className="w-full bg-muted rounded-full h-2">
+                        <div
+                          className={`${etapa.color} h-2 rounded-full transition-all duration-500`}
+                          style={{ width: `${percent}%` }}
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium">
-                        {activity.title}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {activity.description}
-                      </p>
-                      <p className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {new Date(activity.created_at).toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
+
+                {/* Totalizador */}
+                <div className="pt-3 border-t flex justify-between text-xs text-muted-foreground">
+                  <span>Total de leads no funil</span>
+                  <span className="font-semibold text-foreground">
+                    {leads.length}
+                  </span>
+                </div>
               </CardContent>
             </Card>
 
@@ -223,40 +217,44 @@ const Dashboard = () => {
             <Card>
               <CardHeader>
                 <CardTitle>Próximas Visitas</CardTitle>
-                <CardDescription>
-                  Suas visitas agendadas
-                </CardDescription>
+                <CardDescription>Suas visitas agendadas</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {upcomingVisits.map((visit, index) => (
-                  <div
-                    key={index}
-                    className="flex gap-4 p-3 rounded-lg border bg-card"
-                  >
-                    <div className="flex flex-col items-center justify-center bg-primary/10 rounded-lg px-3 py-2 min-w-[60px]">
-                      <span className="text-xs font-medium text-primary">
-                        {visit.date}
-                      </span>
-                      <span className="text-lg font-bold text-primary">
-                        {visit.time}
-                      </span>
+                {upcomingVisits.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Nenhuma visita agendada.
+                  </p>
+                ) : (
+                  upcomingVisits.map((visit, index) => (
+                    <div
+                      key={index}
+                      className="flex gap-4 p-3 rounded-lg border bg-card"
+                    >
+                      <div className="flex flex-col items-center justify-center bg-primary/10 rounded-lg px-3 py-2 min-w-[60px]">
+                        <span className="text-xs font-medium text-primary">
+                          {visit.date}
+                        </span>
+                        <span className="text-lg font-bold text-primary">
+                          {visit.time}
+                        </span>
+                      </div>
+                      <div className="flex flex-col justify-center">
+                        <p className="text-sm font-medium">{visit.title}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {visit.location}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium">{visit.title}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {visit.location}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </CardContent>
             </Card>
+
           </div>
         </div>
       </main>
     </div>
   );
 };
-
 
 export default Dashboard;
