@@ -16,8 +16,8 @@ import {
   Clock,
 } from "lucide-react";
 
-import { getDashboardStats } from "@/integrations/supabase/dashoboard/integrations/supabase/dashboard/getDashboardStats";
-import { getUpcomingVisits } from "@/integrations/supabase/dashoboard/integrations/supabase/dashboard/getUpcomingVisits";
+import { getDashboardStats } from "@/integrations/supabase/dashoboard/getDashboardStats";
+import { getUpcomingVisits } from "@/integrations/supabase/dashoboard/getUpcomingVisits";
 import { getVendas } from "@/integrations/supabase/vendas/getVendas";
 import { getSaldoFinanceiro } from "@/integrations/supabase/Financeiros/getSaldoFinanceiro";
 import { getLeads } from "@/integrations/supabase/leads/getLeads";
