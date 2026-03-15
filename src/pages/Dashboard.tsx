@@ -16,13 +16,13 @@ import {
   Clock,
 } from "lucide-react";
 
-import { getDashboardStats } from "../integrations/supabase/dashoboard/integrations/supabase/dashboard/getDashboardStats";
-import { getUpcomingVisits } from "../integrations/supabase/dashoboard/integrations/supabase/dashboard/getUpcomingVisits";
+import { getDashboardStats } from "@/integrations/supabase/dashoboard/integrations/supabase/dashboard/getDashboardStats";
+import { getUpcomingVisits } from "@/integrations/supabase/dashoboard/integrations/supabase/dashboard/getUpcomingVisits";
 import { getVendas } from "@/integrations/supabase/vendas/getVendas";
 import { getSaldoFinanceiro } from "@/integrations/supabase/Financeiros/getSaldoFinanceiro";
 import { getLeads } from "@/integrations/supabase/leads/getLeads";
 
-// Etapas espelhando exatamente o Kanban (PipelineLeads.tsx)
+
 const ETAPAS = [
   { id: "novo", title: "Leads Novos", color: "bg-blue-500" },
   { id: "contato", title: "Em Contato", color: "bg-yellow-500" },
