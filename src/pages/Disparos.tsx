@@ -3,14 +3,14 @@ import { Sidebar } from "@/components/Sidebar";
 import {
     Send, Users, MessageCircle, CheckSquare, Search,
     Loader2, AlertCircle, CheckCircle2, Zap, RefreshCw,
-    ChevronRight, Info
+    Info
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 const PROXY_URL = `${import.meta.env.VITE_SUPABASE_FUNCTIONS_URL}/evolution-proxy`;
 const DAILY_LIMIT = 10;
 
-// ── Types ──────────────────────────────────────────────────────────────────
+
 interface Lead {
     id: string;
     nome: string;
@@ -29,7 +29,7 @@ interface DisparoLog {
     message_preview: string;
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────
+
 function formatPhoneForEvo(phone: string): string {
     const digits = phone.replace(/\D/g, "");
     return digits.startsWith("55") ? digits : `55${digits}`;
@@ -68,7 +68,25 @@ const statusLabels: Record<string, string> = {
     proposta: "Proposta", fechado: "Fechado", perdido: "Perdido",
 };
 
-// ── Component ──────────────────────────────────────────────────────────────
+
+const avatarColors = [
+    "#4F86F7", "#7C5CBF", "#E05FA0",
+    "#F4874B", "#2BBFA4", "#5B6FD6",
+    "#E05555", "#29B8D4", "#3DBD7D", "#F0B429",
+];
+
+function getAvatarColor(id: string) {
+    const sum = id.replace(/-/g, "").split("").reduce((acc, c) => acc + (parseInt(c) || 0), 0);
+    return avatarColors[sum % avatarColors.length];
+}
+
+function getInitials(name: string) {
+    const clean = name.trim();
+    if (!clean) return "?";
+    return clean.split(" ").slice(0, 2).map((n) => n[0] ?? "").join("").toUpperCase();
+}
+
+
 const Disparo = () => {
     const [leads, setLeads] = useState<Lead[]>([]);
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -84,7 +102,7 @@ const Disparo = () => {
     const [resultados, setResultados] = useState<{ success: number; fail: number } | null>(null);
     const [connStatus, setConnStatus] = useState<"checking" | "connected" | "disconnected">("checking");
 
-    // ── Init ──────────────────────────────────────────────────────────────
+
     useEffect(() => {
         async function init() {
             const { data: { user } } = await supabase.auth.getUser();
@@ -99,7 +117,7 @@ const Disparo = () => {
                 .single();
             setInstanceName(inst?.instance_name ?? instName);
 
-            // Buscar leads
+
             setLoadingLeads(true);
             const { data: leadsData } = await supabase
                 .from("leads")
@@ -109,13 +127,13 @@ const Disparo = () => {
             setLeads(leadsData ?? []);
             setLoadingLeads(false);
 
-            // Disparos de hoje (global)
+
             await fetchDisparosHoje();
         }
         init();
     }, []);
 
-    // Check connection
+
     useEffect(() => {
         if (!instanceName) return;
         async function checkConn() {
@@ -140,7 +158,7 @@ const Disparo = () => {
 
         const hoje = new Date().toISOString().split("T")[0];
 
-        // Contagem global do dia (todos os usuários) para o limite de 10/dia
+
         const { count } = await supabase
             .from("disparo_logs")
             .select("*", { count: "exact", head: true })
@@ -148,7 +166,7 @@ const Disparo = () => {
             .lte("sent_at", `${hoje}T23:59:59`);
         setDisparosHoje(count ?? 0);
 
-        // Logs do usuário logado (RLS já filtra automaticamente)
+
         const { data } = await supabase
             .from("disparo_logs")
             .select("*")
@@ -158,7 +176,7 @@ const Disparo = () => {
         setLogs(data ?? []);
     }, []);
 
-    // ── Selection ─────────────────────────────────────────────────────────
+
     const remaining = DAILY_LIMIT - disparosHoje;
     const canSelect = Math.max(0, remaining);
 
@@ -185,13 +203,13 @@ const Disparo = () => {
         }
     };
 
-    // ── Personalise ───────────────────────────────────────────────────────
+
     const personalizeMsg = (lead: Lead) =>
         message
             .replace(/\{nome\}/g, lead.nome?.split(" ")[0] ?? "")
             .replace(/\{interesse\}/g, lead.interesse ?? "imóvel");
 
-    // ── Send ──────────────────────────────────────────────────────────────
+
     const handleDisparo = async () => {
         if (!instanceName || selectedIds.length === 0) return;
         if (disparosHoje >= DAILY_LIMIT) return;
@@ -221,7 +239,7 @@ const Disparo = () => {
                 const ok = res.ok;
                 ok ? success++ : fail++;
 
-                // Salvar log com user_id (exigido pelo RLS)
+
                 await supabase.from("disparo_logs").insert({
                     user_id: userId,
                     lead_id: lead.id,
@@ -258,7 +276,7 @@ const Disparo = () => {
         await fetchDisparosHoje();
     };
 
-    // ── UI ────────────────────────────────────────────────────────────────
+
     const selectedLeads = leads.filter((l) => selectedIds.includes(l.id));
     const previewLead = selectedLeads[0] ?? filteredLeads[0];
     const limitReached = disparosHoje >= DAILY_LIMIT;
@@ -269,7 +287,7 @@ const Disparo = () => {
 
             <div className="ml-16 flex-1 flex flex-col overflow-hidden">
 
-                {/* ── Header ── */}
+
                 <div className="h-16 bg-white dark:bg-[#1a1d27] border-b border-gray-200 dark:border-[#2a2f45] flex items-center px-8 justify-between shrink-0">
                     <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-xl bg-green-50 dark:bg-green-900/20 flex items-center justify-center">
@@ -282,7 +300,7 @@ const Disparo = () => {
                     </div>
 
                     <div className="flex items-center gap-3">
-                        {/* Connection badge */}
+
                         <span className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-medium
                             ${connStatus === "connected"
                                 ? "bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400"
@@ -294,7 +312,7 @@ const Disparo = () => {
                             {connStatus === "connected" ? "Conectado" : connStatus === "disconnected" ? "Desconectado" : "Verificando..."}
                         </span>
 
-                        {/* Daily counter */}
+
                         <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium
                             ${limitReached
                                 ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
@@ -313,10 +331,10 @@ const Disparo = () => {
                     </div>
                 </div>
 
-                {/* ── Body ── */}
+
                 <div className="flex-1 overflow-auto p-5">
 
-                    {/* Limit alert */}
+
                     {limitReached && (
                         <div className="mb-4 flex items-center gap-3 p-4 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800/30 rounded-xl text-sm text-red-600 dark:text-red-400">
                             <AlertCircle className="w-5 h-5 shrink-0" />
@@ -324,7 +342,7 @@ const Disparo = () => {
                         </div>
                     )}
 
-                    {/* Disconnected alert */}
+
                     {connStatus === "disconnected" && (
                         <div className="mb-4 flex items-center gap-3 p-4 bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-800/30 rounded-xl text-sm text-yellow-700 dark:text-yellow-400">
                             <AlertCircle className="w-5 h-5 shrink-0" />
@@ -332,7 +350,7 @@ const Disparo = () => {
                         </div>
                     )}
 
-                    {/* Result banner */}
+
                     {resultados && (
                         <div className="mb-4 flex items-center gap-3 p-4 bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800/30 rounded-xl text-sm">
                             <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400 shrink-0" />
@@ -346,10 +364,10 @@ const Disparo = () => {
 
                     <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
 
-                        {/* ── Left: Lead list ── */}
+
                         <div className="xl:col-span-2 space-y-4">
 
-                            {/* Stats row */}
+
                             <div className="grid grid-cols-3 gap-4">
                                 {[
                                     { icon: Users, label: "Total de leads", value: leads.length, color: "blue" },
@@ -376,7 +394,7 @@ const Disparo = () => {
                                 ))}
                             </div>
 
-                            {/* Search + select all */}
+
                             <div className="flex gap-3">
                                 <div className="relative flex-1">
                                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -398,7 +416,7 @@ const Disparo = () => {
                                 </button>
                             </div>
 
-                            {/* Leads table */}
+
                             <div className="bg-white dark:bg-[#1a1d27] rounded-2xl border border-gray-200 dark:border-[#2a2f45] shadow-sm overflow-hidden">
                                 <div className="max-h-[420px] overflow-y-auto [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:bg-gray-200 dark:[&::-webkit-scrollbar-thumb]:bg-gray-600">
                                     {loadingLeads ? (
@@ -414,33 +432,65 @@ const Disparo = () => {
                                         filteredLeads.map((lead) => {
                                             const isSelected = selectedIds.includes(lead.id);
                                             const isDisabled = !isSelected && (selectedIds.length >= canSelect || limitReached);
+                                            const avatarColor = getAvatarColor(lead.id);
+                                            const initials = getInitials(lead.nome ?? "");
                                             return (
                                                 <label
                                                     key={lead.id}
-                                                    className={`flex items-center gap-4 px-5 py-3.5 border-b border-gray-50 dark:border-[#22263a] last:border-0 transition-colors cursor-pointer
-                                                        ${isSelected ? "bg-blue-50/60 dark:bg-[#1e2d4a]" : isDisabled ? "opacity-40" : "hover:bg-gray-50 dark:hover:bg-[#22263a]"}`}
+                                                    className={`flex items-center gap-3 px-4 py-3.5 border-b border-gray-50 dark:border-[#22263a] last:border-0 transition-all cursor-pointer
+                                                        ${isSelected
+                                                            ? "bg-blue-50 dark:bg-[#1e2d4a] border-l-2 border-l-blue-500"
+                                                            : isDisabled
+                                                                ? "opacity-40 cursor-not-allowed"
+                                                                : "hover:bg-gray-50 dark:hover:bg-[#22263a]"
+                                                        }`}
                                                 >
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={isSelected}
-                                                        disabled={isDisabled}
-                                                        onChange={(e) => handleSelectOne(lead.id, e.target.checked)}
-                                                        className="w-4 h-4 accent-blue-600 cursor-pointer disabled:cursor-not-allowed"
-                                                    />
+
+                                                    <div
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            if (!isDisabled) handleSelectOne(lead.id, !isSelected);
+                                                        }}
+                                                        className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all
+                                                            ${isSelected
+                                                                ? "bg-blue-600 border-blue-600"
+                                                                : "border-gray-300 dark:border-gray-600 bg-white dark:bg-[#22263a]"
+                                                            }`}
+                                                    >
+                                                        {isSelected && (
+                                                            <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 12 12">
+                                                                <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                                            </svg>
+                                                        )}
+                                                    </div>
+
+
+                                                    <div
+                                                        className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-white text-sm font-bold select-none"
+                                                        style={{ backgroundColor: avatarColor }}
+                                                    >
+                                                        {initials}
+                                                    </div>
+
+
                                                     <div className="flex-1 min-w-0">
-                                                        <p className={`font-semibold text-sm ${isSelected ? "text-blue-600 dark:text-blue-400" : "text-gray-800 dark:text-gray-100"}`}>
+                                                        <p className={`font-semibold text-sm truncate leading-tight
+                                                            ${isSelected ? "text-blue-600 dark:text-blue-400" : "text-gray-800 dark:text-gray-100"}`}>
                                                             {lead.nome}
                                                         </p>
-                                                        <p className="text-xs text-gray-400 dark:text-gray-500 truncate">
-                                                            {lead.telefone}{lead.interesse ? ` · ${lead.interesse}` : ""}
+                                                        <p className="text-xs text-gray-400 dark:text-gray-500 truncate mt-0.5">
+                                                            {lead.telefone}
+                                                            {lead.interesse ? <span className="text-gray-300 dark:text-gray-600"> · </span> : ""}
+                                                            {lead.interesse}
                                                         </p>
                                                     </div>
+
+                                                    {/* Status badge */}
                                                     {lead.status && (
-                                                        <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${statusColors[lead.status] ?? "bg-gray-100 text-gray-500"}`}>
+                                                        <span className={`text-xs px-2.5 py-1 rounded-full font-medium shrink-0 ${statusColors[lead.status] ?? "bg-gray-100 dark:bg-gray-700 text-gray-500"}`}>
                                                             {statusLabels[lead.status] ?? lead.status}
                                                         </span>
                                                     )}
-                                                    {isSelected && <ChevronRight className="w-4 h-4 text-blue-500 dark:text-blue-400 shrink-0" />}
                                                 </label>
                                             );
                                         })
@@ -449,14 +499,13 @@ const Disparo = () => {
                             </div>
                         </div>
 
-                        {/* ── Right: Message + send ── */}
+
                         <div className="space-y-4">
 
-                            {/* Message card */}
                             <div className="bg-white dark:bg-[#1a1d27] rounded-2xl border border-gray-200 dark:border-[#2a2f45] shadow-sm p-5 space-y-4">
                                 <h2 className="text-sm font-bold text-gray-900 dark:text-gray-100">Mensagem</h2>
 
-                                {/* Templates */}
+
                                 <div>
                                     <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">Templates rápidos</p>
                                     <div className="flex flex-wrap gap-2">
@@ -476,7 +525,7 @@ const Disparo = () => {
                                     </div>
                                 </div>
 
-                                {/* Textarea */}
+
                                 <div>
                                     <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">Sua mensagem</p>
                                     <textarea
@@ -492,7 +541,7 @@ const Disparo = () => {
                                     </p>
                                 </div>
 
-                                {/* Preview */}
+
                                 {previewLead && (
                                     <div>
                                         <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">Preview</p>
@@ -502,7 +551,7 @@ const Disparo = () => {
                                     </div>
                                 )}
 
-                                {/* Progress */}
+
                                 {sending && (
                                     <div className="space-y-2">
                                         <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
@@ -518,7 +567,7 @@ const Disparo = () => {
                                     </div>
                                 )}
 
-                                {/* CTA */}
+
                                 <button
                                     onClick={handleDisparo}
                                     disabled={sending || selectedIds.length === 0 || limitReached || connStatus !== "connected"}
@@ -532,7 +581,7 @@ const Disparo = () => {
                                 </button>
                             </div>
 
-                            {/* How it works */}
+
                             <div className="bg-white dark:bg-[#1a1d27] rounded-2xl border border-gray-200 dark:border-[#2a2f45] shadow-sm p-5">
                                 <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-3">Como funciona?</h3>
                                 <ol className="space-y-2 text-sm text-gray-500 dark:text-gray-400">
@@ -555,7 +604,7 @@ const Disparo = () => {
                         </div>
                     </div>
 
-                    {/* ── Logs ── */}
+
                     {logs.length > 0 && (
                         <div className="mt-5 bg-white dark:bg-[#1a1d27] rounded-2xl border border-gray-200 dark:border-[#2a2f45] shadow-sm overflow-hidden">
                             <div className="px-5 py-4 border-b border-gray-100 dark:border-[#2a2f45]">
