@@ -23,6 +23,7 @@ import Tarafas from "./pages/Tarefas";
 import WhatsApp from "./pages/WhatsApp";
 import DespesasFixas from "./pages/DespesasFixas";
 import visao from "./pages/Visao";
+import Disparo from "./pages/Disparos";
 
 
 
@@ -89,6 +90,15 @@ function App() {
               element={
                 <ProtectedRoute>
                   <WhatsApp />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/dashboard/disparos"
+              element={
+                <ProtectedRoute>
+                  <Disparo />
                 </ProtectedRoute>
               }
             />

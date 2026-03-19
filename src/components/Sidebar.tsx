@@ -38,6 +38,19 @@ const navigation = [
       { name: "Financiamentos", href: "/dashboard/financiamentos", icon: Banknote, darkColor: "text-orange-300", lightColor: "text-white" },
     ],
   },
+  /*{
+    name : "Campanhas", 
+    icon: MessageCircle,
+    darkColor: "text-emerald-400",
+    lightColor: "text-white", 
+    children: [
+      { name: "Disparos", href: "/dashboard/email-marketing", icon: MessageCircle, darkColor: "text-emerald-400", lightColor: "text-white" },
+      { name: "Follow-ups", href: "/dashboard/redes-sociais", icon: MessageCircle, darkColor: "text-emerald-300", lightColor: "text-white" },
+    ]
+  },
+ */
+
+
   { name: "Clientes", href: "/dashboard/clientes", icon: UserCheck, darkColor: "text-cyan-400", lightColor: "text-white" },
   { name: "Vendas", href: "/dashboard/vendas", icon: CreditCard, darkColor: "text-pink-400", lightColor: "text-white" },
   { name: "Tarefas", href: "/dashboard/tarefas", icon: CheckSquare, darkColor: "text-violet-400", lightColor: "text-white" },
