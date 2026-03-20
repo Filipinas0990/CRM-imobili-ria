@@ -39,6 +39,7 @@ import { supabase } from "./lib/supabaseClient";
 import Balanco from "./pages/Financeiro";
 import Visao from "./pages/Visao";
 import Configuracoes from "./pages/Configuracoes";
+import FollowUps from "./pages/Followups";
 
 const queryClient = new QueryClient();
 
@@ -90,6 +91,15 @@ function App() {
               element={
                 <ProtectedRoute>
                   <WhatsApp />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/dashboard/Followups"
+              element={
+                <ProtectedRoute>
+                  <FollowUps />
                 </ProtectedRoute>
               }
             />
