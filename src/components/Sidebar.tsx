@@ -20,6 +20,9 @@ import {
   Filter,
   CheckSquare,
   MessageCircle,
+  Rocket,
+  Repeat,
+  Megaphone
 } from "lucide-react";
 
 const navigation = [
@@ -38,17 +41,17 @@ const navigation = [
       { name: "Financiamentos", href: "/dashboard/financiamentos", icon: Banknote, darkColor: "text-orange-300", lightColor: "text-white" },
     ],
   },
-  /*{
-    name : "Campanhas", 
-    icon: MessageCircle,
+  {
+    name: "Campanhas",
+    icon: Megaphone,
     darkColor: "text-emerald-400",
-    lightColor: "text-white", 
+    lightColor: "text-white",
     children: [
-      { name: "Disparos", href: "/dashboard/email-marketing", icon: MessageCircle, darkColor: "text-emerald-400", lightColor: "text-white" },
-      { name: "Follow-ups", href: "/dashboard/redes-sociais", icon: MessageCircle, darkColor: "text-emerald-300", lightColor: "text-white" },
+      { name: "Disparos", href: "/dashboard/disparos", icon: Rocket, darkColor: "text-emerald-400", lightColor: "text-white" },
+      { name: "Follow-ups", href: "/dashboard/Followups", icon: Repeat, darkColor: "text-emerald-300", lightColor: "text-white" },
     ]
   },
- */
+
 
 
   { name: "Clientes", href: "/dashboard/clientes", icon: UserCheck, darkColor: "text-cyan-400", lightColor: "text-white" },
