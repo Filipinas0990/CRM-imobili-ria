@@ -22,7 +22,10 @@ import {
   MessageCircle,
   Rocket,
   Repeat,
-  Megaphone
+  Megaphone,
+  Mic,
+  Headphones
+
 } from "lucide-react";
 
 const navigation = [
@@ -51,9 +54,6 @@ const navigation = [
       { name: "Follow-ups", href: "/dashboard/Followups", icon: Repeat, darkColor: "text-emerald-300", lightColor: "text-white" },
     ]
   },
-
-
-
   { name: "Clientes", href: "/dashboard/clientes", icon: UserCheck, darkColor: "text-cyan-400", lightColor: "text-white" },
   { name: "Vendas", href: "/dashboard/vendas", icon: CreditCard, darkColor: "text-pink-400", lightColor: "text-white" },
   { name: "Tarefas", href: "/dashboard/tarefas", icon: CheckSquare, darkColor: "text-violet-400", lightColor: "text-white" },
@@ -69,12 +69,9 @@ const navigation = [
       { name: "Balanço", href: "/dashboard/visao", icon: DollarSign, darkColor: "text-yellow-300", lightColor: "text-white" },
     ],
   },
-
   { name: "Relatórios", href: "/dashboard/relatorios", icon: BarChart3, darkColor: "text-indigo-400", lightColor: "text-white" },
-
   { name: "Configurações", href: "/dashboard/configuracoes", icon: Home, darkColor: "text-gray-400", lightColor: "text-white" },
-]
-  ;
+];
 
 export const Sidebar = () => {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
@@ -204,10 +201,30 @@ export const Sidebar = () => {
         </div>
       </nav>
 
-      {/* BOTTOM: Tema + Logout */}
+
       <div className={`p-2 border-t flex-shrink-0 flex flex-col gap-1 ${isDark ? "border-white/10" : "border-white/5"}`}>
 
-        {/* Botão Tema */}
+
+        <a
+          href="https://wa.me/5564993307382"
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`
+            w-full flex items-center gap-3 px-3 py-3
+            transition-all rounded-xl text-sm
+            ${isDark
+              ? "text-slate-300 hover:text-white hover:bg-white/8"
+              : "text-white/70 hover:text-white hover:bg-white/5"
+            }
+          `}
+        >
+          <Headphones className="h-[22px] w-[22px] min-w-[22px] text-green-400" />
+          <span className="opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap">
+            Suporte
+          </span>
+        </a>
+
+
         <button
           onClick={toggleTheme}
           className={`
@@ -229,7 +246,7 @@ export const Sidebar = () => {
           </span>
         </button>
 
-        {/* Logout */}
+
         <button
           onClick={handleLogout}
           className={`
