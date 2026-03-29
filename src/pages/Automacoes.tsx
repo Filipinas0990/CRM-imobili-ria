@@ -11,7 +11,7 @@ import { toast } from "sonner";
 
 const PROXY_URL = `${import.meta.env.VITE_SUPABASE_FUNCTIONS_URL}/evolution-proxy`;
 
-// ─── Tipos ────────────────────────────────────────────────────────────────────
+
 type NodeType = "iniciar" | "acao" | "aguardar" | "finalizar";
 type AcaoTipo = "atendimento" | "etiqueta" | "fila" | "mensagem";
 type FluxoStatus = "ativo" | "pausado" | "rascunho";
@@ -40,7 +40,7 @@ interface Fluxo {
     instanceName?: string;
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+
 const NODE_COLORS: Record<NodeType, { bg: string; border: string; icon: string; label: string }> = {
     iniciar: { bg: "bg-amber-50 dark:bg-amber-900/20", border: "border-amber-400", icon: "text-amber-500", label: "Iniciar" },
     acao: { bg: "bg-orange-50 dark:bg-orange-900/20", border: "border-orange-400", icon: "text-orange-500", label: "Ação" },
@@ -68,7 +68,7 @@ const FLUXO_VAZIO: Omit<Fluxo, "id" | "criadoEm"> = {
     execucoes: 0,
 };
 
-// ─── Componente do Nó ────────────────────────────────────────────────────────
+
 const FluxoNoCard = ({
     no, selected, onSelect, onEdit, onDelete, onConnect, connecting,
 }: {
@@ -93,7 +93,7 @@ const FluxoNoCard = ({
             style={{ left: no.x, top: no.y }}
             onClick={(e) => { e.stopPropagation(); onSelect(); }}
         >
-            {/* Header */}
+
             <div className={`flex items-center justify-between px-3 py-2 border-b ${cfg.border} border-opacity-30`}>
                 <div className="flex items-center gap-2">
                     <Icon className={`w-4 h-4 ${cfg.icon}`} />
@@ -117,7 +117,7 @@ const FluxoNoCard = ({
                 </div>
             </div>
 
-            {/* Body */}
+
             <div className="px-3 py-2.5">
                 <p className="text-xs font-medium text-gray-800 dark:text-gray-100 mb-1">{no.titulo}</p>
                 {no.conteudo && (
@@ -137,7 +137,7 @@ const FluxoNoCard = ({
                 )}
             </div>
 
-            {/* Conector saída */}
+
             {no.tipo !== "finalizar" && (
                 <button
                     onClick={(e) => { e.stopPropagation(); onConnect(); }}
@@ -150,7 +150,7 @@ const FluxoNoCard = ({
                 </button>
             )}
 
-            {/* Conector entrada */}
+
             {no.tipo !== "iniciar" && (
                 <div className="absolute -left-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-white dark:bg-[#1a1d27] border-2 border-gray-300 dark:border-gray-600 flex items-center justify-center">
                     <div className="w-2 h-2 rounded-full bg-gray-400" />
@@ -160,7 +160,7 @@ const FluxoNoCard = ({
     );
 };
 
-// ─── Modal de edição do nó ───────────────────────────────────────────────────
+
 const NoEditModal = ({ no, onSave, onClose }: {
     no: FluxoNo;
     onSave: (updated: FluxoNo) => void;
@@ -190,7 +190,7 @@ const NoEditModal = ({ no, onSave, onClose }: {
                 </div>
 
                 <div className="px-6 py-4 space-y-4">
-                    {/* Título */}
+
                     <div>
                         <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 block">Título</label>
                         <input
@@ -200,7 +200,7 @@ const NoEditModal = ({ no, onSave, onClose }: {
                         />
                     </div>
 
-                    {/* Conteúdo / Mensagem */}
+
                     {(form.tipo === "iniciar" || form.tipo === "finalizar" || form.tipo === "aguardar") && (
                         <div>
                             <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 block">Mensagem</label>
@@ -213,7 +213,7 @@ const NoEditModal = ({ no, onSave, onClose }: {
                         </div>
                     )}
 
-                    {/* Tipo de ação */}
+
                     {form.tipo === "acao" && (
                         <>
                             <div>
@@ -284,7 +284,7 @@ const NoEditModal = ({ no, onSave, onClose }: {
                         </>
                     )}
 
-                    {/* Aguardar tempo */}
+
                     {form.tipo === "aguardar" && (
                         <div>
                             <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 block">Aguardar (minutos)</label>
@@ -315,7 +315,7 @@ const NoEditModal = ({ no, onSave, onClose }: {
     );
 };
 
-// ─── Componente principal ─────────────────────────────────────────────────────
+
 const Automacoes = () => {
     const [fluxos, setFluxos] = useState<Fluxo[]>([]);
     const [selectedFluxo, setSelectedFluxo] = useState<Fluxo | null>(null);
@@ -339,10 +339,10 @@ const Automacoes = () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
             setUserId(user.id);
-            // Instância WhatsApp
+
             const { data: inst } = await supabase.from("whatsapp_instancias").select("instance_name").eq("user_id", user.id).single();
             if (inst) setInstanceName(inst.instance_name);
-            // Carrega fluxos do localStorage
+
             const saved = localStorage.getItem(`fluxos_${user.id}`);
             if (saved) setFluxos(JSON.parse(saved));
         }
@@ -492,7 +492,7 @@ const Automacoes = () => {
                     }
                 }
                 if (atual.tipo === "aguardar" && atual.aguardarMinutos) {
-                    // Em produção agendaria — aqui apenas loga
+
                     console.log(`[Fluxo] Aguardando ${atual.aguardarMinutos} min antes do próximo passo.`);
                 }
                 if (atual.tipo === "finalizar") break;
