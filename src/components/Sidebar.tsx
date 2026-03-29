@@ -24,7 +24,8 @@ import {
   Repeat,
   Megaphone,
   Mic,
-  Headphones
+  Headphones,
+  Bot
 
 } from "lucide-react";
 
@@ -32,7 +33,16 @@ const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, darkColor: "text-blue-400", lightColor: "text-white" },
   { name: "Leads", href: "/dashboard/leads", icon: Users, darkColor: "text-green-400", lightColor: "text-white" },
   { name: "Pipeline", href: "/dashboard/Pipeline", icon: Filter, darkColor: "text-purple-400", lightColor: "text-white" },
-  { name: "WhatsApp", href: "/dashboard/whatsapp", icon: MessageCircle, darkColor: "text-emerald-400", lightColor: "text-white" },
+  {
+    name: "Atendimento",
+    icon: Bot,
+    darkColor: "text-green-400",
+    lightColor: "text-white",
+    children: [
+      { name: "Mensagens", href: "/dashboard/whatsapp", icon: MessageCircle, darkColor: "text-green-400", lightColor: "text-white" },
+      { name: "Automação", href: "/dashboard/automacoes", icon: Mic, darkColor: "text-green-300", lightColor: "text-white" },
+    ]
+  },
   {
     name: "Imóveis",
     icon: Home,
@@ -103,14 +113,14 @@ export const Sidebar = () => {
         }
       `}
     >
-      {/* LOGO */}
+
       <div className={`flex h-16 items-center justify-center border-b flex-shrink-0 ${isDark ? "border-white/10" : "border-white/5"}`}>
         <span className="text-xl font-bold tracking-wide text-white opacity-0 group-hover:opacity-100 transition-all duration-300">
           KELMOR CRM
         </span>
       </div>
 
-      {/* MENU */}
+
       <nav
         className="flex-1 px-2 py-3"
         style={{ overflowY: "auto", scrollbarWidth: "none", msOverflowStyle: "none" }}

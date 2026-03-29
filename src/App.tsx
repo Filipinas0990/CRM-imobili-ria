@@ -24,6 +24,7 @@ import WhatsApp from "./pages/WhatsApp";
 import DespesasFixas from "./pages/DespesasFixas";
 import visao from "./pages/Visao";
 import Disparo from "./pages/Disparos";
+import Automacoes from "./pages/Automacoes";
 
 
 
@@ -33,7 +34,7 @@ import Financiamentos from "./pages/Financiamentos";
 import Visitas from "./pages/Visitas";
 import Servicos from "./pages/serviços";
 
-import ClientePerfil from "./pages/ClientePerfil"; // <<< IMPORTAÇÃO ADICIONADA
+import ClientePerfil from "./pages/ClientePerfil";
 
 import { supabase } from "./lib/supabaseClient";
 import Balanco from "./pages/Financeiro";
@@ -95,6 +96,7 @@ function App() {
               }
             />
 
+
             <Route
               path="/dashboard/Followups"
               element={
@@ -141,7 +143,7 @@ function App() {
               }
             />w
 
-            {/* PERFIL INDIVIDUAL DO CLIENTE (NOVA ROTA) */}
+
             <Route
               path="/dashboard/clientes/:id"
               element={
@@ -264,6 +266,16 @@ function App() {
               element={
                 <ProtectedRoute>
                   <Configuracoes />
+                </ProtectedRoute>
+              }
+            />
+
+
+            <Route
+              path="/dashboard/automacoes"
+              element={
+                <ProtectedRoute>
+                  <Automacoes />
                 </ProtectedRoute>
               }
             />
