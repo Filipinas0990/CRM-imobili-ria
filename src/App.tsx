@@ -7,7 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Landing from "./pages/Landing";
 import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
-import Clientes from "./pages/Clientes";
+
 import Leads from "./pages/Leads";
 import Agenda from "./pages/Agenda";
 import Financeiro from "./pages/Financeiro";
@@ -34,7 +34,7 @@ import Financiamentos from "./pages/Financiamentos";
 import Visitas from "./pages/Visitas";
 import Servicos from "./pages/serviços";
 
-import ClientePerfil from "./pages/ClientePerfil";
+
 
 import { supabase } from "./lib/supabaseClient";
 import Balanco from "./pages/Financeiro";
@@ -77,15 +77,7 @@ function App() {
               }
             />
 
-            {/* LISTA DE CLIENTES */}
-            <Route
-              path="/dashboard/clientes"
-              element={
-                <ProtectedRoute>
-                  <Clientes />
-                </ProtectedRoute>
-              }
-            />
+
 
             <Route
               path="/dashboard/whatsapp"
@@ -144,14 +136,7 @@ function App() {
             />w
 
 
-            <Route
-              path="/dashboard/clientes/:id"
-              element={
-                <ProtectedRoute>
-                  <ClientePerfil />
-                </ProtectedRoute>
-              }
-            />
+
 
             <Route
               path="/dashboard/vendas"

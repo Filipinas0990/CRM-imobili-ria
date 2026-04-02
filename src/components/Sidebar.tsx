@@ -64,7 +64,7 @@ const navigation = [
       { name: "Follow-ups", href: "/dashboard/Followups", icon: Repeat, darkColor: "text-emerald-300", lightColor: "text-white" },
     ]
   },
-  { name: "Clientes", href: "/dashboard/clientes", icon: UserCheck, darkColor: "text-cyan-400", lightColor: "text-white" },
+  //{ name: "Clientes", href: "/dashboard/clientes", icon: UserCheck, darkColor: "text-cyan-400", lightColor: "text-white" },
   { name: "Vendas", href: "/dashboard/vendas", icon: CreditCard, darkColor: "text-pink-400", lightColor: "text-white" },
   { name: "Tarefas", href: "/dashboard/tarefas", icon: CheckSquare, darkColor: "text-violet-400", lightColor: "text-white" },
   { name: "Visitas", href: "/dashboard/visitas", icon: Home, darkColor: "text-teal-400", lightColor: "text-white" },

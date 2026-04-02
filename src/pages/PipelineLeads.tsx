@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import clsx from "clsx";
 import { Sidebar } from "@/components/Sidebar";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { getLeads } from "@/integrations/supabase/leads/getLeads";
 import { updateLead } from "@/integrations/supabase/leads/updateLead";
+import { deleteLead } from "@/integrations/supabase/leads/deleteLead";
 import {
     Users,
     UserCheck,
@@ -24,6 +25,9 @@ import {
     Mail,
     Calendar,
     Star,
+    MoreVertical,
+    Archive,
+    Trash2,
 } from "lucide-react";
 import {
     BarChart,
@@ -72,12 +76,128 @@ function getAvatarColor(nome: string) {
     return colors[nome.charCodeAt(0) % colors.length];
 }
 
+function LeadCard({
+    lead,
+    onDragStart,
+    onMoverBolsao,
+    onExcluir,
+}: {
+    lead: any;
+    onDragStart: () => void;
+    onMoverBolsao: (id: string) => void;
+    onExcluir: (lead: any) => void;
+}) {
+    const [menuOpen, setMenuOpen] = useState(false);
+    const menuRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        function handleClick(e: MouseEvent) {
+            if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+                setMenuOpen(false);
+            }
+        }
+        if (menuOpen) document.addEventListener("mousedown", handleClick);
+        return () => document.removeEventListener("mousedown", handleClick);
+    }, [menuOpen]);
+
+    return (
+        <div
+            draggable
+            onDragStart={onDragStart}
+            className={clsx(
+                "rounded-xl p-3 cursor-move shadow-sm hover:shadow-md transition-all border",
+                lead._animate && "animate-fireworks",
+                lead.status === "desistiu"
+                    ? "bg-red-50 border-red-200"
+                    : "bg-white border-gray-100"
+            )}
+        >
+            <div className="flex items-start gap-3">
+                <div
+                    className={clsx(
+                        "w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0",
+                        getAvatarColor(lead.nome || "A")
+                    )}
+                >
+                    {getInitials(lead.nome || "?")}
+                </div>
+                <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm text-gray-900 truncate">{lead.nome}</p>
+                    {lead.email && (
+                        <div className="flex items-center gap-1 mt-0.5">
+                            <Mail className="w-3 h-3 text-gray-400 shrink-0" />
+                            <p className="text-xs text-gray-500 truncate">{lead.email}</p>
+                        </div>
+                    )}
+                    {lead.telefone && (
+                        <div className="flex items-center gap-1 mt-0.5">
+                            <Phone className="w-3 h-3 text-gray-400 shrink-0" />
+                            <p className="text-xs text-gray-500">{lead.telefone}</p>
+                        </div>
+                    )}
+                    {lead.created_at && (
+                        <div className="flex items-center gap-1 mt-0.5">
+                            <Calendar className="w-3 h-3 text-gray-400 shrink-0" />
+                            <p className="text-xs text-gray-400">
+                                Captado em: {new Date(lead.created_at).toLocaleDateString("pt-BR")}
+                            </p>
+                        </div>
+                    )}
+                </div>
+
+                <div className="relative shrink-0" ref={menuRef}>
+                    <button
+                        onClick={(e) => { e.stopPropagation(); setMenuOpen((v) => !v); }}
+                        className="p-1 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                        <MoreVertical className="w-4 h-4" />
+                    </button>
+                    {menuOpen && (
+                        <div className="absolute right-0 top-7 z-50 bg-white border border-gray-200 rounded-xl shadow-lg w-44 py-1">
+                            <button
+                                onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onMoverBolsao(lead.id); }}
+                                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                            >
+                                <Archive className="w-4 h-4 text-gray-400" />
+                                Mover para Bolsão
+                            </button>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onExcluir(lead); }}
+                                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                            >
+                                <Trash2 className="w-4 h-4" />
+                                Excluir lead
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-50">
+                {lead.corretor && (
+                    <span className="text-xs bg-purple-100 text-purple-700 rounded-full px-2 py-0.5 font-medium">
+                        {lead.corretor}
+                    </span>
+                )}
+                {lead.score !== undefined && (
+                    <div className="flex items-center gap-1 ml-auto">
+                        <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
+                        <span className="text-xs text-gray-600 font-medium">{lead.score}/100</span>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
 export default function PipelineLeads() {
     const [leads, setLeads] = useState<any[]>([]);
     const [draggingId, setDraggingId] = useState<string | null>(null);
     const [hoverCol, setHoverCol] = useState<string | null>(null);
     const [openConfirmVenda, setOpenConfirmVenda] = useState(false);
     const [leadParaVenda, setLeadParaVenda] = useState<any>(null);
+    const [openConfirmExcluir, setOpenConfirmExcluir] = useState(false);
+    const [leadParaExcluir, setLeadParaExcluir] = useState<any>(null);
     const [search, setSearch] = useState("");
     const [activeTab, setActiveTab] = useState<Tab>("kanban");
 
@@ -112,13 +232,34 @@ export default function PipelineLeads() {
         }, 300);
     }
 
-    const totalLeads = leads.length;
-    const leadsAtivos = leads.filter((l) => l.status !== "desistiu").length;
-    const vendas = leads.filter((l) => l.status === "Visista").length;
-    const taxaConversao =
-        totalLeads > 0 ? ((vendas / totalLeads) * 100).toFixed(1) : "0.0";
+    async function moverParaBolsao(id: string) {
+        await updateLead(id, { status: "bolsao" });
+        setLeads((prev) => prev.map((l) => l.id === id ? { ...l, status: "bolsao" } : l));
+    }
 
-    const filteredLeads = leads.filter((l) => {
+    function confirmarExcluir(lead: any) {
+        setLeadParaExcluir(lead);
+        setOpenConfirmExcluir(true);
+    }
+
+    async function excluirLead() {
+        if (!leadParaExcluir) return;
+        await deleteLead(leadParaExcluir.id);
+        setLeads((prev) => prev.filter((l) => l.id !== leadParaExcluir.id));
+        setOpenConfirmExcluir(false);
+        setLeadParaExcluir(null);
+    }
+
+    const totalLeads = leads.filter((l) => l.status !== "bolsao").length;
+    const leadsAtivos = leads.filter((l) => l.status !== "desistiu" && l.status !== "bolsao").length;
+    const visitasMarcadas = leads.filter((l) => l.status === "Visista").length;
+    const taxaConversao =
+        totalLeads > 0 ? ((visitasMarcadas / totalLeads) * 100).toFixed(1) : "0.0";
+
+    const leadsKanban = leads.filter((l) => l.status !== "bolsao");
+    const leadsBolsao = leads.filter((l) => l.status === "bolsao");
+
+    const filteredLeads = leadsKanban.filter((l) => {
         if (!search) return true;
         const q = search.toLowerCase();
         return (
@@ -130,17 +271,19 @@ export default function PipelineLeads() {
 
     const funnelData = ETAPAS.map((e) => ({
         name: e.title,
-        quantidade: leads.filter((l) => l.status === e.id).length,
+        quantidade: leadsKanban.filter((l) => l.status === e.id).length,
     }));
 
-    const origemData = [{ name: "Sem origem", value: totalLeads || 1 }];
+    const interesseMap: Record<string, number> = {};
+    leadsKanban.forEach((l) => {
+        const k = l.interesse || "Sem origem";
+        interesseMap[k] = (interesseMap[k] || 0) + 1;
+    });
+    const origemData = Object.entries(interesseMap).map(([name, value]) => ({ name, value }));
 
-    const timelineData = leads.map((l) => ({
+    const timelineData = leadsKanban.map((l) => ({
         data: l.created_at
-            ? new Date(l.created_at).toLocaleDateString("pt-BR", {
-                day: "2-digit",
-                month: "2-digit",
-            })
+            ? new Date(l.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })
             : "—",
         leads: 1,
     }));
@@ -151,6 +294,8 @@ export default function PipelineLeads() {
         { id: "estatisticas", label: "Estatísticas" },
     ];
 
+    const INTEREST_COLORS = ["#7c3aed", "#f59e0b", "#10b981", "#3b82f6", "#ef4444"];
+
     return (
         <div className="min-h-screen bg-gray-50">
             <Sidebar />
@@ -160,11 +305,30 @@ export default function PipelineLeads() {
                     <h1 className="text-2xl font-bold text-gray-900">Leads</h1>
                 </div>
 
+                <div className="flex items-center mb-5">
+                    <div className="inline-flex bg-gray-100 rounded-lg p-1 gap-1">
+                        {TABS.map((tab) => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id)}
+                                className={clsx(
+                                    "px-5 py-2 text-base font-medium rounded-md transition-colors whitespace-nowrap",
+                                    activeTab === tab.id
+                                        ? "bg-white text-gray-900 shadow-sm"
+                                        : "text-gray-500 hover:text-gray-700"
+                                )}
+                            >
+                                {tab.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
                 <div className="grid grid-cols-4 gap-4 mb-5">
                     {[
                         { icon: <Users className="w-5 h-5 text-purple-600" />, label: "TOTAL DE LEADS", value: totalLeads },
                         { icon: <UserCheck className="w-5 h-5 text-purple-600" />, label: "LEADS ATIVOS", value: leadsAtivos },
-                        { icon: <TrendingUp className="w-5 h-5 text-purple-600" />, label: "VENDAS", value: vendas },
+                        { icon: <TrendingUp className="w-5 h-5 text-purple-600" />, label: "VISITAS MARCADAS", value: visitasMarcadas },
                         { icon: <BarChart2 className="w-5 h-5 text-purple-600" />, label: "TAXA DE CONVERSÃO", value: `${taxaConversao}%` },
                     ].map((m, i) => (
                         <div key={i} className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
@@ -180,23 +344,6 @@ export default function PipelineLeads() {
                     ))}
                 </div>
 
-                <div className="flex mb-4 border-b border-gray-200">
-                    {TABS.map((tab) => (
-                        <button
-                            key={tab.id}
-                            onClick={() => setActiveTab(tab.id)}
-                            className={clsx(
-                                "px-5 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px",
-                                activeTab === tab.id
-                                    ? "border-purple-600 text-purple-600"
-                                    : "border-transparent text-gray-500 hover:text-gray-700"
-                            )}
-                        >
-                            {tab.label}
-                        </button>
-                    ))}
-                </div>
-
                 {activeTab === "kanban" && (
                     <div className="flex flex-col flex-1 overflow-hidden">
                         <div className="flex items-center gap-3 mb-4">
@@ -209,10 +356,7 @@ export default function PipelineLeads() {
                                     onChange={(e) => setSearch(e.target.value)}
                                 />
                             </div>
-                            <Button variant="outline" className="flex items-center gap-2 text-sm shrink-0">
-                                <SlidersHorizontal className="w-4 h-4" />
-                                Filtros
-                            </Button>
+
                         </div>
 
                         <div
@@ -250,59 +394,13 @@ export default function PipelineLeads() {
                                                 </div>
                                             ) : (
                                                 leadsDaEtapa.map((lead) => (
-                                                    <div
+                                                    <LeadCard
                                                         key={lead.id}
-                                                        draggable
+                                                        lead={lead}
                                                         onDragStart={() => setDraggingId(lead.id)}
-                                                        className={clsx(
-                                                            "rounded-xl p-3 cursor-move shadow-sm hover:shadow-md transition-all border",
-                                                            lead._animate && "animate-fireworks",
-                                                            lead.status === "desistiu" ? "bg-red-50 border-red-200" : "bg-white border-gray-100"
-                                                        )}
-                                                    >
-                                                        <div className="flex items-start gap-3">
-                                                            <div className={clsx("w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0", getAvatarColor(lead.nome || "A"))}>
-                                                                {getInitials(lead.nome || "?")}
-                                                            </div>
-                                                            <div className="flex-1 min-w-0">
-                                                                <p className="font-semibold text-sm text-gray-900 truncate">{lead.nome}</p>
-                                                                {lead.email && (
-                                                                    <div className="flex items-center gap-1 mt-0.5">
-                                                                        <Mail className="w-3 h-3 text-gray-400 shrink-0" />
-                                                                        <p className="text-xs text-gray-500 truncate">{lead.email}</p>
-                                                                    </div>
-                                                                )}
-                                                                {lead.telefone && (
-                                                                    <div className="flex items-center gap-1 mt-0.5">
-                                                                        <Phone className="w-3 h-3 text-gray-400 shrink-0" />
-                                                                        <p className="text-xs text-gray-500">{lead.telefone}</p>
-                                                                    </div>
-                                                                )}
-                                                                {lead.created_at && (
-                                                                    <div className="flex items-center gap-1 mt-0.5">
-                                                                        <Calendar className="w-3 h-3 text-gray-400 shrink-0" />
-                                                                        <p className="text-xs text-gray-400">
-                                                                            Captado em: {new Date(lead.created_at).toLocaleDateString("pt-BR")}
-                                                                        </p>
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        </div>
-
-                                                        <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-50">
-                                                            {lead.corretor && (
-                                                                <span className="text-xs bg-purple-100 text-purple-700 rounded-full px-2 py-0.5 font-medium">
-                                                                    {lead.corretor}
-                                                                </span>
-                                                            )}
-                                                            {lead.score !== undefined && (
-                                                                <div className="flex items-center gap-1 ml-auto">
-                                                                    <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
-                                                                    <span className="text-xs text-gray-600 font-medium">{lead.score}/100</span>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
+                                                        onMoverBolsao={moverParaBolsao}
+                                                        onExcluir={confirmarExcluir}
+                                                    />
                                                 ))
                                             )}
                                         </div>
@@ -314,8 +412,24 @@ export default function PipelineLeads() {
                 )}
 
                 {activeTab === "bolsao" && (
-                    <div className="flex-1 flex items-center justify-center">
-                        <p className="text-sm text-gray-400">Nenhum lead no bolsão no momento.</p>
+                    <div className="flex-1 overflow-y-auto">
+                        {leadsBolsao.length === 0 ? (
+                            <div className="flex items-center justify-center h-full">
+                                <p className="text-sm text-gray-400">Nenhum lead no bolsão no momento.</p>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-4 gap-4">
+                                {leadsBolsao.map((lead) => (
+                                    <LeadCard
+                                        key={lead.id}
+                                        lead={lead}
+                                        onDragStart={() => setDraggingId(lead.id)}
+                                        onMoverBolsao={moverParaBolsao}
+                                        onExcluir={confirmarExcluir}
+                                    />
+                                ))}
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -328,7 +442,7 @@ export default function PipelineLeads() {
                             </div>
                             <p className="text-4xl font-bold text-purple-600">{taxaConversao}%</p>
                             <p className="text-sm text-gray-500 mt-1">
-                                {vendas} Vendas de {leadsAtivos} Leads Ativos
+                                {visitasMarcadas} Visitas Marcadas de {leadsAtivos} Leads Ativos
                             </p>
                         </div>
 
@@ -347,13 +461,13 @@ export default function PipelineLeads() {
                             </div>
 
                             <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
-                                <h3 className="font-semibold text-gray-800 mb-1">Leads por Origem</h3>
-                                <p className="text-xs text-gray-400 mb-4">Distribuição de leads por origem</p>
+                                <h3 className="font-semibold text-gray-800 mb-1">Leads por Interesse</h3>
+                                <p className="text-xs text-gray-400 mb-4">Distribuição de leads por interesse</p>
                                 <ResponsiveContainer width="100%" height={200}>
                                     <PieChart>
                                         <Pie data={origemData} cx="50%" cy="50%" innerRadius={55} outerRadius={85} dataKey="value">
                                             {origemData.map((_, index) => (
-                                                <Cell key={`cell-${index}`} fill="#7c3aed" />
+                                                <Cell key={`cell-${index}`} fill={INTEREST_COLORS[index % INTEREST_COLORS.length]} />
                                             ))}
                                         </Pie>
                                         <Legend
@@ -402,6 +516,23 @@ export default function PipelineLeads() {
                             }}
                         >
                             Sim, criar venda
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={openConfirmExcluir} onOpenChange={setOpenConfirmExcluir}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Excluir lead?</DialogTitle>
+                    </DialogHeader>
+                    <p className="text-sm text-muted-foreground">
+                        Tem certeza que deseja excluir o lead <strong>{leadParaExcluir?.nome}</strong>? Esta ação não pode ser desfeita.
+                    </p>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setOpenConfirmExcluir(false)}>Cancelar</Button>
+                        <Button variant="destructive" onClick={excluirLead}>
+                            Excluir
                         </Button>
                     </DialogFooter>
                 </DialogContent>
