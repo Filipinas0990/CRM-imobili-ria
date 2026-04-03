@@ -139,7 +139,7 @@ function LeadCard({
                         <div className="flex items-center gap-1 mt-0.5">
                             <Calendar className="w-3 h-3 text-gray-400 shrink-0" />
                             <p className="text-xs text-gray-400">
-                                Captado em: {new Date(lead.created_at).toLocaleDateString("pt-BR")}
+                                Captado em: {new Date(lead.criado_em).toLocaleDateString("pt-BR")}
                             </p>
                         </div>
                     )}
@@ -200,6 +200,7 @@ export default function PipelineLeads() {
     const [leadParaExcluir, setLeadParaExcluir] = useState<any>(null);
     const [search, setSearch] = useState("");
     const [activeTab, setActiveTab] = useState<Tab>("kanban");
+    const [periodoEstat, setPeriodoEstat] = useState<number | null>(null);
 
     const navigate = useNavigate();
 
@@ -259,6 +260,14 @@ export default function PipelineLeads() {
     const leadsKanban = leads.filter((l) => l.status !== "bolsao");
     const leadsBolsao = leads.filter((l) => l.status === "bolsao");
 
+    const leadsEstat = periodoEstat === null
+        ? leadsKanban
+        : leadsKanban.filter((l) => {
+            if (!l.criado_em) return true;
+            const diff = (Date.now() - new Date(l.criado_em).getTime()) / (1000 * 60 * 60 * 24);
+            return diff <= periodoEstat;
+        });
+
     const filteredLeads = leadsKanban.filter((l) => {
         if (!search) return true;
         const q = search.toLowerCase();
@@ -271,22 +280,32 @@ export default function PipelineLeads() {
 
     const funnelData = ETAPAS.map((e) => ({
         name: e.title,
-        quantidade: leadsKanban.filter((l) => l.status === e.id).length,
+        quantidade: leadsEstat.filter((l) => l.status === e.id).length,
     }));
 
     const interesseMap: Record<string, number> = {};
-    leadsKanban.forEach((l) => {
+    leadsEstat.forEach((l) => {
         const k = l.interesse || "Sem origem";
         interesseMap[k] = (interesseMap[k] || 0) + 1;
     });
     const origemData = Object.entries(interesseMap).map(([name, value]) => ({ name, value }));
 
-    const timelineData = leadsKanban.map((l) => ({
-        data: l.created_at
-            ? new Date(l.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })
-            : "—",
-        leads: 1,
-    }));
+    const timelineMap: Record<string, number> = {};
+    leadsEstat.forEach((l) => {
+        if (!l.criado_em) return;
+        const d = new Date(l.criado_em);
+        const key = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
+        timelineMap[key] = (timelineMap[key] || 0) + 1;
+    });
+    const timelineData = Object.entries(timelineMap)
+        .sort((a, b) => {
+            const parse = (s: string) => {
+                const [dd, mm, yy] = s.split("/");
+                return new Date(`20${yy}-${mm}-${dd}`).getTime();
+            };
+            return parse(a[0]) - parse(b[0]);
+        })
+        .map(([data, leads]) => ({ data, leads }));
 
     const TABS: { id: Tab; label: string }[] = [
         { id: "kanban", label: "Funil Kanban" },
@@ -305,23 +324,21 @@ export default function PipelineLeads() {
                     <h1 className="text-2xl font-bold text-gray-900">Leads</h1>
                 </div>
 
-                <div className="flex items-center mb-5">
-                    <div className="inline-flex bg-gray-100 rounded-lg p-1 gap-1">
-                        {TABS.map((tab) => (
-                            <button
-                                key={tab.id}
-                                onClick={() => setActiveTab(tab.id)}
-                                className={clsx(
-                                    "px-5 py-2 text-base font-medium rounded-md transition-colors whitespace-nowrap",
-                                    activeTab === tab.id
-                                        ? "bg-white text-gray-900 shadow-sm"
-                                        : "text-gray-500 hover:text-gray-700"
-                                )}
-                            >
-                                {tab.label}
-                            </button>
-                        ))}
-                    </div>
+                <div className="inline-flex bg-gray-100 rounded-lg p-1 gap-1 mb-5">
+                    {TABS.map((tab) => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id)}
+                            className={clsx(
+                                "px-5 py-2 text-base font-medium rounded-md transition-colors whitespace-nowrap",
+                                activeTab === tab.id
+                                    ? "bg-white text-gray-900 shadow-sm"
+                                    : "text-gray-500 hover:text-gray-700"
+                            )}
+                        >
+                            {tab.label}
+                        </button>
+                    ))}
                 </div>
 
                 <div className="grid grid-cols-4 gap-4 mb-5">
@@ -435,6 +452,29 @@ export default function PipelineLeads() {
 
                 {activeTab === "estatisticas" && (
                     <div className="flex-1 overflow-y-auto space-y-6 pr-1">
+                        <div className="flex items-center gap-2 mb-2">
+                            {[
+                                { label: "7 dias", value: 7 },
+                                { label: "30 dias", value: 30 },
+                                { label: "3 meses", value: 90 },
+                                { label: "6 meses", value: 180 },
+                                { label: "1 ano", value: 365 },
+                                { label: "Todos", value: null },
+                            ].map((op) => (
+                                <button
+                                    key={String(op.value)}
+                                    onClick={() => setPeriodoEstat(op.value)}
+                                    className={clsx(
+                                        "px-3 py-1.5 text-xs font-medium rounded-lg transition-colors border",
+                                        periodoEstat === op.value
+                                            ? "bg-purple-600 text-white border-purple-600"
+                                            : "bg-white text-gray-500 border-gray-200 hover:border-purple-300 hover:text-purple-600"
+                                    )}
+                                >
+                                    {op.label}
+                                </button>
+                            ))}
+                        </div>
                         <div className="bg-purple-50 border border-purple-100 rounded-xl p-5">
                             <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
                                 <TrendingUp className="w-4 h-4 text-purple-600" />
@@ -485,15 +525,21 @@ export default function PipelineLeads() {
                         <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
                             <h3 className="font-semibold text-gray-800 mb-1">Timeline de Captação</h3>
                             <p className="text-xs text-gray-400 mb-4">Leads captados ao longo do tempo</p>
-                            <ResponsiveContainer width="100%" height={180}>
-                                <LineChart data={timelineData}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                                    <XAxis dataKey="data" tick={{ fontSize: 11 }} />
-                                    <YAxis tick={{ fontSize: 11 }} />
-                                    <Tooltip />
-                                    <Line type="monotone" dataKey="leads" stroke="#7c3aed" strokeWidth={2} dot={{ fill: "#7c3aed", r: 4 }} />
-                                </LineChart>
-                            </ResponsiveContainer>
+                            {timelineData.length === 0 ? (
+                                <div className="h-[180px] flex items-center justify-center text-sm text-gray-400">
+                                    Nenhum dado de captação disponível
+                                </div>
+                            ) : (
+                                <ResponsiveContainer width="100%" height={180}>
+                                    <LineChart data={timelineData}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                        <XAxis dataKey="data" tick={{ fontSize: 11 }} />
+                                        <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+                                        <Tooltip formatter={(value: any) => [`${value} lead(s)`, "Captados"]} />
+                                        <Line type="monotone" dataKey="leads" stroke="#7c3aed" strokeWidth={2} dot={{ fill: "#7c3aed", r: 4 }} />
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            )}
                         </div>
                     </div>
                 )}
