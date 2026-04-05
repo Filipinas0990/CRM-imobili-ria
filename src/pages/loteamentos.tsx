@@ -230,7 +230,7 @@ const Loteamentos = () => {
                             { label: "Construtoras Cadastradas", value: 1, icon: <Landmark className="w-5 h-5 text-purple-500" />, iconBg: "bg-purple-50 dark:bg-purple-500/10" },
                             { label: "VGV Total", value: `R$ ${vgvTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, icon: <DollarSign className="w-5 h-5 text-amber-500" />, iconBg: "bg-amber-50 dark:bg-amber-500/10", large: true },
                         ].map((stat, i) => (
-                            <div key={i} className="rounded-xl border border-gray-200 dark:border-slate-700/60 bg-white dark:bg-[#161e2e] p-5 flex items-center gap-4 shadow-sm">
+                            <div key={i} className="rounded-xl border border-gray-200 dark:border-slate-700/60 bg-white dark:bg-[#161e2e] p-9 flex items-center gap-4 shadow-sm">
                                 <div className={`${stat.iconBg} rounded-lg p-3 flex-shrink-0`}>{stat.icon}</div>
                                 <div>
                                     <p className="text-xs text-gray-400 dark:text-slate-400 uppercase tracking-wider font-medium">{stat.label}</p>
@@ -265,7 +265,7 @@ const Loteamentos = () => {
                                     <div key={item.id} className="rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700/50 bg-white dark:bg-[#0f1623] hover:border-blue-300 dark:hover:border-blue-500/40 hover:shadow-lg transition-all duration-200 group">
 
 
-                                        <div className={`relative h-44 bg-gradient-to-br ${config.bg} flex items-center justify-center overflow-hidden`}>
+                                        <div className={`relative h-56 bg-gradient-to-br ${config.bg} flex items-center justify-center overflow-hidden`}>
                                             <div className={`${config.iconColor} opacity-40 group-hover:opacity-60 group-hover:scale-110 transition-all duration-300`}>
                                                 {config.icon}
                                             </div>
