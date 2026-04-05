@@ -21,6 +21,7 @@ import {
     BarChart2,
     Search,
     SlidersHorizontal,
+    ChevronDown,
     Phone,
     Mail,
     Calendar,
@@ -108,8 +109,8 @@ function LeadCard({
                 "rounded-xl p-3 cursor-move shadow-sm hover:shadow-md transition-all border",
                 lead._animate && "animate-fireworks",
                 lead.status === "desistiu"
-                    ? "bg-red-50 border-red-200"
-                    : "bg-white border-gray-100"
+                    ? "bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-900"
+                    : "bg-card border-border"
             )}
         >
             <div className="flex items-start gap-3">
@@ -122,23 +123,23 @@ function LeadCard({
                     {getInitials(lead.nome || "?")}
                 </div>
                 <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm text-gray-900 truncate">{lead.nome}</p>
+                    <p className="font-semibold text-sm text-foreground truncate">{lead.nome}</p>
                     {lead.email && (
                         <div className="flex items-center gap-1 mt-0.5">
-                            <Mail className="w-3 h-3 text-gray-400 shrink-0" />
-                            <p className="text-xs text-gray-500 truncate">{lead.email}</p>
+                            <Mail className="w-3 h-3 text-muted-foreground shrink-0" />
+                            <p className="text-xs text-muted-foreground truncate">{lead.email}</p>
                         </div>
                     )}
                     {lead.telefone && (
                         <div className="flex items-center gap-1 mt-0.5">
-                            <Phone className="w-3 h-3 text-gray-400 shrink-0" />
-                            <p className="text-xs text-gray-500">{lead.telefone}</p>
+                            <Phone className="w-3 h-3 text-muted-foreground shrink-0" />
+                            <p className="text-xs text-muted-foreground">{lead.telefone}</p>
                         </div>
                     )}
                     {lead.created_at && (
                         <div className="flex items-center gap-1 mt-0.5">
-                            <Calendar className="w-3 h-3 text-gray-400 shrink-0" />
-                            <p className="text-xs text-gray-400">
+                            <Calendar className="w-3 h-3 text-muted-foreground shrink-0" />
+                            <p className="text-xs text-muted-foreground">
                                 Captado em: {new Date(lead.criado_em).toLocaleDateString("pt-BR")}
                             </p>
                         </div>
@@ -148,22 +149,22 @@ function LeadCard({
                 <div className="relative shrink-0" ref={menuRef}>
                     <button
                         onClick={(e) => { e.stopPropagation(); setMenuOpen((v) => !v); }}
-                        className="p-1 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                        className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                     >
                         <MoreVertical className="w-4 h-4" />
                     </button>
                     {menuOpen && (
-                        <div className="absolute right-0 top-7 z-50 bg-white border border-gray-200 rounded-xl shadow-lg w-44 py-1">
+                        <div className="absolute right-0 top-7 z-50 bg-card border border-border rounded-xl shadow-lg w-44 py-1">
                             <button
                                 onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onMoverBolsao(lead.id); }}
-                                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-foreground hover:bg-muted/50"
                             >
-                                <Archive className="w-4 h-4 text-gray-400" />
+                                <Archive className="w-4 h-4 text-muted-foreground" />
                                 Mover para Bolsão
                             </button>
                             <button
                                 onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onExcluir(lead); }}
-                                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
                             >
                                 <Trash2 className="w-4 h-4" />
                                 Excluir lead
@@ -173,16 +174,16 @@ function LeadCard({
                 </div>
             </div>
 
-            <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-50">
+            <div className="flex items-center justify-between mt-2 pt-2 border-t border-border">
                 {lead.corretor && (
-                    <span className="text-xs bg-purple-100 text-purple-700 rounded-full px-2 py-0.5 font-medium">
+                    <span className="text-xs bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 rounded-full px-2 py-0.5 font-medium">
                         {lead.corretor}
                     </span>
                 )}
                 {lead.score !== undefined && (
                     <div className="flex items-center gap-1 ml-auto">
                         <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
-                        <span className="text-xs text-gray-600 font-medium">{lead.score}/100</span>
+                        <span className="text-xs text-muted-foreground font-medium">{lead.score}/100</span>
                     </div>
                 )}
             </div>
@@ -201,6 +202,7 @@ export default function PipelineLeads() {
     const [search, setSearch] = useState("");
     const [activeTab, setActiveTab] = useState<Tab>("kanban");
     const [periodoEstat, setPeriodoEstat] = useState<number | null>(null);
+    const [periodoMenuOpen, setPeriodoMenuOpen] = useState(false);
 
     const navigate = useNavigate();
 
@@ -316,15 +318,15 @@ export default function PipelineLeads() {
     const INTEREST_COLORS = ["#7c3aed", "#f59e0b", "#10b981", "#3b82f6", "#ef4444"];
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-background">
             <Sidebar />
 
             <main className="ml-16 p-6 h-screen overflow-hidden flex flex-col">
                 <div className="mb-4">
-                    <h1 className="text-2xl font-bold text-gray-900">Leads</h1>
+                    <h1 className="text-2xl font-bold text-foreground">Leads</h1>
                 </div>
 
-                <div className="inline-flex bg-gray-100 rounded-lg p-1 gap-1 mb-5">
+                <div className="inline-flex bg-muted rounded-lg p-1 gap-1 mb-5">
                     {TABS.map((tab) => (
                         <button
                             key={tab.id}
@@ -332,8 +334,8 @@ export default function PipelineLeads() {
                             className={clsx(
                                 "px-5 py-2 text-base font-medium rounded-md transition-colors whitespace-nowrap",
                                 activeTab === tab.id
-                                    ? "bg-white text-gray-900 shadow-sm"
-                                    : "text-gray-500 hover:text-gray-700"
+                                    ? "bg-background text-foreground shadow-sm"
+                                    : "text-muted-foreground hover:text-foreground"
                             )}
                         >
                             {tab.label}
@@ -348,15 +350,15 @@ export default function PipelineLeads() {
                         { icon: <TrendingUp className="w-5 h-5 text-purple-600" />, label: "VISITAS MARCADAS", value: visitasMarcadas },
                         { icon: <BarChart2 className="w-5 h-5 text-purple-600" />, label: "TAXA DE CONVERSÃO", value: `${taxaConversao}%` },
                     ].map((m, i) => (
-                        <div key={i} className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+                        <div key={i} className="bg-card rounded-xl border border-border p-4 shadow-sm">
                             <div className="flex items-center justify-between mb-3">
-                                <div className="w-10 h-10 rounded-full bg-purple-50 flex items-center justify-center">
+                                <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-950 flex items-center justify-center">
                                     {m.icon}
                                 </div>
                                 <span className="text-xs text-green-500 font-medium">↑ +0%</span>
                             </div>
-                            <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">{m.label}</p>
-                            <p className="text-2xl font-bold text-gray-900">{m.value}</p>
+                            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">{m.label}</p>
+                            <p className="text-2xl font-bold text-foreground">{m.value}</p>
                         </div>
                     ))}
                 </div>
@@ -365,10 +367,10 @@ export default function PipelineLeads() {
                     <div className="flex flex-col flex-1 overflow-hidden">
                         <div className="flex items-center gap-3 mb-4">
                             <div className="relative flex-1">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                                 <Input
                                     placeholder="Buscar por nome, corretor, telefone, email..."
-                                    className="pl-9 bg-white border-gray-200 text-sm"
+                                    className="pl-9 bg-background border-border text-sm"
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
                                 />
@@ -387,26 +389,26 @@ export default function PipelineLeads() {
                                     <div
                                         key={etapa.id}
                                         className={clsx(
-                                            "flex flex-col rounded-xl bg-white border border-gray-100 shadow-sm transition min-h-[200px]",
+                                            "flex flex-col rounded-xl bg-card border border-border shadow-sm transition min-h-[200px]",
                                             hoverCol === etapa.id && "ring-2 ring-purple-300"
                                         )}
                                         onDragOver={(e) => { e.preventDefault(); setHoverCol(etapa.id); }}
                                         onDragLeave={() => setHoverCol(null)}
                                         onDrop={() => onDrop(etapa.id)}
                                     >
-                                        <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between shrink-0">
+                                        <div className="px-4 py-3 border-b border-border flex items-center justify-between shrink-0">
                                             <div className="flex items-center gap-2">
                                                 <span className={clsx("w-2.5 h-2.5 rounded-full", etapa.dot)} />
-                                                <span className="font-semibold text-sm text-gray-700">{etapa.title}</span>
+                                                <span className="font-semibold text-sm text-foreground">{etapa.title}</span>
                                             </div>
-                                            <span className="text-xs bg-gray-100 text-gray-600 rounded-full px-2 py-0.5 font-medium">
+                                            <span className="text-xs bg-muted text-muted-foreground rounded-full px-2 py-0.5 font-medium">
                                                 {leadsDaEtapa.length}
                                             </span>
                                         </div>
 
                                         <div className="p-3 space-y-3 overflow-y-auto flex-1">
                                             {leadsDaEtapa.length === 0 ? (
-                                                <div className="border-2 border-dashed border-gray-200 rounded-lg h-24 flex items-center justify-center text-xs text-gray-400">
+                                                <div className="border-2 border-dashed border-border rounded-lg h-24 flex items-center justify-center text-xs text-muted-foreground">
                                                     Arraste leads para cá
                                                 </div>
                                             ) : (
@@ -432,7 +434,7 @@ export default function PipelineLeads() {
                     <div className="flex-1 overflow-y-auto">
                         {leadsBolsao.length === 0 ? (
                             <div className="flex items-center justify-center h-full">
-                                <p className="text-sm text-gray-400">Nenhum lead no bolsão no momento.</p>
+                                <p className="text-sm text-muted-foreground">Nenhum lead no bolsão no momento.</p>
                             </div>
                         ) : (
                             <div className="grid grid-cols-4 gap-4">
@@ -452,44 +454,61 @@ export default function PipelineLeads() {
 
                 {activeTab === "estatisticas" && (
                     <div className="flex-1 overflow-y-auto space-y-6 pr-1">
-                        <div className="flex items-center gap-2 mb-2">
-                            {[
-                                { label: "7 dias", value: 7 },
-                                { label: "30 dias", value: 30 },
-                                { label: "3 meses", value: 90 },
-                                { label: "6 meses", value: 180 },
-                                { label: "1 ano", value: 365 },
-                                { label: "Todos", value: null },
-                            ].map((op) => (
-                                <button
-                                    key={String(op.value)}
-                                    onClick={() => setPeriodoEstat(op.value)}
-                                    className={clsx(
-                                        "px-3 py-1.5 text-xs font-medium rounded-lg transition-colors border",
-                                        periodoEstat === op.value
-                                            ? "bg-purple-600 text-white border-purple-600"
-                                            : "bg-white text-gray-500 border-gray-200 hover:border-purple-300 hover:text-purple-600"
-                                    )}
-                                >
-                                    {op.label}
-                                </button>
-                            ))}
+                        <div className="flex justify-end mb-2 relative">
+                            <button
+                                onClick={() => setPeriodoMenuOpen((v) => !v)}
+                                className={clsx(
+                                    "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors",
+                                    periodoEstat !== null
+                                        ? "bg-purple-600 text-white border-purple-600"
+                                        : "bg-card text-muted-foreground border-border hover:border-purple-300 hover:text-purple-600"
+                                )}
+                            >
+                                <SlidersHorizontal className="w-3.5 h-3.5" />
+                                {periodoEstat === null ? "Todos os períodos" : periodoEstat === 7 ? "7 dias" : periodoEstat === 30 ? "30 dias" : periodoEstat === 90 ? "3 meses" : periodoEstat === 180 ? "6 meses" : "1 ano"}
+                                <ChevronDown className="w-3 h-3" />
+                            </button>
+                            {periodoMenuOpen && (
+                                <div className="absolute top-9 right-0 z-50 bg-card border border-border rounded-xl shadow-lg w-40 py-1">
+                                    {[
+                                        { label: "7 dias", value: 7 },
+                                        { label: "30 dias", value: 30 },
+                                        { label: "3 meses", value: 90 },
+                                        { label: "6 meses", value: 180 },
+                                        { label: "1 ano", value: 365 },
+                                        { label: "Todos", value: null },
+                                    ].map((op) => (
+                                        <button
+                                            key={String(op.value)}
+                                            onClick={() => { setPeriodoEstat(op.value); setPeriodoMenuOpen(false); }}
+                                            className={clsx(
+                                                "w-full text-left px-4 py-2 text-sm transition-colors",
+                                                periodoEstat === op.value
+                                                    ? "text-purple-600 font-medium bg-purple-50 dark:bg-purple-950"
+                                                    : "text-foreground hover:bg-muted/50"
+                                            )}
+                                        >
+                                            {op.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                         </div>
-                        <div className="bg-purple-50 border border-purple-100 rounded-xl p-5">
-                            <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
+                        <div className="bg-purple-50 dark:bg-purple-950 border border-purple-100 dark:border-purple-900 rounded-xl p-5">
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
                                 <TrendingUp className="w-4 h-4 text-purple-600" />
                                 <span className="font-medium">Taxa de Conversão Geral</span>
                             </div>
                             <p className="text-4xl font-bold text-purple-600">{taxaConversao}%</p>
-                            <p className="text-sm text-gray-500 mt-1">
+                            <p className="text-sm text-muted-foreground mt-1">
                                 {visitasMarcadas} Visitas Marcadas de {leadsAtivos} Leads Ativos
                             </p>
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
-                            <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
-                                <h3 className="font-semibold text-gray-800 mb-1">Funil de Conversão</h3>
-                                <p className="text-xs text-gray-400 mb-4">Quantidade de leads por estágio</p>
+                            <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
+                                <h3 className="font-semibold text-foreground mb-1">Funil de Conversão</h3>
+                                <p className="text-xs text-muted-foreground mb-4">Quantidade de leads por estágio</p>
                                 <ResponsiveContainer width="100%" height={200}>
                                     <BarChart data={funnelData} layout="vertical" margin={{ left: 20 }}>
                                         <XAxis type="number" tick={{ fontSize: 11 }} />
@@ -500,9 +519,9 @@ export default function PipelineLeads() {
                                 </ResponsiveContainer>
                             </div>
 
-                            <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
-                                <h3 className="font-semibold text-gray-800 mb-1">Leads por Interesse</h3>
-                                <p className="text-xs text-gray-400 mb-4">Distribuição de leads por interesse</p>
+                            <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
+                                <h3 className="font-semibold text-foreground mb-1">Leads por Interesse</h3>
+                                <p className="text-xs text-muted-foreground mb-4">Distribuição de leads por interesse</p>
                                 <ResponsiveContainer width="100%" height={200}>
                                     <PieChart>
                                         <Pie data={origemData} cx="50%" cy="50%" innerRadius={55} outerRadius={85} dataKey="value">
@@ -522,11 +541,11 @@ export default function PipelineLeads() {
                             </div>
                         </div>
 
-                        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
-                            <h3 className="font-semibold text-gray-800 mb-1">Timeline de Captação</h3>
-                            <p className="text-xs text-gray-400 mb-4">Leads captados ao longo do tempo</p>
+                        <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
+                            <h3 className="font-semibold text-foreground mb-1">Timeline de Captação</h3>
+                            <p className="text-xs text-muted-foreground mb-4">Leads captados ao longo do tempo</p>
                             {timelineData.length === 0 ? (
-                                <div className="h-[180px] flex items-center justify-center text-sm text-gray-400">
+                                <div className="h-[180px] flex items-center justify-center text-sm text-muted-foreground">
                                     Nenhum dado de captação disponível
                                 </div>
                             ) : (

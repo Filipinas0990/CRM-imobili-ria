@@ -9,7 +9,45 @@ export async function getImoveis(): Promise<Imovel[]> {
 
     const { data, error } = await supabase
         .from("imoveis")
-        .select("id, titulo, descricao, preco, endereco, tipo, quartos, banheiros, area, image_url")
+        .select(`
+            id,
+            titulo,
+            descricao,
+            preco,
+            endereco,
+            tipo,
+            quartos,
+            banheiros,
+            area,
+            image_url,
+            foto_path,
+
+            construtora,
+            classificacao,
+            id_canal_pro,
+            status,
+            fase_obra,
+
+            estado,
+            cep,
+            cidade,
+            bairro,
+            complemento,
+
+            renda_ideal,
+            preco_varia,
+            iptu,
+            unidades_disponiveis,
+            sob_consulta,
+
+            area_minima,
+            area_maxima,
+            vagas_garagem,
+
+            criado_em,
+            created_at,
+            updated_at
+        `)
         .eq("owner_id", user_id)
         .order("criado_em", { ascending: false });
 
