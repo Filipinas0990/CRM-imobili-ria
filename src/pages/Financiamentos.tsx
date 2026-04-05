@@ -26,7 +26,6 @@ import { createImovel } from "@/integrations/supabase/imoveis/createImovel";
 import { updateImovel } from "@/integrations/supabase/imoveis/updateImovel";
 import { deleteImovel } from "@/integrations/supabase/imoveis/deleteImovel";
 
-
 const TIPO_CONFIG: Record<string, { icon: React.ReactNode; bg: string; iconColor: string }> = {
     "Apartamento na Planta": { icon: <Building2 className="w-9 h-9" />, bg: "from-blue-100 to-blue-50 dark:from-blue-900/30 dark:to-blue-800/10", iconColor: "text-blue-500 dark:text-blue-400" },
     "Casa": { icon: <Home className="w-9 h-9" />, bg: "from-green-100 to-green-50 dark:from-green-900/30 dark:to-green-800/10", iconColor: "text-green-500 dark:text-green-400" },
@@ -91,6 +90,7 @@ const SectionTitle = ({ icon, title }: { icon: React.ReactNode; title: string })
 const Financiamentos = () => {
     const [items, setItems] = useState<any[]>([]);
     const [search, setSearch] = useState("");
+    const [loading, setLoading] = useState(true); // ✅ useState dentro do componente
     const [modalOpen, setModalOpen] = useState(false);
     const [editing, setEditing] = useState<any | null>(null);
     const [form, setForm] = useState<any>(emptyForm);
@@ -139,10 +139,12 @@ const Financiamentos = () => {
     }
 
     async function load() {
+        setLoading(true);
         let res: any = await getImoveis();
         if (res?.data && Array.isArray(res.data)) res = res.data;
-        if (!Array.isArray(res)) { setItems([]); return; }
+        if (!Array.isArray(res)) { setItems([]); setLoading(false); return; }
         setItems(res.filter((i: any) => TIPOS_FINANCIAMENTO.includes(i.tipo) || i.tipo === "Financiamento"));
+        setLoading(false);
     }
 
     async function save() {
@@ -193,23 +195,20 @@ const Financiamentos = () => {
             <main className="ml-16 overflow-y-auto min-h-screen">
                 <div className="p-8 space-y-6">
 
-
+                    {/* Header */}
                     <div className="flex items-center justify-between">
                         <div>
                             <h1 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">Financiamentos</h1>
                             <p className="text-gray-500 dark:text-slate-400 mt-1 text-sm">Gerencie seus imóveis financiados</p>
                         </div>
                         <div className="flex items-center gap-3">
-                            <Button variant="outline" className="border-gray-200 dark:border-slate-600 text-gray-600 dark:text-slate-300 gap-2">
-                                <Share2 className="w-4 h-4" /> Ativar meu Site
-                            </Button>
                             <Button onClick={openNew} className="bg-blue-600 hover:bg-blue-700 text-white gap-2 font-semibold shadow-md">
                                 <Plus className="w-4 h-4" /> Novo Financiamento
                             </Button>
                         </div>
                     </div>
 
-
+                    {/* Stats */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                         {[
                             { label: "Total de Imóveis", value: total, icon: <Building2 className="w-5 h-5 text-blue-500" />, iconBg: "bg-blue-50 dark:bg-blue-500/10" },
@@ -227,7 +226,7 @@ const Financiamentos = () => {
                         ))}
                     </div>
 
-
+                    {/* Busca + Grid */}
                     <div className="rounded-xl border border-gray-200 dark:border-slate-700/60 bg-white dark:bg-[#161e2e] p-6 space-y-5 shadow-sm">
                         <div className="flex items-center gap-3">
                             <div className="relative flex-1">
@@ -239,104 +238,123 @@ const Financiamentos = () => {
                             </Button>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                            {filtered.map((item) => {
-                                const config = getTipoConfig(item.tipo);
-                                return (
-                                    <div key={item.id} className="rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700/50 bg-white dark:bg-[#0f1623] hover:border-blue-300 dark:hover:border-blue-500/40 hover:shadow-lg transition-all duration-200 group">
-                                        <div className={`relative h-52 bg-gradient-to-br ${config.bg} flex items-center justify-center overflow-hidden`}>
-                                            <div className={`${config.iconColor} opacity-40 group-hover:opacity-60 group-hover:scale-110 transition-all duration-300`}>
-                                                {config.icon}
-                                            </div>
-                                            <div className="absolute top-2.5 left-2.5 flex gap-1.5">
-                                                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-600 text-white shadow-sm">{item.status || "Disponível"}</span>
-                                                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-white/90 dark:bg-slate-800/90 text-gray-700 dark:text-slate-200 shadow-sm backdrop-blur-sm">{item.tipo}</span>
-                                            </div>
-                                            <div className="absolute top-2.5 right-2.5">
-                                                <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild>
-                                                        <button className="w-6 h-6 rounded-md bg-white/90 dark:bg-slate-800/80 backdrop-blur-sm flex items-center justify-center text-gray-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 shadow-sm">
-                                                            <MoreVertical className="w-3.5 h-3.5" />
-                                                        </button>
-                                                    </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align="end" className="bg-white dark:bg-[#1e2a3a] border-gray-100 dark:border-slate-700">
-                                                        <DropdownMenuItem className="cursor-pointer text-sm" onClick={() => openEdit(item)}>Editar</DropdownMenuItem>
-                                                        <DropdownMenuItem className="text-red-500 cursor-pointer text-sm" onClick={() => remove(item.id)}>Excluir</DropdownMenuItem>
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
-                                            </div>
-                                        </div>
-
+                        {/* ✅ Skeleton loading ou cards */}
+                        {loading ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                {[...Array(4)].map((_, i) => (
+                                    <div key={i} className="rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700/50 bg-white dark:bg-[#0f1623] animate-pulse">
+                                        <div className="h-64 bg-gray-100 dark:bg-slate-800" />
                                         <div className="p-3 space-y-2">
-                                            <div>
-                                                <h3 className="font-bold text-gray-900 dark:text-white text-sm line-clamp-1">{item.titulo}</h3>
-                                                {(item.cidade || item.endereco) && (
-                                                    <div className="flex items-center gap-1 mt-0.5">
-                                                        <MapPin className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                                                        <span className="text-xs text-gray-500 dark:text-slate-400 line-clamp-1">
-                                                            {[item.cidade, item.estado].filter(Boolean).join(", ") || item.endereco}
-                                                        </span>
-                                                    </div>
-                                                )}
-                                                {item.descricao && <p className="text-xs text-gray-400 dark:text-slate-500 mt-1 line-clamp-2">{item.descricao}</p>}
-                                            </div>
-
-                                            <div className="flex items-center gap-3 text-xs text-gray-400 dark:text-slate-500 flex-wrap">
-                                                {item.quartos > 0 && <div className="flex items-center gap-1"><BedDouble className="w-3 h-3" /><span>{item.quartos}</span></div>}
-                                                {item.banheiros > 0 && <div className="flex items-center gap-1"><Bath className="w-3 h-3" /><span>{item.banheiros}</span></div>}
-                                                {(item.area_minima || item.area_maxima) && (
-                                                    <div className="flex items-center gap-1">
-                                                        <Maximize className="w-3 h-3" />
-                                                        <span>{item.area_minima && item.area_maxima ? `${item.area_minima}–${item.area_maxima}m²` : `${item.area_minima || item.area_maxima}m²`}</span>
-                                                    </div>
-                                                )}
-                                                {item.vagas_garagem > 0 && <div className="flex items-center gap-1"><Car className="w-3 h-3" /><span>{item.vagas_garagem}</span></div>}
-                                            </div>
-
-                                            <div className="pt-2 border-t border-gray-100 dark:border-slate-800">
-                                                {item.sob_consulta ? (
-                                                    <p className="text-blue-600 dark:text-blue-400 font-bold text-sm">Sob consulta</p>
-                                                ) : (
-                                                    <>
-                                                        <p className="text-blue-600 dark:text-blue-400 font-bold text-sm">
-                                                            {item.preco_varia ? "A partir de " : ""}
-                                                            R$ {(Number(item.preco) || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                                                        </p>
-                                                        {item.renda_ideal > 0 && <p className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">Renda ideal: R$ {Number(item.renda_ideal).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>}
-                                                        {item.entrada > 0 && <p className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">Entrada: R$ {Number(item.entrada).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>}
-                                                    </>
-                                                )}
-                                                {item.fgts && <span className="inline-block mt-1 text-xs px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400">Aceita FGTS</span>}
-                                            </div>
-
-                                            <div className="flex items-center gap-2 pt-0.5">
-                                                <Button size="sm" className="flex-1 bg-blue-50 hover:bg-blue-100 dark:bg-blue-600/10 dark:hover:bg-blue-600/20 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-600/20 gap-1 text-xs h-7 shadow-none" onClick={() => openEdit(item)}>
-                                                    <Eye className="w-3 h-3" /> Ver Detalhes
-                                                </Button>
-                                                <button className="w-7 h-7 rounded-md border border-gray-200 dark:border-slate-700 flex items-center justify-center text-gray-400 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors">
-                                                    <Share2 className="w-3 h-3" />
-                                                </button>
-                                            </div>
+                                            <div className="h-4 bg-gray-100 dark:bg-slate-800 rounded w-3/4" />
+                                            <div className="h-3 bg-gray-100 dark:bg-slate-800 rounded w-1/2" />
+                                            <div className="h-3 bg-gray-100 dark:bg-slate-800 rounded w-2/3" />
+                                            <div className="h-7 bg-gray-100 dark:bg-slate-800 rounded mt-2" />
                                         </div>
                                     </div>
-                                );
-                            })}
-                        </div>
-
-                        {filtered.length === 0 && (
-                            <div className="py-16 text-center">
-                                <Landmark className="w-12 h-12 text-gray-200 dark:text-slate-700 mx-auto mb-3" />
-                                <p className="text-gray-400 dark:text-slate-500 text-sm">Nenhum financiamento encontrado.</p>
-                                <Button onClick={openNew} className="mt-4 bg-blue-600 hover:bg-blue-700 text-white gap-2">
-                                    <Plus className="w-4 h-4" /> Cadastrar primeiro imóvel
-                                </Button>
+                                ))}
                             </div>
+                        ) : (
+                            <>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                    {filtered.map((item) => {
+                                        const config = getTipoConfig(item.tipo);
+                                        return (
+                                            <div key={item.id} className="rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700/50 bg-white dark:bg-[#0f1623] hover:border-blue-300 dark:hover:border-blue-500/40 hover:shadow-lg transition-all duration-200 group">
+                                                <div className={`relative h-64 bg-gradient-to-br ${config.bg} flex items-center justify-center overflow-hidden`}>
+                                                    <div className={`${config.iconColor} opacity-40 group-hover:opacity-60 group-hover:scale-110 transition-all duration-300`}>
+                                                        {config.icon}
+                                                    </div>
+                                                    <div className="absolute top-2.5 left-2.5 flex gap-1.5">
+                                                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-600 text-white shadow-sm">{item.status || "Disponível"}</span>
+                                                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-white/90 dark:bg-slate-800/90 text-gray-700 dark:text-slate-200 shadow-sm backdrop-blur-sm">{item.tipo}</span>
+                                                    </div>
+                                                    <div className="absolute top-2.5 right-2.5">
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger asChild>
+                                                                <button className="w-6 h-6 rounded-md bg-white/90 dark:bg-slate-800/80 backdrop-blur-sm flex items-center justify-center text-gray-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 shadow-sm">
+                                                                    <MoreVertical className="w-3.5 h-3.5" />
+                                                                </button>
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent align="end" className="bg-white dark:bg-[#1e2a3a] border-gray-100 dark:border-slate-700">
+                                                                <DropdownMenuItem className="cursor-pointer text-sm" onClick={() => openEdit(item)}>Editar</DropdownMenuItem>
+                                                                <DropdownMenuItem className="text-red-500 cursor-pointer text-sm" onClick={() => remove(item.id)}>Excluir</DropdownMenuItem>
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
+                                                    </div>
+                                                </div>
+
+                                                <div className="p-3 space-y-2">
+                                                    <div>
+                                                        <h3 className="font-bold text-gray-900 dark:text-white text-sm line-clamp-1">{item.titulo}</h3>
+                                                        {(item.cidade || item.endereco) && (
+                                                            <div className="flex items-center gap-1 mt-0.5">
+                                                                <MapPin className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                                                                <span className="text-xs text-gray-500 dark:text-slate-400 line-clamp-1">
+                                                                    {[item.cidade, item.estado].filter(Boolean).join(", ") || item.endereco}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                        {item.descricao && <p className="text-xs text-gray-400 dark:text-slate-500 mt-1 line-clamp-2">{item.descricao}</p>}
+                                                    </div>
+
+                                                    <div className="flex items-center gap-3 text-xs text-gray-400 dark:text-slate-500 flex-wrap">
+                                                        {item.quartos > 0 && <div className="flex items-center gap-1"><BedDouble className="w-3 h-3" /><span>{item.quartos}</span></div>}
+                                                        {item.banheiros > 0 && <div className="flex items-center gap-1"><Bath className="w-3 h-3" /><span>{item.banheiros}</span></div>}
+                                                        {(item.area_minima || item.area_maxima) && (
+                                                            <div className="flex items-center gap-1">
+                                                                <Maximize className="w-3 h-3" />
+                                                                <span>{item.area_minima && item.area_maxima ? `${item.area_minima}–${item.area_maxima}m²` : `${item.area_minima || item.area_maxima}m²`}</span>
+                                                            </div>
+                                                        )}
+                                                        {item.vagas_garagem > 0 && <div className="flex items-center gap-1"><Car className="w-3 h-3" /><span>{item.vagas_garagem}</span></div>}
+                                                    </div>
+
+                                                    <div className="pt-2 border-t border-gray-100 dark:border-slate-800">
+                                                        {item.sob_consulta ? (
+                                                            <p className="text-blue-600 dark:text-blue-400 font-bold text-sm">Sob consulta</p>
+                                                        ) : (
+                                                            <>
+                                                                <p className="text-blue-600 dark:text-blue-400 font-bold text-sm">
+                                                                    {item.preco_varia ? "A partir de " : ""}
+                                                                    R$ {(Number(item.preco) || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                                                                </p>
+                                                                {item.renda_ideal > 0 && <p className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">Renda ideal: R$ {Number(item.renda_ideal).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>}
+                                                                {item.entrada > 0 && <p className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">Entrada: R$ {Number(item.entrada).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>}
+                                                            </>
+                                                        )}
+                                                        {item.fgts && <span className="inline-block mt-1 text-xs px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400">Aceita FGTS</span>}
+                                                    </div>
+
+                                                    <div className="flex items-center gap-2 pt-0.5">
+                                                        <Button size="sm" className="flex-1 bg-blue-50 hover:bg-blue-100 dark:bg-blue-600/10 dark:hover:bg-blue-600/20 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-600/20 gap-1 text-xs h-7 shadow-none" onClick={() => openEdit(item)}>
+                                                            <Eye className="w-3 h-3" /> Ver Detalhes
+                                                        </Button>
+                                                        <button className="w-7 h-7 rounded-md border border-gray-200 dark:border-slate-700 flex items-center justify-center text-gray-400 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors">
+                                                            <Share2 className="w-3 h-3" />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+
+                                {filtered.length === 0 && (
+                                    <div className="py-16 text-center">
+                                        <Landmark className="w-12 h-12 text-gray-200 dark:text-slate-700 mx-auto mb-3" />
+                                        <p className="text-gray-400 dark:text-slate-500 text-sm">Nenhum financiamento encontrado.</p>
+                                        <Button onClick={openNew} className="mt-4 bg-blue-600 hover:bg-blue-700 text-white gap-2">
+                                            <Plus className="w-4 h-4" /> Cadastrar primeiro imóvel
+                                        </Button>
+                                    </div>
+                                )}
+                            </>
                         )}
                     </div>
                 </div>
             </main>
 
-
+            {/* MODAL */}
             <Dialog open={modalOpen} onOpenChange={setModalOpen}>
                 <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col bg-white dark:bg-[#161e2e] border-gray-200 dark:border-slate-700 p-0">
                     <div className="px-6 pt-6 pb-4 border-b border-gray-100 dark:border-slate-700 flex-shrink-0">
@@ -356,8 +374,6 @@ const Financiamentos = () => {
                     </div>
 
                     <div className="overflow-y-auto flex-1 px-6 py-5 space-y-8">
-
-
                         <section>
                             <SectionTitle icon={<Building2 className="w-5 h-5" />} title="Dados do Imóvel" />
                             <div className="grid grid-cols-2 gap-4">
@@ -398,7 +414,6 @@ const Financiamentos = () => {
                             </div>
                         </section>
 
-
                         <section>
                             <SectionTitle icon={<MapPin className="w-5 h-5" />} title="Localização" />
                             <div className="grid grid-cols-2 gap-4">
@@ -418,7 +433,6 @@ const Financiamentos = () => {
                                 <div className="col-span-2"><FieldLabel>Complemento</FieldLabel><Input placeholder="Bloco, Torre..." value={form.complemento} onChange={(e) => setField("complemento", e.target.value)} className={inputClass} /></div>
                             </div>
                         </section>
-
 
                         <section>
                             <SectionTitle icon={<DollarSign className="w-5 h-5" />} title="Valores e Condições" />
@@ -445,7 +459,6 @@ const Financiamentos = () => {
                                 </div>
                             </div>
                         </section>
-
 
                         <section>
                             <SectionTitle icon={<Maximize className="w-5 h-5" />} title="Características" />
