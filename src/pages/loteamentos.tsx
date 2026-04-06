@@ -253,9 +253,10 @@ const Loteamentos = () => {
                                     onChange={(e) => setSearch(e.target.value)}
                                 />
                             </div>
-                            <Button variant="outline" className="border-gray-200 dark:border-slate-700 text-gray-500 gap-2">
+                            {/*  <Button variant="outline" className="border-gray-200 dark:border-slate-700 text-gray-500 gap-2">
                                 <Filter className="w-4 h-4" /> Filtros
                             </Button>
+                         */}
                         </div>
 
 
