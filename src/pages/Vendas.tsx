@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
     Dialog, DialogContent, DialogFooter,
@@ -11,7 +11,7 @@ import {
 import {
     Plus, Search, Filter, TrendingUp, Wallet,
     CheckCircle2, Clock, MoreHorizontal,
-    DollarSign, FileText,
+    DollarSign, FileText, ChevronDown, SlidersHorizontal,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
@@ -111,6 +111,15 @@ const CardChart = ({ title, subtitle, children }: { title: string; subtitle: str
     </div>
 );
 
+const PERIODOS = [
+    { label: "7 dias", value: 7 },
+    { label: "30 dias", value: 30 },
+    { label: "3 meses", value: 90 },
+    { label: "6 meses", value: 180 },
+    { label: "1 ano", value: 365 },
+    { label: "Todos", value: null },
+];
+
 export default function Vendas() {
     const [vendas, setVendas] = useState<Venda[]>([]);
     const [leads, setLeads] = useState<any[]>([]);
@@ -120,6 +129,10 @@ export default function Vendas() {
     const [filtroStatus, setFiltroStatus] = useState("todos");
     const [filtroTipo, setFiltroTipo] = useState("todos");
     const [busca, setBusca] = useState("");
+
+
+    const [periodoEstat, setPeriodoEstat] = useState<number | null>(null);
+    const [periodoMenuOpen, setPeriodoMenuOpen] = useState(false);
 
     const { toast } = useToast();
 
@@ -200,6 +213,16 @@ export default function Vendas() {
         return (Number(v.valor) || 0) * (pct / 100);
     }
 
+
+    const vendasEstat = periodoEstat === null
+        ? vendas
+        : vendas.filter((v) => {
+            const d = v.data_venda || v.created_at;
+            if (!d) return true;
+            const diff = (Date.now() - new Date(d).getTime()) / (1000 * 60 * 60 * 24);
+            return diff <= periodoEstat;
+        });
+
     const totalVendas = vendas.length;
     const vendasFechadas = vendas.filter((v) => v.status === "Fechada");
     const vendasAbertas = vendas.filter((v) => v.status !== "Fechada" && v.status !== "Perdida");
@@ -220,7 +243,7 @@ export default function Vendas() {
 
     const vgvMensal = (() => {
         const map: Record<string, number> = {};
-        vendas.forEach((v) => {
+        vendasEstat.forEach((v) => {
             const d = v.data_venda || v.created_at;
             if (!d) return;
             const key = new Date(d).toLocaleDateString("pt-BR", { month: "short", year: "numeric" });
@@ -229,23 +252,21 @@ export default function Vendas() {
         return Object.entries(map).map(([mes, vgv]) => ({ mes, vgv }));
     })();
 
-
     const receitaPorConstrutora = (() => {
         const map: Record<string, number> = {};
-        vendas.forEach((v) => {
+        vendasEstat.forEach((v) => {
             const c = getImovelConstrutora(v.imovel_id);
             map[c] = (map[c] || 0) + calcReceitaImob(v);
         });
         return Object.entries(map).map(([name, value]) => ({ name, value }));
     })();
 
-
     const hoje = new Date();
     const diasMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
 
     const evolucaoVendas = Array.from({ length: diasMes }, (_, i) => {
         const dia = i + 1;
-        const count = vendas.filter((v) => {
+        const count = vendasEstat.filter((v) => {
             const d = v.data_venda || v.created_at;
             if (!d) return false;
             const date = new Date(d);
@@ -258,7 +279,7 @@ export default function Vendas() {
 
     const evolucaoReceita = Array.from({ length: diasMes }, (_, i) => {
         const dia = i + 1;
-        const receita = vendas
+        const receita = vendasEstat
             .filter((v) => {
                 const d = v.data_venda || v.created_at;
                 if (!d) return false;
@@ -270,6 +291,10 @@ export default function Vendas() {
             .reduce((acc, v) => acc + calcReceitaImob(v), 0);
         return { dia, receita };
     });
+
+    const periodoLabel = periodoEstat === null
+        ? "Todos os períodos"
+        : PERIODOS.find((p) => p.value === periodoEstat)?.label ?? "Filtro";
 
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-[#0f1623]">
@@ -330,7 +355,6 @@ export default function Vendas() {
                             </button>
                         ))}
                     </div>
-
 
                     {aba === "vendas" && (
                         <div className="rounded-xl border border-gray-200 dark:border-slate-700/60 bg-white dark:bg-[#161e2e] shadow-sm overflow-hidden">
@@ -476,8 +500,42 @@ export default function Vendas() {
                         </div>
                     )}
 
+
                     {aba === "estatisticas" && (
                         <div className="space-y-6">
+
+
+                            <div className="flex justify-end relative">
+                                <button
+                                    onClick={() => setPeriodoMenuOpen((v) => !v)}
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${periodoEstat !== null
+                                        ? "bg-blue-600 text-white border-blue-600"
+                                        : "bg-white dark:bg-[#161e2e] text-gray-500 dark:text-slate-400 border-gray-200 dark:border-slate-700 hover:border-blue-400 hover:text-blue-600"
+                                        }`}
+                                >
+                                    <SlidersHorizontal className="w-3.5 h-3.5" />
+                                    {periodoLabel}
+                                    <ChevronDown className="w-3 h-3" />
+                                </button>
+
+                                {periodoMenuOpen && (
+                                    <div className="absolute top-9 right-0 z-50 bg-white dark:bg-[#1e2a3a] border border-gray-100 dark:border-slate-700 rounded-xl shadow-lg w-40 py-1">
+                                        {PERIODOS.map((op) => (
+                                            <button
+                                                key={String(op.value)}
+                                                onClick={() => { setPeriodoEstat(op.value); setPeriodoMenuOpen(false); }}
+                                                className={`w-full text-left px-4 py-2 text-sm transition-colors ${periodoEstat === op.value
+                                                    ? "text-blue-600 font-medium bg-blue-50 dark:bg-blue-900/20"
+                                                    : "text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700"
+                                                    }`}
+                                            >
+                                                {op.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
 
@@ -506,15 +564,7 @@ export default function Vendas() {
                                     ) : (
                                         <ResponsiveContainer width="100%" height={240}>
                                             <PieChart>
-                                                <Pie
-                                                    data={receitaPorConstrutora}
-                                                    cx="50%"
-                                                    cy="50%"
-                                                    innerRadius={70}
-                                                    outerRadius={100}
-                                                    paddingAngle={3}
-                                                    dataKey="value"
-                                                >
+                                                <Pie data={receitaPorConstrutora} cx="50%" cy="50%" innerRadius={70} outerRadius={100} paddingAngle={3} dataKey="value">
                                                     {receitaPorConstrutora.map((_, i) => (
                                                         <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                                                     ))}
@@ -549,7 +599,7 @@ export default function Vendas() {
                                     </ResponsiveContainer>
                                 </CardChart>
 
-
+                                {/* Evolução de Receita */}
                                 <CardChart title="Evolução de Receita" subtitle="Receita imobiliária ao longo do tempo">
                                     <ResponsiveContainer width="100%" height={240}>
                                         <AreaChart data={evolucaoReceita} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>

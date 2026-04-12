@@ -31,8 +31,18 @@ import {
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, darkColor: "text-blue-400", lightColor: "text-white" },
-  { name: "Leads", href: "/dashboard/leads", icon: Users, darkColor: "text-green-400", lightColor: "text-white" },
-  { name: "Pipeline", href: "/dashboard/Pipeline", icon: Filter, darkColor: "text-purple-400", lightColor: "text-white" },
+  {
+    name: "Leads",
+    icon: Users,
+    darkColor: "text-cyan-400",
+    lightColor: "text-white",
+    children: [
+      { name: "Lista de Leads", href: "/dashboard/leads", icon: UserCheck, darkColor: "text-cyan-400", lightColor: "text-white" },
+      { name: "Pipeline", href: "/dashboard/Pipeline", icon: Filter, darkColor: "text-cyan-300", lightColor: "text-white" },
+    ]
+  },
+
+
   {
     name: "Atendimento",
     icon: Bot,
