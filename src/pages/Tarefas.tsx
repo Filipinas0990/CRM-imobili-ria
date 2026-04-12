@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from "react"
 import { Sidebar } from "@/components/Sidebar"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import { toast } from "sonner"
 import {
     Plus,
     List,
@@ -61,7 +62,6 @@ type Lead = {
     id: string
     nome: string
     telefone: string
-
 }
 
 type TipoAtividade =
@@ -82,7 +82,6 @@ type Atividade = {
     anotacoes: string | null
     data_inicio: string
     hora_inicio: string | null
-
     prioridade: string
     status: string
     concluido: boolean
@@ -92,7 +91,6 @@ type Atividade = {
 /* =====================
    DADOS INICIAIS
 ===================== */
-
 
 const initialAtividades: Atividade[] = [
     {
@@ -108,7 +106,6 @@ const initialAtividades: Atividade[] = [
         titulo: "Apresentacao do empreendimento",
         anotacoes: "Preparar material de vendas",
         data_inicio: "2026-02-12T14:00:00.000Z", hora_inicio: "14:00",
-
         prioridade: "normal", status: "PENDENTE", concluido: false,
         leads: { id: "2", nome: "Joao Santos", telefone: "(21) 98888-5678" },
     },
@@ -188,8 +185,7 @@ type NovaAtividade = {
     anotacoes: string
     data_inicio: string
     hora_inicio: string
-    hora_fim: string,
-
+    hora_fim: string
 }
 
 const defaultNovaAtividade: NovaAtividade = {
@@ -200,7 +196,6 @@ const defaultNovaAtividade: NovaAtividade = {
     data_inicio: "",
     hora_inicio: "",
     hora_fim: "",
-
 }
 
 /* =====================
@@ -210,10 +205,7 @@ const defaultNovaAtividade: NovaAtividade = {
 export default function Atividades() {
     const [tipoSelecionado, setTipoSelecionado] = useState<TipoAtividade>("all")
     const [viewMode, setViewMode] = useState<"list" | "calendar">("list")
-
     const [leads, setLeads] = useState<Lead[]>([])
-
-
 
     /* ----- Modal state ----- */
     const [modalAberto, setModalAberto] = useState(false)
@@ -224,19 +216,15 @@ export default function Atividades() {
     const [selecionados, setSelecionados] = useState<string[]>([])
     const [status, setStatus] = useState("PENDENTE")
 
-
     /* ----- Tab state ----- */
     const [tabAtiva, setTabAtiva] = useState<"pendentes" | "concluidos">("pendentes")
 
-    /* 
-       CARREGAR DADOS 
-    */
+    /* CARREGAR DADOS */
     async function carregarTarefas() {
         const { data, error } = await supabase
             .from("tarefas")
             .select("*")
             .order("data_inicio", { ascending: true })
-
 
         if (error) return
 
@@ -261,7 +249,6 @@ export default function Atividades() {
                 id: t.lead_id,
                 nome: t.pessoa,
                 telefone: t.telefone,
-
             },
         }))
 
@@ -272,16 +259,12 @@ export default function Atividades() {
         carregarTarefas()
     }, [])
 
-
-    /* CAREEGAR LEADS*/
+    /* CARREGAR LEADS */
     async function carregarLeads() {
         const { data, error } = await supabase
-
-
             .from("leads")
             .select("id, nome, telefone")
         console.log("LEADS:", data)
-
 
         if (error) {
             console.error(error)
@@ -296,18 +279,6 @@ export default function Atividades() {
         carregarLeads()
     }, [])
 
-
-
-
-
-
-
-
-
-
-
-
-    // FIX 1: atividadesVisiveis aplica filtros de tab + tipo
     const atividadesVisiveis = atividades
         .filter((a) => {
             if (tabAtiva === "pendentes") return !a.concluido
@@ -326,16 +297,11 @@ export default function Atividades() {
         (a) => !a.concluido && new Date(a.data_inicio) < new Date()
     ).length
 
-    /* 
-       AUTO-PREENCHIMENTO DO LEAD*/
-
-    // FIX 4: leadSelecionado derivado de novaAtividade.lead_id (sem estado duplicado leadId)
     const leadSelecionado = leads.find(
         (l) => String(l.id) === novaAtividade.lead_id
     )
 
-    /* 
-       ACOES */
+    /* ACOES */
 
     const toggleConcluido = async (atividade: Atividade) => {
         const novoStatus =
@@ -343,7 +309,7 @@ export default function Atividades() {
                 ? "PENDENTE"
                 : "CONCLUÍDA"
 
-        // 1️⃣ Atualiza imediatamente na tela
+        // Atualiza imediatamente na tela
         setAtividades((prev) =>
             prev.map((a) =>
                 a.id === atividade.id
@@ -352,16 +318,18 @@ export default function Atividades() {
             )
         )
 
-        // 2️⃣ Atualiza no banco
+
         const { error } = await supabase
             .from("tarefas")
             .update({ status: novoStatus })
             .eq("id", atividade.id)
 
-        // 3️⃣ Se der erro, desfaz
+
         if (error) {
             console.error(error)
-
+            toast.error("Erro ao atualizar status", {
+                description: error.message || "Tente novamente mais tarde.",
+            })
             setAtividades((prev) =>
                 prev.map((a) =>
                     a.id === atividade.id
@@ -369,9 +337,20 @@ export default function Atividades() {
                         : a
                 )
             )
+            return
+        }
+
+
+        if (novoStatus === "CONCLUÍDA") {
+            toast.success("Tarefa concluída! ✅", {
+                description: `"${atividade.titulo}" foi marcada como concluída.`,
+            })
+        } else {
+            toast.success("Tarefa reaberta", {
+                description: `"${atividade.titulo}" voltou para pendente.`,
+            })
         }
     }
-
 
     const toggleSelecionado = useCallback((id: string) => {
         setSelecionados((prev) =>
@@ -379,7 +358,7 @@ export default function Atividades() {
         )
     }, [])
 
-    /*MODAIS */
+
 
     const abrirModalCriar = (tipo: TipoAtividade = "tarefa") => {
         setModalTipo("criar")
@@ -391,7 +370,6 @@ export default function Atividades() {
     const abrirModalEditar = (atividade: Atividade) => {
         setModalTipo("editar")
         setAtividadeEditando(atividade)
-        // 
         setNovaAtividade({
             lead_id: atividade.lead_id ?? "",
             tipo: atividade.tipo,
@@ -402,14 +380,9 @@ export default function Atividades() {
                 : "",
             hora_inicio: atividade.hora_inicio ?? "",
             hora_fim: atividade.hora_fim ?? "",
-
         })
         setModalAberto(true)
     }
-
-    /* 
-       SALVAR / EXCLUIR
-     */
 
 
 
@@ -420,7 +393,12 @@ export default function Atividades() {
             data: { user }
         } = await supabase.auth.getUser()
 
-        if (!user) return
+        if (!user) {
+            toast.error("Usuário não autenticado", {
+                description: "Faça login para criar atividades.",
+            })
+            return
+        }
 
         const { error } = await supabase
             .from("tarefas")
@@ -443,21 +421,24 @@ export default function Atividades() {
                     status: status,
                     pessoa: leadSelecionado?.nome || null,
                     telefone: leadSelecionado?.telefone || null,
-
                 }
             ])
 
         if (error) {
-            console.error(error)
+            toast.error("Erro ao criar atividade", {
+                description: error.message || "Tente novamente mais tarde.",
+            })
             return
         }
 
-        await carregarTarefas()
+        toast.success("Atividade criada com sucesso!", {
+            description: `"${novaAtividade.titulo}" foi adicionada.`,
+        })
 
+        await carregarTarefas()
         setModalAberto(false)
         setNovaAtividade(defaultNovaAtividade)
         setStatus("PENDENTE")
-
     }
 
     const excluirAtividade = useCallback(async (id: string) => {
@@ -467,10 +448,13 @@ export default function Atividades() {
             .eq("id", id)
 
         if (error) {
-            console.error(error)
+            toast.error("Erro ao excluir atividade", {
+                description: error.message || "Tente novamente mais tarde.",
+            })
             return
         }
 
+        toast.success("Atividade excluída com sucesso!")
         await carregarTarefas()
     }, [])
 
@@ -483,26 +467,24 @@ export default function Atividades() {
             .in("id", selecionados)
 
         if (error) {
-            console.error(error)
+            toast.error("Erro ao excluir atividades", {
+                description: error.message || "Tente novamente mais tarde.",
+            })
             return
         }
 
+        toast.success(`${selecionados.length} atividade(s) excluída(s) com sucesso!`)
         await carregarTarefas()
         setSelecionados([])
     }
 
-
-
-
-    /* 
-       RENDER*/
+    /* RENDER */
 
     return (
         <div className="min-h-screen bg-muted/40">
             <Sidebar />
             <main className="ml-16 p-8">
                 <div className="px-6 py-4 space-y-4">
-                    {/*  */}
                     <div className="flex items-center justify-between">
                         <div>
                             <h2 className="text-xl font-semibold text-foreground text-balance">
@@ -521,7 +503,6 @@ export default function Atividades() {
                         </Button>
                     </div>
 
-                    {/*  */}
                     <div className="grid grid-cols-4 gap-4">
                         <div className="bg-red-50 border border-red-100 rounded-lg p-4 cursor-pointer hover:bg-red-100 transition-colors">
                             <p className="text-sm font-medium text-red-700">Atrasados</p>
@@ -537,7 +518,6 @@ export default function Atividades() {
                         </div>
                     </div>
 
-                    {/*  */}
                     <div className="flex items-center gap-4 border-b">
                         <button
                             onClick={() => setTabAtiva("pendentes")}
@@ -563,7 +543,6 @@ export default function Atividades() {
                         </button>
                     </div>
 
-                    {/**/}
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <div className="flex border rounded-md">
@@ -669,7 +648,6 @@ export default function Atividades() {
                         </div>
                     </div>
 
-                    {/*  */}
                     <div className="flex items-center justify-between border-b">
                         <div className="flex gap-1">
                             {tiposAtividade.map((tipo) => (
@@ -692,7 +670,6 @@ export default function Atividades() {
                         </div>
                     </div>
 
-                    {/*  */}
                     <div className="border rounded-lg bg-background">
                         <Table>
                             <TableHeader>
@@ -710,7 +687,6 @@ export default function Atividades() {
                             </TableHeader>
 
                             <TableBody>
-                                {/* */}
                                 {atividadesVisiveis.map((atividade) => (
                                     <TableRow key={atividade.id} className="transition-all duration-300">
                                         <TableCell>
@@ -728,7 +704,6 @@ export default function Atividades() {
                                                 onCheckedChange={() => toggleConcluido(atividade)}
                                                 className="transition-transform duration-200 data-[state=checked]:scale-110"
                                             />
-
                                         </TableCell>
 
                                         <TableCell>{getIconForType(atividade.tipo)}</TableCell>
@@ -737,19 +712,15 @@ export default function Atividades() {
                                             {atividade.titulo}
                                         </TableCell>
 
-                                        {/*  */}
                                         <TableCell>
                                             <span className="text-blue-600">
                                                 {atividade.leads?.nome || "\u2014"}
                                             </span>
                                         </TableCell>
 
-                                        {/*  */}
                                         <TableCell>
                                             {atividade.leads?.telefone || "\u2014"}
                                         </TableCell>
-
-                                        {/*  */}
 
                                         <TableCell>
                                             {atividade.status === "PENDENTE" && (
@@ -757,26 +728,22 @@ export default function Atividades() {
                                                     Pendente
                                                 </Badge>
                                             )}
-
                                             {atividade.status === "EM ANDAMENTO" && (
                                                 <Badge className="bg-blue-100 text-blue-800">
                                                     Em andamento
                                                 </Badge>
                                             )}
-
                                             {atividade.status === "CONCLUÍDA" && (
                                                 <Badge className="bg-green-100 text-green-800">
                                                     Concluída
                                                 </Badge>
                                             )}
-
                                             {atividade.status === "CANCELADA" && (
                                                 <Badge className="bg-red-100 text-red-800">
                                                     Cancelada
                                                 </Badge>
                                             )}
                                         </TableCell>
-
 
                                         <TableCell>
                                             {new Date(atividade.data_inicio).toLocaleDateString(
@@ -826,8 +793,7 @@ export default function Atividades() {
                 </div>
             </main>
 
-            {/* 
-          MODAL CRIAR / EDITAR*/}
+            {/* MODAL CRIAR / EDITAR */}
             <Dialog open={modalAberto} onOpenChange={setModalAberto}>
                 <DialogContent className="sm:max-w-[600px]">
                     <DialogHeader>
@@ -840,7 +806,6 @@ export default function Atividades() {
                     </DialogHeader>
 
                     <div className="grid gap-4 py-4">
-                        {/* */}
                         <div className="grid gap-2">
                             <Label htmlFor="tipo">Tipo de atividade</Label>
                             <Select
@@ -890,7 +855,6 @@ export default function Atividades() {
                             </Select>
                         </div>
 
-                        {/* Assunto */}
                         <div className="grid gap-2">
                             <Label htmlFor="assunto">Assunto</Label>
                             <Input
@@ -906,7 +870,6 @@ export default function Atividades() {
                             />
                         </div>
 
-                        {/* */}
                         <div className="grid grid-cols-2 gap-4">
                             <div className="grid gap-2">
                                 <Label>Lead</Label>
@@ -932,7 +895,6 @@ export default function Atividades() {
                                 </Select>
                             </div>
 
-                            {/*  */}
                             <div className="grid gap-2">
                                 <Label>Pessoa de contato</Label>
                                 <Input
@@ -944,7 +906,6 @@ export default function Atividades() {
                             </div>
                         </div>
 
-                        {/* */}
                         <div className="grid grid-cols-2 gap-4">
                             <div className="grid gap-2">
                                 <Label>Telefone</Label>
@@ -970,10 +931,9 @@ export default function Atividades() {
                                 </Select>
                             </div>
 
-
-
-                        /* Data */}
+                            /* Data */}
                         </div>
+
                         <div className="grid gap-2">
                             <Label>Data de inicio</Label>
                             <Input
@@ -988,7 +948,6 @@ export default function Atividades() {
                             />
                         </div>
 
-                        {/* Horarios */}
                         <div className="grid grid-cols-2 gap-4">
                             <div className="grid gap-2">
                                 <Label>Hora inicio</Label>
@@ -1003,24 +962,8 @@ export default function Atividades() {
                                     }
                                 />
                             </div>
-                            {/*  <div className="grid gap-2">
-                                <Label>Hora fim</Label>
-                                <Input
-                                    type="time"
-                                    value={novaAtividade.hora_fim}
-                                    onChange={(e) =>
-                                        setNovaAtividade({
-                                            ...novaAtividade,
-                                            hora_fim: e.target.value,
-                                        })
-                                    }
-                                />
-                            </div>
-                            */}
-
                         </div>
 
-                        {/* Anotacoes */}
                         <div className="grid gap-2">
                             <Label htmlFor="notas">Anotacoes</Label>
                             <Textarea

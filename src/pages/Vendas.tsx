@@ -26,7 +26,7 @@ import { createVenda } from "@/integrations/supabase/vendas/createVenda";
 import { updateVendaStatus } from "@/integrations/supabase/vendas/updateVenda";
 import { deleteVenda } from "@/integrations/supabase/vendas/deleteVendas";
 import { Sidebar } from "@/components/Sidebar";
-import { useToast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
 import {
     DropdownMenu, DropdownMenuContent,
     DropdownMenuItem, DropdownMenuTrigger,
@@ -130,11 +130,8 @@ export default function Vendas() {
     const [filtroTipo, setFiltroTipo] = useState("todos");
     const [busca, setBusca] = useState("");
 
-
     const [periodoEstat, setPeriodoEstat] = useState<number | null>(null);
     const [periodoMenuOpen, setPeriodoMenuOpen] = useState(false);
-
-    const { toast } = useToast();
 
     const [open, setOpen] = useState(false);
     const [form, setForm] = useState<any>(emptyForm);
@@ -165,29 +162,76 @@ export default function Vendas() {
     useEffect(() => { loadAll(); }, []);
 
     async function handleCreateVenda() {
-        if (!form.leadId) { alert("Cliente é obrigatório"); return; }
-        if (!form.imovelId) { alert("Empreendimento é obrigatório"); return; }
-        if (!form.valor) { alert("Valor é obrigatório"); return; }
+        if (!form.leadId) {
+            toast.error("Campo obrigatório", { description: "Selecione um cliente para continuar." });
+            return;
+        }
+        if (!form.imovelId) {
+            toast.error("Campo obrigatório", { description: "Selecione um empreendimento para continuar." });
+            return;
+        }
+        if (!form.valor) {
+            toast.error("Campo obrigatório", { description: "Informe o valor da venda para continuar." });
+            return;
+        }
 
-        await createVenda({
-            lead_id: form.leadId || null,
-            imovel_id: form.imovelId || null,
-            valor: Number(form.valor),
-            tipo: form.tipo,
-            status: form.status,
-            data_venda: form.dataVenda || null,
-            base_calculo_tipo: form.baseCalculoTipo,
-            base_calculo_pct: Number(form.baseCalculoPct),
-            percentual_imposto: Number(form.percentualImposto),
-            valor_indicacao: Number(form.valorIndicacao),
-            premiacao_venda: form.premiacaoVenda ? Number(form.premiacaoVenda) : null,
-            data_prev_comissao: form.dataPrevComissao || null,
-        });
+        try {
+            await createVenda({
+                lead_id: form.leadId || null,
+                imovel_id: form.imovelId || null,
+                valor: Number(form.valor),
+                tipo: form.tipo,
+                status: form.status,
+                data_venda: form.dataVenda || null,
+                base_calculo_tipo: form.baseCalculoTipo,
+                base_calculo_pct: Number(form.baseCalculoPct),
+                percentual_imposto: Number(form.percentualImposto),
+                valor_indicacao: Number(form.valorIndicacao),
+                premiacao_venda: form.premiacaoVenda ? Number(form.premiacaoVenda) : null,
+                data_prev_comissao: form.dataPrevComissao || null,
+            });
 
-        toast({ title: "Venda cadastrada!", className: "bg-green-600 text-white" });
-        setOpen(false);
-        setForm(emptyForm);
-        loadAll();
+            toast.success("Venda cadastrada com sucesso!", {
+                description: `Venda no valor de R$ ${Number(form.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })} foi criada.`,
+            });
+            setOpen(false);
+            setForm(emptyForm);
+            loadAll();
+        } catch (err: any) {
+            toast.error("Erro ao cadastrar venda", {
+                description: err?.message || "Tente novamente mais tarde.",
+            });
+        }
+    }
+
+    async function handleUpdateStatus() {
+        if (!vendaEditando) return;
+        try {
+            await updateVendaStatus(vendaEditando.id, novoStatus);
+            toast.success("Status atualizado!", {
+                description: `Venda alterada para "${novoStatus}".`,
+            });
+            setOpenEdit(false);
+            setVendaEditando(null);
+            loadAll();
+        } catch (err: any) {
+            toast.error("Erro ao atualizar status", {
+                description: err?.message || "Tente novamente mais tarde.",
+            });
+        }
+    }
+
+    async function handleDeleteVenda(id: string) {
+        if (!confirm("Deseja apagar esta venda?")) return;
+        try {
+            await deleteVenda(id);
+            toast.success("Venda excluída com sucesso!");
+            loadAll();
+        } catch (err: any) {
+            toast.error("Erro ao excluir venda", {
+                description: err?.message || "Tente novamente mais tarde.",
+            });
+        }
     }
 
     function getLeadNome(id: string | null) {
@@ -212,7 +256,6 @@ export default function Vendas() {
         const pct = v.base_calculo_pct ?? 4;
         return (Number(v.valor) || 0) * (pct / 100);
     }
-
 
     const vendasEstat = periodoEstat === null
         ? vendas
@@ -239,7 +282,6 @@ export default function Vendas() {
             || getImovelTitulo(v.imovel_id).toLowerCase().includes(txt);
         return statusOk && tipoOk && buscaOk;
     });
-
 
     const vgvMensal = (() => {
         const map: Record<string, number> = {};
@@ -303,7 +345,6 @@ export default function Vendas() {
             <main className="ml-16 overflow-y-auto min-h-screen">
                 <div className="p-8 space-y-6">
 
-
                     <div className="flex items-center justify-between">
                         <div>
                             <h1 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">
@@ -317,7 +358,6 @@ export default function Vendas() {
                             <Plus className="w-4 h-4" /> Nova Venda
                         </Button>
                     </div>
-
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                         {[
@@ -335,7 +375,6 @@ export default function Vendas() {
                             </div>
                         ))}
                     </div>
-
 
                     <div className="flex gap-1 bg-gray-100 dark:bg-slate-800 rounded-lg p-1 w-fit">
                         {[
@@ -451,8 +490,12 @@ export default function Vendas() {
                                                 </button>
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end" className="bg-white dark:bg-[#1e2a3a] border-gray-100 dark:border-slate-700">
-                                                <DropdownMenuItem className="cursor-pointer text-sm" onClick={() => { setVendaEditando(v); setNovoStatus(v.status); setOpenEdit(true); }}>Editar status</DropdownMenuItem>
-                                                <DropdownMenuItem className="text-red-500 cursor-pointer text-sm" onClick={async () => { if (!confirm("Deseja apagar esta venda?")) return; await deleteVenda(v.id); loadAll(); }}>Excluir</DropdownMenuItem>
+                                                <DropdownMenuItem className="cursor-pointer text-sm" onClick={() => { setVendaEditando(v); setNovoStatus(v.status); setOpenEdit(true); }}>
+                                                    Editar status
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem className="text-red-500 cursor-pointer text-sm" onClick={() => handleDeleteVenda(v.id)}>
+                                                    Excluir
+                                                </DropdownMenuItem>
                                             </DropdownMenuContent>
                                         </DropdownMenu>
                                     </div>
@@ -460,7 +503,6 @@ export default function Vendas() {
                             )}
                         </div>
                     )}
-
 
                     {aba === "comissoes" && (
                         <div className="rounded-xl border border-gray-200 dark:border-slate-700/60 bg-white dark:bg-[#161e2e] shadow-sm overflow-hidden">
@@ -500,11 +542,8 @@ export default function Vendas() {
                         </div>
                     )}
 
-
                     {aba === "estatisticas" && (
                         <div className="space-y-6">
-
-
                             <div className="flex justify-end relative">
                                 <button
                                     onClick={() => setPeriodoMenuOpen((v) => !v)}
@@ -537,8 +576,6 @@ export default function Vendas() {
                             </div>
 
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-
                                 <CardChart title="Vendas Mensais" subtitle="VGV por mês">
                                     <ResponsiveContainer width="100%" height={240}>
                                         <AreaChart data={vgvMensal} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
@@ -556,7 +593,6 @@ export default function Vendas() {
                                         </AreaChart>
                                     </ResponsiveContainer>
                                 </CardChart>
-
 
                                 <CardChart title="Receita por Construtora" subtitle="Total de receita imobiliária por construtora">
                                     {receitaPorConstrutora.length === 0 ? (
@@ -580,7 +616,6 @@ export default function Vendas() {
                                     )}
                                 </CardChart>
 
-
                                 <CardChart title="Evolução de Vendas" subtitle="Número de vendas ao longo do tempo">
                                     <ResponsiveContainer width="100%" height={240}>
                                         <AreaChart data={evolucaoVendas} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
@@ -599,7 +634,6 @@ export default function Vendas() {
                                     </ResponsiveContainer>
                                 </CardChart>
 
-                                {/* Evolução de Receita */}
                                 <CardChart title="Evolução de Receita" subtitle="Receita imobiliária ao longo do tempo">
                                     <ResponsiveContainer width="100%" height={240}>
                                         <AreaChart data={evolucaoReceita} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
@@ -623,7 +657,7 @@ export default function Vendas() {
                 </div>
             </main>
 
-
+            {/* MODAL NOVA VENDA */}
             <Dialog open={open} onOpenChange={setOpen}>
                 <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col bg-white dark:bg-[#161e2e] border-gray-200 dark:border-slate-700 p-0">
                     <div className="px-6 pt-6 pb-4 border-b border-gray-100 dark:border-slate-700 flex-shrink-0">
@@ -718,7 +752,7 @@ export default function Vendas() {
                 </DialogContent>
             </Dialog>
 
-
+            {/* MODAL EDITAR STATUS */}
             <Dialog open={openEdit} onOpenChange={setOpenEdit}>
                 <DialogContent className="max-w-sm bg-white dark:bg-[#161e2e] border-gray-200 dark:border-slate-700">
                     <DialogHeader>
@@ -738,7 +772,7 @@ export default function Vendas() {
                     </div>
                     <DialogFooter className="mt-4">
                         <Button variant="outline" onClick={() => setOpenEdit(false)} className="border-gray-200 dark:border-slate-600 text-gray-600 dark:text-slate-300">Cancelar</Button>
-                        <Button className="bg-blue-600 hover:bg-blue-700 text-white font-semibold" onClick={async () => { if (!vendaEditando) return; await updateVendaStatus(vendaEditando.id, novoStatus); setOpenEdit(false); setVendaEditando(null); loadAll(); }}>
+                        <Button className="bg-blue-600 hover:bg-blue-700 text-white font-semibold" onClick={handleUpdateStatus}>
                             Salvar
                         </Button>
                     </DialogFooter>
