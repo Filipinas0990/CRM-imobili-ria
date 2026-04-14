@@ -1,9 +1,3 @@
-import { createClient } from "@supabase/supabase-js";
-
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-console.log("URL LOADED =>", supabaseUrl);
-console.log("KEY LOADED =>", supabaseAnonKey ? "OK" : "NOT LOADED");
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Arquivo mantido por compatibilidade
+// Use @/integrations/supabase/client em novos arquivos
+export { supabase } from "@/integrations/supabase/client";
