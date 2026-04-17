@@ -13,7 +13,6 @@ import {
   Users,
   Building2,
   CheckCircle2,
-  Clock,
 } from "lucide-react";
 
 import { getDashboardStats } from "@/integrations/supabase/dashoboard/getDashboardStats";
@@ -70,7 +69,7 @@ const Dashboard = () => {
   }, []);
 
   const totalDeals = vendas.filter((v) => v.status === "Fechada").length;
-  const totalLeadsGeral = leads.length > 0 ? leads.length : 1; // evita divisão por zero
+  const totalLeadsGeral = leads.length > 0 ? leads.length : 1;
 
   const stats = [
     {
@@ -110,7 +109,8 @@ const Dashboard = () => {
     return (
       <div className="flex min-h-screen bg-background">
         <Sidebar />
-        <main className="ml-16 flex flex-1 items-center justify-center">
+        {/* loading: no mobile não tem ml-16, só no md+ */}
+        <main className="md:ml-16 flex flex-1 items-center justify-center">
           <div className="flex flex-col items-center gap-4">
             <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
             <p className="text-sm text-muted-foreground">
@@ -126,37 +126,47 @@ const Dashboard = () => {
     <div className="flex min-h-screen bg-background">
       <Sidebar />
 
-      <main className="ml-16 w-full overflow-y-auto">
-        <div className="p-8">
+      {/*
+        Desktop: ml-16 para compensar a sidebar fixa de 64px
+        Mobile:  sem margin lateral, padding-bottom para não cobrir a MobileBottomBar
+      */}
+      <main className="md:ml-16 w-full overflow-y-auto pb-24 md:pb-0">
+        <div className="p-4 md:p-8">
 
-          {/* HEADER */}
-          <div className="mb-8 flex justify-between items-start">
+          {/* ── HEADER ── */}
+          <div className="mb-6 md:mb-8 flex justify-between items-start">
             <div>
-              <h1 className="text-3xl font-bold text-foreground mb-2">
+              <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-1 md:mb-2">
                 Dashboard
               </h1>
-              <p className="text-muted-foreground">
+              <p className="text-sm text-muted-foreground">
                 Bem-vindo ao seu painel de controle
               </p>
             </div>
-            <LogoutButton />
+            {/* Logout fica visível só no desktop; no mobile o logout fica nas configurações */}
+            <div className="hidden md:block">
+              <LogoutButton />
+            </div>
           </div>
 
-          {/* CARDS DE STATS */}
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
+          {/* ── CARDS DE STATS ──
+              Mobile:  2 colunas
+              Desktop: 4 colunas
+          */}
+          <div className="grid grid-cols-2 gap-3 md:gap-6 lg:grid-cols-4 mb-6 md:mb-8">
             {stats.map((stat, index) => (
-              <Card key={index}>
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
+              <Card key={index} className="overflow-hidden">
+                <CardHeader className="flex flex-row items-center justify-between pb-1 md:pb-2 p-3 md:p-6">
+                  <CardTitle className="text-xs md:text-sm font-medium text-muted-foreground leading-tight">
                     {stat.title}
                   </CardTitle>
-                  <stat.icon className={`h-5 w-5 ${stat.color}`} />
+                  <stat.icon className={`h-4 w-4 md:h-5 md:w-5 flex-shrink-0 ${stat.color}`} />
                 </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-foreground">
+                <CardContent className="p-3 pt-0 md:p-6 md:pt-0">
+                  <div className="text-xl md:text-3xl font-bold text-foreground truncate">
                     {stat.value}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">
+                  <p className="text-xs text-muted-foreground mt-0.5 md:mt-1">
                     {stat.change}
                   </p>
                 </CardContent>
@@ -164,32 +174,32 @@ const Dashboard = () => {
             ))}
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-2">
+          {/* ── FUNIL + VISITAS ──
+              Mobile:  coluna única (stack)
+              Desktop: 2 colunas lado a lado
+          */}
+          <div className="grid gap-4 md:gap-6 grid-cols-1 lg:grid-cols-2">
 
             {/* FUNIL DE VENDAS */}
             <Card>
-              <CardHeader>
-                <CardTitle>Funil de Vendas</CardTitle>
-                <CardDescription>
+              <CardHeader className="p-4 md:p-6">
+                <CardTitle className="text-base md:text-lg">Funil de Vendas</CardTitle>
+                <CardDescription className="text-xs md:text-sm">
                   Distribuição dos leads por etapa
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3 md:space-y-4 p-4 pt-0 md:p-6 md:pt-0">
                 {ETAPAS.map((etapa) => {
-                  const count = leads.filter(
-                    (l) => l.status === etapa.id
-                  ).length;
-                  const percent = Math.round(
-                    (count / totalLeadsGeral) * 100
-                  );
+                  const count = leads.filter((l) => l.status === etapa.id).length;
+                  const percent = Math.round((count / totalLeadsGeral) * 100);
 
                   return (
                     <div key={etapa.id}>
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm font-medium">
+                        <span className="text-xs md:text-sm font-medium">
                           {etapa.title}
                         </span>
-                        <span className="text-sm text-muted-foreground">
+                        <span className="text-xs md:text-sm text-muted-foreground">
                           {count} lead{count !== 1 ? "s" : ""}
                         </span>
                       </div>
@@ -203,7 +213,6 @@ const Dashboard = () => {
                   );
                 })}
 
-                {/* Totalizador */}
                 <div className="pt-3 border-t flex justify-between text-xs text-muted-foreground">
                   <span>Total de leads no funil</span>
                   <span className="font-semibold text-foreground">
@@ -215,11 +224,13 @@ const Dashboard = () => {
 
             {/* PRÓXIMAS VISITAS */}
             <Card>
-              <CardHeader>
-                <CardTitle>Próximas Visitas</CardTitle>
-                <CardDescription>Suas visitas agendadas</CardDescription>
+              <CardHeader className="p-4 md:p-6">
+                <CardTitle className="text-base md:text-lg">Próximas Visitas</CardTitle>
+                <CardDescription className="text-xs md:text-sm">
+                  Suas visitas agendadas
+                </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3 md:space-y-4 p-4 pt-0 md:p-6 md:pt-0">
                 {upcomingVisits.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
                     Nenhuma visita agendada.
@@ -228,19 +239,19 @@ const Dashboard = () => {
                   upcomingVisits.map((visit, index) => (
                     <div
                       key={index}
-                      className="flex gap-4 p-3 rounded-lg border bg-card"
+                      className="flex gap-3 md:gap-4 p-3 rounded-lg border bg-card"
                     >
-                      <div className="flex flex-col items-center justify-center bg-primary/10 rounded-lg px-3 py-2 min-w-[60px]">
-                        <span className="text-xs font-medium text-primary">
+                      <div className="flex flex-col items-center justify-center bg-primary/10 rounded-lg px-2 md:px-3 py-2 min-w-[56px] md:min-w-[60px]">
+                        <span className="text-[10px] md:text-xs font-medium text-primary">
                           {visit.date}
                         </span>
-                        <span className="text-lg font-bold text-primary">
+                        <span className="text-base md:text-lg font-bold text-primary">
                           {visit.time}
                         </span>
                       </div>
                       <div className="flex flex-col justify-center">
                         <p className="text-sm font-medium">{visit.title}</p>
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-xs md:text-sm text-muted-foreground">
                           {visit.location}
                         </p>
                       </div>
