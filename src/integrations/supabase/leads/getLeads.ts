@@ -4,15 +4,12 @@ export async function getLeads() {
     const { data: authData } = await supabase.auth.getUser();
     if (!authData?.user) return [];
 
-    const user_id = authData.user.id;
-
     const { data, error } = await supabase
         .from("leads")
-        .select("*")
-        .eq("user_id", user_id);
-
+        .select("id, nome, email, telefone, status, temperatura, interesse, observacoes, origem, criado_em")
+        .eq("user_id", authData.user.id)
+        .order("criado_em", { ascending: false }); 
 
     if (error) return [];
-
-    return data; // <-- VOLTA A RETORNAR APENAS O ARRAY
+    return data;
 }

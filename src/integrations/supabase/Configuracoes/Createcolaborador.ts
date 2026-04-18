@@ -9,6 +9,11 @@ export async function createColaborador(data: {
     comissao: number;
     status: string;
 }) {
-    const { error } = await supabase.from("colaboradores").insert(data);
+    const { data: { user } } = await supabase.auth.getUser(); // 👈 pega o usuário logado
+
+    const { error } = await supabase.from("colaboradores").insert({
+        ...data,
+        user_id: user?.id, // 👈 vincula ao dono
+    });
     if (error) console.error("createColaborador:", error);
 }

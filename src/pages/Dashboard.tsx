@@ -1,26 +1,17 @@
-import { useEffect, useState } from "react";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
+  Card, CardContent, CardDescription, CardHeader, CardTitle,
 } from "@/components/ui/card";
 import { Sidebar } from "@/components/Sidebar";
 import LogoutButton from "@/components/LogoutButton";
-import {
-  Wallet,
-  Users,
-  Building2,
-  CheckCircle2,
-} from "lucide-react";
+import { Wallet, Users, Building2, CheckCircle2 } from "lucide-react";
+
+import { useQuery } from "@tanstack/react-query";
 
 import { getDashboardStats } from "@/integrations/supabase/dashoboard/getDashboardStats";
 import { getUpcomingVisits } from "@/integrations/supabase/dashoboard/getUpcomingVisits";
 import { getVendas } from "@/integrations/supabase/vendas/getVendas";
 import { getSaldoFinanceiro } from "@/integrations/supabase/Financeiros/getSaldoFinanceiro";
 import { getLeads } from "@/integrations/supabase/leads/getLeads";
-
 
 const ETAPAS = [
   { id: "novo", title: "Leads Novos", color: "bg-blue-500" },
@@ -30,43 +21,42 @@ const ETAPAS = [
   { id: "desistiu", title: "Cliente Desistiu", color: "bg-red-500" },
 ];
 
+const STALE = 1000 * 60 * 5; // 5 minutos
+
 const Dashboard = () => {
-  const [statsData, setStatsData] = useState({
-    totalLeads: 0,
-    totalProperties: 0,
-    totalDeals: 0,
+  // ✅ React Query — cada fetch tem seu cache independente
+  const { data: statsData, isLoading: loadingStats } = useQuery({
+    queryKey: ["dashboard-stats"],
+    queryFn: getDashboardStats,
+    staleTime: STALE,
   });
-  const [vendas, setVendas] = useState<any[]>([]);
-  const [leads, setLeads] = useState<any[]>([]);
-  const [upcomingVisits, setUpcomingVisits] = useState<any[]>([]);
-  const [saldoFinanceiro, setSaldoFinanceiro] = useState(0);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function loadDashboard() {
-      try {
-        const [stats, visits, vendasData, leadsData, saldo] = await Promise.all([
-          getDashboardStats(),
-          getUpcomingVisits(),
-          getVendas(),
-          getLeads(),
-          getSaldoFinanceiro(),
-        ]);
+  const { data: upcomingVisits = [], isLoading: loadingVisits } = useQuery({
+    queryKey: ["upcoming-visits"],
+    queryFn: getUpcomingVisits,
+    staleTime: STALE,
+  });
 
-        setStatsData(stats);
-        setUpcomingVisits(visits);
-        setVendas(vendasData || []);
-        setLeads(leadsData || []);
-        setSaldoFinanceiro(saldo);
-      } catch (error) {
-        console.error("Erro ao carregar dashboard:", error);
-      } finally {
-        setLoading(false);
-      }
-    }
+  const { data: vendas = [], isLoading: loadingVendas } = useQuery({
+    queryKey: ["vendas"],
+    queryFn: getVendas,
+    staleTime: STALE,
+  });
 
-    loadDashboard();
-  }, []);
+  const { data: leads = [], isLoading: loadingLeads } = useQuery({
+    queryKey: ["leads"],           // ✅ mesma queryKey que Leads.tsx — compartilha o cache!
+    queryFn: getLeads,
+    staleTime: STALE,
+  });
+
+  const { data: saldoFinanceiro = 0, isLoading: loadingSaldo } = useQuery({
+    queryKey: ["saldo-financeiro"],
+    queryFn: getSaldoFinanceiro,
+    staleTime: STALE,
+  });
+
+  const loading =
+    loadingStats || loadingVisits || loadingVendas || loadingLeads || loadingSaldo;
 
   const totalDeals = vendas.filter((v) => v.status === "Fechada").length;
   const totalLeadsGeral = leads.length > 0 ? leads.length : 1;
@@ -74,24 +64,21 @@ const Dashboard = () => {
   const stats = [
     {
       title: "Total de Leads",
-      value: statsData.totalLeads,
+      value: statsData?.totalLeads ?? 0,
       change: "Total cadastrado",
       icon: Users,
       color: "text-chart-1",
     },
     {
       title: "Imóveis Cadastrados",
-      value: statsData.totalProperties,
+      value: statsData?.totalProperties ?? 0,
       change: "Total cadastrado",
       icon: Building2,
       color: "text-chart-2",
     },
     {
       title: "Saldo em Caixa",
-      value: saldoFinanceiro.toLocaleString("pt-BR", {
-        style: "currency",
-        currency: "BRL",
-      }),
+      value: saldoFinanceiro.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
       change: "Financeiro",
       icon: Wallet,
       color: "text-success",
@@ -109,13 +96,10 @@ const Dashboard = () => {
     return (
       <div className="flex min-h-screen bg-background">
         <Sidebar />
-        {/* loading: no mobile não tem ml-16, só no md+ */}
         <main className="md:ml-16 flex flex-1 items-center justify-center">
           <div className="flex flex-col items-center gap-4">
             <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-            <p className="text-sm text-muted-foreground">
-              Carregando dashboard...
-            </p>
+            <p className="text-sm text-muted-foreground">Carregando dashboard...</p>
           </div>
         </main>
       </div>
@@ -126,10 +110,6 @@ const Dashboard = () => {
     <div className="flex min-h-screen bg-background">
       <Sidebar />
 
-      {/*
-        Desktop: ml-16 para compensar a sidebar fixa de 64px
-        Mobile:  sem margin lateral, padding-bottom para não cobrir a MobileBottomBar
-      */}
       <main className="md:ml-16 w-full overflow-y-auto pb-24 md:pb-0">
         <div className="p-4 md:p-8">
 
@@ -143,20 +123,16 @@ const Dashboard = () => {
                 Bem-vindo ao seu painel de controle
               </p>
             </div>
-            {/* Logout fica visível só no desktop; no mobile o logout fica nas configurações */}
             <div className="hidden md:block">
               <LogoutButton />
             </div>
           </div>
 
-          {/* ── CARDS DE STATS ──
-              Mobile:  2 colunas
-              Desktop: 4 colunas
-          */}
+          {/* ── CARDS DE STATS ── */}
           <div className="grid grid-cols-2 gap-3 md:gap-6 lg:grid-cols-4 mb-6 md:mb-8">
             {stats.map((stat, index) => (
               <Card key={index} className="overflow-hidden">
-                <CardHeader className="flex flex-row items-center justify-between pb-1 md:pb-2 p-3 md:p-6">
+                <CardHeader className="flex flex-row items-center justify-between p-3 Pb-0">
                   <CardTitle className="text-xs md:text-sm font-medium text-muted-foreground leading-tight">
                     {stat.title}
                   </CardTitle>
@@ -174,10 +150,7 @@ const Dashboard = () => {
             ))}
           </div>
 
-          {/* ── FUNIL + VISITAS ──
-              Mobile:  coluna única (stack)
-              Desktop: 2 colunas lado a lado
-          */}
+          {/* ── FUNIL + VISITAS ── */}
           <div className="grid gap-4 md:gap-6 grid-cols-1 lg:grid-cols-2">
 
             {/* FUNIL DE VENDAS */}
@@ -192,13 +165,10 @@ const Dashboard = () => {
                 {ETAPAS.map((etapa) => {
                   const count = leads.filter((l) => l.status === etapa.id).length;
                   const percent = Math.round((count / totalLeadsGeral) * 100);
-
                   return (
                     <div key={etapa.id}>
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs md:text-sm font-medium">
-                          {etapa.title}
-                        </span>
+                        <span className="text-xs md:text-sm font-medium">{etapa.title}</span>
                         <span className="text-xs md:text-sm text-muted-foreground">
                           {count} lead{count !== 1 ? "s" : ""}
                         </span>
@@ -212,12 +182,9 @@ const Dashboard = () => {
                     </div>
                   );
                 })}
-
                 <div className="pt-3 border-t flex justify-between text-xs text-muted-foreground">
                   <span>Total de leads no funil</span>
-                  <span className="font-semibold text-foreground">
-                    {leads.length}
-                  </span>
+                  <span className="font-semibold text-foreground">{leads.length}</span>
                 </div>
               </CardContent>
             </Card>
@@ -232,28 +199,17 @@ const Dashboard = () => {
               </CardHeader>
               <CardContent className="space-y-3 md:space-y-4 p-4 pt-0 md:p-6 md:pt-0">
                 {upcomingVisits.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    Nenhuma visita agendada.
-                  </p>
+                  <p className="text-sm text-muted-foreground">Nenhuma visita agendada.</p>
                 ) : (
                   upcomingVisits.map((visit, index) => (
-                    <div
-                      key={index}
-                      className="flex gap-3 md:gap-4 p-3 rounded-lg border bg-card"
-                    >
+                    <div key={index} className="flex gap-3 md:gap-4 p-3 rounded-lg border bg-card">
                       <div className="flex flex-col items-center justify-center bg-primary/10 rounded-lg px-2 md:px-3 py-2 min-w-[56px] md:min-w-[60px]">
-                        <span className="text-[10px] md:text-xs font-medium text-primary">
-                          {visit.date}
-                        </span>
-                        <span className="text-base md:text-lg font-bold text-primary">
-                          {visit.time}
-                        </span>
+                        <span className="text-[10px] md:text-xs font-medium text-primary">{visit.date}</span>
+                        <span className="text-base md:text-lg font-bold text-primary">{visit.time}</span>
                       </div>
                       <div className="flex flex-col justify-center">
                         <p className="text-sm font-medium">{visit.title}</p>
-                        <p className="text-xs md:text-sm text-muted-foreground">
-                          {visit.location}
-                        </p>
+                        <p className="text-xs md:text-sm text-muted-foreground">{visit.location}</p>
                       </div>
                     </div>
                   ))

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
     Dialog, DialogContent, DialogFooter,
@@ -18,6 +18,8 @@ import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer, PieChart, Pie, Cell, Legend,
 } from "recharts";
+
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { getVendas } from "@/integrations/supabase/vendas/getVendas";
 import { getLeads } from "@/integrations/supabase/leads/getLeads";
@@ -121,10 +123,6 @@ const PERIODOS = [
 ];
 
 export default function Vendas() {
-    const [vendas, setVendas] = useState<Venda[]>([]);
-    const [leads, setLeads] = useState<any[]>([]);
-    const [imoveis, setImoveis] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
     const [aba, setAba] = useState<"vendas" | "comissoes" | "estatisticas">("vendas");
     const [filtroStatus, setFiltroStatus] = useState("todos");
     const [filtroTipo, setFiltroTipo] = useState("todos");
@@ -140,7 +138,7 @@ export default function Vendas() {
 
     function handleImovelSelect(id: string) {
         setField("imovelId", id);
-        const imovel = imoveis.find((i) => i.id === id);
+        const imovel = (imoveisData ?? []).find((i: any) => i.id === id);
         setField("construtora", imovel?.construtora || "");
     }
 
@@ -148,18 +146,33 @@ export default function Vendas() {
     const [vendaEditando, setVendaEditando] = useState<Venda | null>(null);
     const [novoStatus, setNovoStatus] = useState("");
 
-    async function loadAll() {
-        setLoading(true);
-        const [vendasData, leadsData, imoveisData] = await Promise.all([
-            getVendas(), getLeads(), getImoveis(),
-        ]);
-        setVendas(vendasData || []);
-        setLeads(leadsData || []);
-        setImoveis(Array.isArray(imoveisData) ? imoveisData : (imoveisData as any)?.data || []);
-        setLoading(false);
-    }
+    // ✅ React Query — cache automático de 5 minutos
+    const queryClient = useQueryClient();
 
-    useEffect(() => { loadAll(); }, []);
+    const { data: vendas = [], isLoading: loadingVendas } = useQuery({
+        queryKey: ["vendas"],
+        queryFn: getVendas,
+        staleTime: 1000 * 60 * 5,
+    });
+
+    const { data: leads = [] } = useQuery({
+        queryKey: ["leads"],
+        queryFn: getLeads,
+        staleTime: 1000 * 60 * 5,
+    });
+
+    const { data: imoveisRaw } = useQuery({
+        queryKey: ["imoveis"],
+        queryFn: getImoveis,
+        staleTime: 1000 * 60 * 5,
+    });
+
+    const imoveisData = Array.isArray(imoveisRaw) ? imoveisRaw : (imoveisRaw as any)?.data || [];
+    const loading = loadingVendas;
+
+    function recarregar() {
+        queryClient.invalidateQueries({ queryKey: ["vendas"] });
+    }
 
     async function handleCreateVenda() {
         if (!form.leadId) {
@@ -196,7 +209,7 @@ export default function Vendas() {
             });
             setOpen(false);
             setForm(emptyForm);
-            loadAll();
+            recarregar();
         } catch (err: any) {
             toast.error("Erro ao cadastrar venda", {
                 description: err?.message || "Tente novamente mais tarde.",
@@ -213,7 +226,7 @@ export default function Vendas() {
             });
             setOpenEdit(false);
             setVendaEditando(null);
-            loadAll();
+            recarregar();
         } catch (err: any) {
             toast.error("Erro ao atualizar status", {
                 description: err?.message || "Tente novamente mais tarde.",
@@ -226,7 +239,7 @@ export default function Vendas() {
         try {
             await deleteVenda(id);
             toast.success("Venda excluída com sucesso!");
-            loadAll();
+            recarregar();
         } catch (err: any) {
             toast.error("Erro ao excluir venda", {
                 description: err?.message || "Tente novamente mais tarde.",
@@ -236,19 +249,19 @@ export default function Vendas() {
 
     function getLeadNome(id: string | null) {
         if (!id) return "—";
-        const lead = leads.find((l) => l.id === id);
+        const lead = (leads as any[]).find((l) => l.id === id);
         return lead ? lead.nome : "—";
     }
 
     function getImovelTitulo(id: string | null) {
         if (!id) return "—";
-        const imovel = imoveis.find((i) => i.id === id);
+        const imovel = imoveisData.find((i: any) => i.id === id);
         return imovel ? imovel.titulo : "—";
     }
 
     function getImovelConstrutora(id: string | null) {
         if (!id) return "—";
-        const imovel = imoveis.find((i) => i.id === id);
+        const imovel = imoveisData.find((i: any) => i.id === id);
         return imovel?.construtora || "—";
     }
 
@@ -259,7 +272,7 @@ export default function Vendas() {
 
     const vendasEstat = periodoEstat === null
         ? vendas
-        : vendas.filter((v) => {
+        : (vendas as Venda[]).filter((v) => {
             const d = v.data_venda || v.created_at;
             if (!d) return true;
             const diff = (Date.now() - new Date(d).getTime()) / (1000 * 60 * 60 * 24);
@@ -267,13 +280,13 @@ export default function Vendas() {
         });
 
     const totalVendas = vendas.length;
-    const vendasFechadas = vendas.filter((v) => v.status === "Fechada");
-    const vendasAbertas = vendas.filter((v) => v.status !== "Fechada" && v.status !== "Perdida");
-    const vgvTotal = vendas.reduce((acc, v) => acc + (Number(v.valor) || 0), 0);
+    const vendasFechadas = (vendas as Venda[]).filter((v) => v.status === "Fechada");
+    const vendasAbertas = (vendas as Venda[]).filter((v) => v.status !== "Fechada" && v.status !== "Perdida");
+    const vgvTotal = (vendas as Venda[]).reduce((acc, v) => acc + (Number(v.valor) || 0), 0);
     const receitaGerada = vendasFechadas.reduce((acc, v) => acc + calcReceitaImob(v), 0);
     const receitaPendente = vendasAbertas.reduce((acc, v) => acc + calcReceitaImob(v), 0);
 
-    const vendasFiltradas = vendas.filter((v) => {
+    const vendasFiltradas = (vendas as Venda[]).filter((v) => {
         const statusOk = filtroStatus === "todos" || v.status === filtroStatus;
         const tipoOk = filtroTipo === "todos" || v.tipo === filtroTipo;
         const txt = busca.toLowerCase();
@@ -285,7 +298,7 @@ export default function Vendas() {
 
     const vgvMensal = (() => {
         const map: Record<string, number> = {};
-        vendasEstat.forEach((v) => {
+        (vendasEstat as Venda[]).forEach((v) => {
             const d = v.data_venda || v.created_at;
             if (!d) return;
             const key = new Date(d).toLocaleDateString("pt-BR", { month: "short", year: "numeric" });
@@ -296,7 +309,7 @@ export default function Vendas() {
 
     const receitaPorConstrutora = (() => {
         const map: Record<string, number> = {};
-        vendasEstat.forEach((v) => {
+        (vendasEstat as Venda[]).forEach((v) => {
             const c = getImovelConstrutora(v.imovel_id);
             map[c] = (map[c] || 0) + calcReceitaImob(v);
         });
@@ -308,7 +321,7 @@ export default function Vendas() {
 
     const evolucaoVendas = Array.from({ length: diasMes }, (_, i) => {
         const dia = i + 1;
-        const count = vendasEstat.filter((v) => {
+        const count = (vendasEstat as Venda[]).filter((v) => {
             const d = v.data_venda || v.created_at;
             if (!d) return false;
             const date = new Date(d);
@@ -321,7 +334,7 @@ export default function Vendas() {
 
     const evolucaoReceita = Array.from({ length: diasMes }, (_, i) => {
         const dia = i + 1;
-        const receita = vendasEstat
+        const receita = (vendasEstat as Venda[])
             .filter((v) => {
                 const d = v.data_venda || v.created_at;
                 if (!d) return false;
@@ -521,7 +534,7 @@ export default function Vendas() {
                                     <p className="text-gray-400 dark:text-slate-500 text-sm">Nenhuma comissão encontrada.</p>
                                 </div>
                             ) : (
-                                vendas.map((v) => {
+                                (vendas as Venda[]).map((v) => {
                                     const receita = calcReceitaImob(v);
                                     const imposto = receita * ((v.percentual_imposto ?? 0) / 100);
                                     const liquida = receita - imposto;
@@ -675,7 +688,7 @@ export default function Vendas() {
                                     <Select value={form.leadId} onValueChange={(v) => setField("leadId", v)}>
                                         <SelectTrigger className={inputClass}><SelectValue placeholder="Buscar lead cadastrado..." /></SelectTrigger>
                                         <SelectContent className="bg-white dark:bg-[#1e2a3a] border-gray-100 dark:border-slate-700">
-                                            {leads.map((l) => <SelectItem key={l.id} value={l.id}>{l.nome}</SelectItem>)}
+                                            {(leads as any[]).map((l) => <SelectItem key={l.id} value={l.id}>{l.nome}</SelectItem>)}
                                         </SelectContent>
                                     </Select>
                                 </div>
@@ -688,7 +701,7 @@ export default function Vendas() {
                                     <Select value={form.imovelId} onValueChange={handleImovelSelect}>
                                         <SelectTrigger className={inputClass}><SelectValue placeholder="Selecione o empreendimento" /></SelectTrigger>
                                         <SelectContent className="bg-white dark:bg-[#1e2a3a] border-gray-100 dark:border-slate-700">
-                                            {imoveis.map((i) => <SelectItem key={i.id} value={i.id}>{i.titulo}</SelectItem>)}
+                                            {imoveisData.map((i: any) => <SelectItem key={i.id} value={i.id}>{i.titulo}</SelectItem>)}
                                         </SelectContent>
                                     </Select>
                                 </div>

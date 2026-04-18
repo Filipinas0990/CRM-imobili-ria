@@ -1,53 +1,25 @@
 import { supabase } from "@/integrations/supabase/client"
-
 import { useEffect, useState, useCallback } from "react"
 import { Sidebar } from "@/components/Sidebar"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "sonner"
 import {
-    Plus,
-    List,
-    Calendar,
-    Phone,
-    Users,
-    CheckSquare,
-    Flag,
-    Mail,
-    Coffee,
-    Filter,
-    MoreHorizontal,
-    ChevronDown,
-    Trash2,
+    Plus, List, Calendar, Phone, Users, CheckSquare, Flag,
+    Mail, Coffee, Filter, MoreHorizontal, ChevronDown, Trash2, MoreVertical,
 } from "lucide-react"
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
+    Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
 import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
+    DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+    DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogFooter,
+    Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog"
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
+    Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -55,34 +27,22 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 
-type Lead = {
-    id: string
-    nome: string
-    telefone: string
+type Lead = { id: string; nome: string; telefone: string }
+type TipoAtividade = "all" | "chamada" | "reuniao" | "tarefa" | "prazo" | "email" | "almoco"
+type Atividade = {
+    id: string; user_id: string; lead_id: string; tipo: TipoAtividade
+    titulo: string; anotacoes: string | null; data_inicio: string
+    hora_inicio: string | null; hora_fim: string | null; prioridade: string; status: string
+    concluido: boolean; leads?: Lead | null
+}
+type NovaAtividade = {
+    lead_id: string; tipo: TipoAtividade; titulo: string
+    anotacoes: string; data_inicio: string; hora_inicio: string; hora_fim: string
 }
 
-type TipoAtividade =
-    | "all"
-    | "chamada"
-    | "reuniao"
-    | "tarefa"
-    | "prazo"
-    | "email"
-    | "almoco"
-
-type Atividade = {
-    id: string
-    user_id: string
-    lead_id: string
-    tipo: TipoAtividade
-    titulo: string
-    anotacoes: string | null
-    data_inicio: string
-    hora_inicio: string | null
-    prioridade: string
-    status: string
-    concluido: boolean
-    leads?: Lead | null
+const defaultNovaAtividade: NovaAtividade = {
+    lead_id: "", tipo: "tarefa", titulo: "", anotacoes: "",
+    data_inicio: "", hora_inicio: "", hora_fim: "",
 }
 
 const tiposAtividade = [
@@ -107,25 +67,122 @@ function getIconForType(tipo: TipoAtividade) {
     }
 }
 
-type NovaAtividade = {
-    lead_id: string
-    tipo: TipoAtividade
-    titulo: string
-    anotacoes: string
-    data_inicio: string
-    hora_inicio: string
-    hora_fim: string
+function getStatusBadge(status: string) {
+    if (status === "PENDENTE") return <Badge className="bg-yellow-100 text-yellow-800 border-0">Pendente</Badge>
+    if (status === "EM ANDAMENTO") return <Badge className="bg-blue-100 text-blue-800 border-0">Em andamento</Badge>
+    if (status === "CONCLUÍDA") return <Badge className="bg-green-100 text-green-800 border-0">Concluída</Badge>
+    if (status === "CANCELADA") return <Badge className="bg-red-100 text-red-800 border-0">Cancelada</Badge>
+    return null
 }
 
-const defaultNovaAtividade: NovaAtividade = {
-    lead_id: "",
-    tipo: "tarefa",
-    titulo: "",
-    anotacoes: "",
-    data_inicio: "",
-    hora_inicio: "",
-    hora_fim: "",
+// ─── Card Mobile ─────────────────────────────────────────────────
+
+function AtividadeCard({ atividade, onToggle, onEditar, onExcluir }: {
+    atividade: Atividade
+    onToggle: () => void
+    onEditar: () => void
+    onExcluir: () => void
+}) {
+    const [menuOpen, setMenuOpen] = useState(false)
+    const atrasada = !atividade.concluido && new Date(atividade.data_inicio) < new Date()
+
+    return (
+        <div className={cn(
+            "relative rounded-2xl border bg-card shadow-sm overflow-hidden transition-all active:scale-[0.98]",
+            atividade.concluido ? "opacity-60" : "",
+            atrasada ? "border-red-200" : ""
+        )}>
+            {/* Faixa lateral por tipo */}
+            <div className={cn(
+                "absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl",
+                atividade.tipo === "chamada" ? "bg-emerald-400" :
+                    atividade.tipo === "reuniao" ? "bg-violet-400" :
+                        atividade.tipo === "prazo" ? "bg-orange-400" :
+                            atividade.tipo === "email" ? "bg-sky-400" :
+                                atividade.tipo === "almoco" ? "bg-amber-400" :
+                                    "bg-blue-400"
+            )} />
+
+            <div className="pl-4 pr-3 py-4">
+                {/* Header */}
+                <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                        {/* Checkbox de conclusão */}
+                        <div onClick={(e) => { e.stopPropagation(); onToggle(); }}>
+                            <Checkbox
+                                checked={atividade.concluido}
+                                className="transition-transform duration-200 data-[state=checked]:scale-110 flex-shrink-0"
+                            />
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                                {getIconForType(atividade.tipo)}
+                                <p className={cn(
+                                    "font-semibold text-sm text-foreground leading-tight truncate",
+                                    atividade.concluido && "line-through text-muted-foreground"
+                                )}>
+                                    {atividade.titulo}
+                                </p>
+                            </div>
+                            {atividade.leads?.nome && (
+                                <p className="text-xs text-blue-600 mt-0.5">{atividade.leads.nome}</p>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Menu */}
+                    <div className="relative flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <button
+                            className="p-1.5 rounded-lg hover:bg-muted transition-colors"
+                            onClick={() => setMenuOpen(!menuOpen)}
+                        >
+                            <MoreVertical className="w-4 h-4 text-muted-foreground" />
+                        </button>
+                        {menuOpen && (
+                            <>
+                                <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
+                                <div className="absolute right-0 top-8 z-20 bg-background border rounded-xl shadow-lg py-1 w-36">
+                                    <button
+                                        className="flex items-center gap-2 w-full px-3 py-2.5 text-sm hover:bg-muted transition-colors"
+                                        onClick={() => { setMenuOpen(false); onEditar(); }}
+                                    >
+                                        <CheckSquare className="w-3.5 h-3.5 text-muted-foreground" />
+                                        Editar
+                                    </button>
+                                    <button
+                                        className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                                        onClick={() => { setMenuOpen(false); onExcluir(); }}
+                                    >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                        Excluir
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </div>
+
+                {/* Info rodapé */}
+                <div className="flex items-center justify-between mt-3">
+                    <div className="flex items-center gap-2 flex-wrap">
+                        {getStatusBadge(atividade.status)}
+                        {atrasada && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200">
+                                Atrasada
+                            </span>
+                        )}
+                    </div>
+                    <span className="text-xs text-muted-foreground flex-shrink-0">
+                        {new Date(atividade.data_inicio).toLocaleDateString("pt-BR")}
+                    </span>
+                </div>
+            </div>
+        </div>
+    )
 }
+
+// ─── Página principal ─────────────────────────────────────────────
 
 export default function Atividades() {
     const [tipoSelecionado, setTipoSelecionado] = useState<TipoAtividade>("all")
@@ -141,121 +198,55 @@ export default function Atividades() {
     const [tabAtiva, setTabAtiva] = useState<"pendentes" | "concluidos">("pendentes")
 
     async function carregarTarefas() {
-        const { data, error } = await supabase
-            .from("tarefas")
-            .select("*")
-            .order("data_inicio", { ascending: true })
-
+        const { data, error } = await supabase.from("tarefas").select("*").order("data_inicio", { ascending: true })
         if (error) return
-
-        const tarefasFormatadas = data.map((t) => ({
-            id: t.id,
-            user_id: t.user_id,
-            lead_id: t.lead_id,
-            tipo: t.tipo,
-            titulo: t.titulo,
-            anotacoes: t.descricao,
-            data_inicio: t.data_inicio,
-            hora_inicio: t.data_inicio
-                ? new Date(t.data_inicio).toISOString().slice(11, 16)
-                : null,
-            hora_fim: t.data_fim
-                ? new Date(t.data_fim).toISOString().slice(11, 16)
-                : null,
-            prioridade: t.prioridade,
-            status: t.status,
-            concluido: t.status === "CONCLUÍDA",
-            leads: {
-                id: t.lead_id,
-                nome: t.pessoa,
-                telefone: t.telefone,
-            },
-        }))
-
-        setAtividades(tarefasFormatadas)
+        setAtividades(data.map((t) => ({
+            id: t.id, user_id: t.user_id, lead_id: t.lead_id, tipo: t.tipo,
+            titulo: t.titulo, anotacoes: t.descricao, data_inicio: t.data_inicio,
+            hora_inicio: t.data_inicio ? new Date(t.data_inicio).toISOString().slice(11, 16) : null,
+            hora_fim: t.data_fim ? new Date(t.data_fim).toISOString().slice(11, 16) : null,
+            prioridade: t.prioridade, status: t.status, concluido: t.status === "CONCLUÍDA",
+            leads: { id: t.lead_id, nome: t.pessoa, telefone: t.telefone },
+        })))
     }
 
     async function carregarLeads() {
-        const { data, error } = await supabase
-            .from("leads")
-            .select("id, nome, telefone")
-
+        const { data, error } = await supabase.from("leads").select("id, nome, telefone")
         if (error) return
-
         setLeads(data || [])
     }
 
-    useEffect(() => {
-        carregarTarefas()
-        carregarLeads()
-    }, [])
+    useEffect(() => { carregarTarefas(); carregarLeads() }, [])
 
     const atividadesVisiveis = atividades
-        .filter((a) => {
-            if (tabAtiva === "pendentes") return !a.concluido
-            if (tabAtiva === "concluidos") return a.concluido
-            return true
-        })
-        .filter((a) => {
-            if (tipoSelecionado === "all") return true
-            return a.tipo === tipoSelecionado
-        })
+        .filter((a) => tabAtiva === "pendentes" ? !a.concluido : a.concluido)
+        .filter((a) => tipoSelecionado === "all" || a.tipo === tipoSelecionado)
 
     const concluidos = atividades.filter((a) => a.concluido).length
     const pendentes = atividades.filter((a) => !a.concluido).length
-    const atrasados = atividades.filter(
-        (a) => !a.concluido && new Date(a.data_inicio) < new Date()
-    ).length
-
-    const leadSelecionado = leads.find(
-        (l) => String(l.id) === novaAtividade.lead_id
-    )
+    const atrasados = atividades.filter((a) => !a.concluido && new Date(a.data_inicio) < new Date()).length
+    const leadSelecionado = leads.find((l) => String(l.id) === novaAtividade.lead_id)
 
     const toggleConcluido = async (atividade: Atividade) => {
         const novoStatus = atividade.status === "CONCLUÍDA" ? "PENDENTE" : "CONCLUÍDA"
-
-        setAtividades((prev) =>
-            prev.map((a) =>
-                a.id === atividade.id
-                    ? { ...a, status: novoStatus, concluido: novoStatus === "CONCLUÍDA" }
-                    : a
-            )
-        )
-
-        const { error } = await supabase
-            .from("tarefas")
-            .update({ status: novoStatus })
-            .eq("id", atividade.id)
-
+        setAtividades((prev) => prev.map((a) =>
+            a.id === atividade.id ? { ...a, status: novoStatus, concluido: novoStatus === "CONCLUÍDA" } : a
+        ))
+        const { error } = await supabase.from("tarefas").update({ status: novoStatus }).eq("id", atividade.id)
         if (error) {
-            toast.error("Erro ao atualizar status", {
-                description: error.message || "Tente novamente mais tarde.",
-            })
-            setAtividades((prev) =>
-                prev.map((a) =>
-                    a.id === atividade.id
-                        ? { ...a, status: atividade.status, concluido: atividade.concluido }
-                        : a
-                )
-            )
+            toast.error("Erro ao atualizar status")
+            setAtividades((prev) => prev.map((a) =>
+                a.id === atividade.id ? { ...a, status: atividade.status, concluido: atividade.concluido } : a
+            ))
             return
         }
-
-        if (novoStatus === "CONCLUÍDA") {
-            toast.success("Tarefa concluída! ✅", {
-                description: `"${atividade.titulo}" foi marcada como concluída.`,
-            })
-        } else {
-            toast.success("Tarefa reaberta", {
-                description: `"${atividade.titulo}" voltou para pendente.`,
-            })
-        }
+        novoStatus === "CONCLUÍDA"
+            ? toast.success("Tarefa concluída! ✅")
+            : toast.success("Tarefa reaberta")
     }
 
     const toggleSelecionado = useCallback((id: string) => {
-        setSelecionados((prev) =>
-            prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
-        )
+        setSelecionados((prev) => prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id])
     }, [])
 
     const abrirModalCriar = (tipo: TipoAtividade = "tarefa") => {
@@ -269,13 +260,10 @@ export default function Atividades() {
         setModalTipo("editar")
         setAtividadeEditando(atividade)
         setNovaAtividade({
-            lead_id: atividade.lead_id ?? "",
-            tipo: atividade.tipo,
-            titulo: atividade.titulo ?? "",
-            anotacoes: atividade.anotacoes ?? "",
+            lead_id: atividade.lead_id ?? "", tipo: atividade.tipo,
+            titulo: atividade.titulo ?? "", anotacoes: atividade.anotacoes ?? "",
             data_inicio: atividade.data_inicio ? atividade.data_inicio.split("T")[0] : "",
-            hora_inicio: atividade.hora_inicio ?? "",
-            hora_fim: atividade.hora_fim ?? "",
+            hora_inicio: atividade.hora_inicio ?? "", hora_fim: atividade.hora_fim ?? "",
         })
         setModalAberto(true)
     }
@@ -284,44 +272,43 @@ export default function Atividades() {
         if (!novaAtividade.titulo.trim()) return
 
         const { data: { user } } = await supabase.auth.getUser()
+        if (!user) { toast.error("Usuário não autenticado"); return }
 
-        if (!user) {
-            toast.error("Usuário não autenticado", {
-                description: "Faça login para criar atividades.",
-            })
-            return
+        const payload = {
+            lead_id: novaAtividade.lead_id || null,
+            tipo: novaAtividade.tipo,
+            titulo: novaAtividade.titulo,
+            descricao: novaAtividade.anotacoes || null,
+            data_inicio: novaAtividade.data_inicio
+                ? new Date(novaAtividade.data_inicio).toISOString()
+                : null,
+            data_fim: novaAtividade.hora_fim
+                ? new Date(novaAtividade.data_inicio + "T" + novaAtividade.hora_fim).toISOString()
+                : null,
+            prioridade: "normal",
+            status: status,
+            pessoa: leadSelecionado?.nome || null,
+            telefone: leadSelecionado?.telefone || null,
         }
 
-        const { error } = await supabase
-            .from("tarefas")
-            .insert([{
-                user_id: user.id,
-                lead_id: novaAtividade.lead_id || null,
-                tipo: novaAtividade.tipo,
-                titulo: novaAtividade.titulo,
-                descricao: novaAtividade.anotacoes || null,
-                data_inicio: novaAtividade.data_inicio
-                    ? new Date(novaAtividade.data_inicio).toISOString()
-                    : null,
-                data_fim: novaAtividade.hora_fim
-                    ? new Date(novaAtividade.data_inicio + "T" + novaAtividade.hora_fim).toISOString()
-                    : null,
-                prioridade: "normal",
-                status: status,
-                pessoa: leadSelecionado?.nome || null,
-                telefone: leadSelecionado?.telefone || null,
-            }])
+        if (modalTipo === "editar" && atividadeEditando) {
 
-        if (error) {
-            toast.error("Erro ao criar atividade", {
-                description: error.message || "Tente novamente mais tarde.",
-            })
-            return
+            const { error } = await supabase
+                .from("tarefas")
+                .update(payload)
+                .eq("id", atividadeEditando.id)
+
+            if (error) { toast.error("Erro ao atualizar atividade", { description: error.message }); return }
+            toast.success("Atividade atualizada! ✅")
+        } else {
+
+            const { error } = await supabase
+                .from("tarefas")
+                .insert([{ user_id: user.id, ...payload }])
+
+            if (error) { toast.error("Erro ao criar atividade", { description: error.message }); return }
+            toast.success("Atividade criada com sucesso!")
         }
-
-        toast.success("Atividade criada com sucesso!", {
-            description: `"${novaAtividade.titulo}" foi adicionada.`,
-        })
 
         await carregarTarefas()
         setModalAberto(false)
@@ -330,38 +317,17 @@ export default function Atividades() {
     }
 
     const excluirAtividade = useCallback(async (id: string) => {
-        const { error } = await supabase
-            .from("tarefas")
-            .delete()
-            .eq("id", id)
-
-        if (error) {
-            toast.error("Erro ao excluir atividade", {
-                description: error.message || "Tente novamente mais tarde.",
-            })
-            return
-        }
-
-        toast.success("Atividade excluída com sucesso!")
+        const { error } = await supabase.from("tarefas").delete().eq("id", id)
+        if (error) { toast.error("Erro ao excluir atividade"); return }
+        toast.success("Atividade excluída!")
         await carregarTarefas()
     }, [])
 
     const excluirSelecionados = async () => {
         if (selecionados.length === 0) return
-
-        const { error } = await supabase
-            .from("tarefas")
-            .delete()
-            .in("id", selecionados)
-
-        if (error) {
-            toast.error("Erro ao excluir atividades", {
-                description: error.message || "Tente novamente mais tarde.",
-            })
-            return
-        }
-
-        toast.success(`${selecionados.length} atividade(s) excluída(s) com sucesso!`)
+        const { error } = await supabase.from("tarefas").delete().in("id", selecionados)
+        if (error) { toast.error("Erro ao excluir atividades"); return }
+        toast.success(`${selecionados.length} atividade(s) excluída(s)!`)
         await carregarTarefas()
         setSelecionados([])
     }
@@ -369,159 +335,108 @@ export default function Atividades() {
     return (
         <div className="min-h-screen bg-muted/40">
             <Sidebar />
-            <main className="ml-16 p-8">
-                <div className="px-6 py-4 space-y-4">
+            <main className="ml-0 md:ml-16 pb-24 md:pb-8">
+                <div className="p-4 md:p-8 md:px-14 space-y-4">
+
+                    {/* Header */}
                     <div className="flex items-center justify-between">
                         <div>
-                            <h2 className="text-xl font-semibold text-foreground text-balance">
-                                Follow-ups
-                            </h2>
-                            <p className="text-sm text-muted-foreground">
-                                {pendentes} pendentes
-                            </p>
+                            <h2 className="text-xl font-semibold text-foreground">Follow-ups</h2>
+                            <p className="text-sm text-muted-foreground">{pendentes} pendentes</p>
                         </div>
-                        <Button
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                            onClick={() => abrirModalCriar("tarefa")}
-                        >
+                        <Button className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl" onClick={() => abrirModalCriar("tarefa")}>
                             <Plus className="h-4 w-4 mr-2" />
-                            Novo Follow-up
+                            <span className="hidden sm:inline">Novo Follow-up</span>
+                            <span className="sm:hidden">Novo</span>
                         </Button>
                     </div>
 
-                    <div className="grid grid-cols-4 gap-4">
-                        <div className="bg-red-50 border border-red-100 rounded-lg p-4 cursor-pointer hover:bg-red-100 transition-colors">
+                    {/* Stats */}
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-red-50 border border-red-100 rounded-xl p-4">
                             <p className="text-sm font-medium text-red-700">Atrasados</p>
                             <p className="text-3xl font-bold text-red-600 mt-1">{atrasados}</p>
                         </div>
-                        <div className="bg-green-50 border border-green-100 rounded-lg p-4 cursor-pointer hover:bg-green-100 transition-colors">
+                        <div className="bg-green-50 border border-green-100 rounded-xl p-4">
                             <p className="text-sm font-medium text-green-700">Concluidos</p>
                             <p className="text-3xl font-bold text-green-600 mt-1">{concluidos}</p>
                         </div>
                     </div>
 
+                    {/* Tabs */}
                     <div className="flex items-center gap-4 border-b">
                         <button
                             onClick={() => setTabAtiva("pendentes")}
-                            className={cn(
-                                "pb-2 text-sm font-medium border-b-2 -mb-px transition-colors",
-                                tabAtiva === "pendentes"
-                                    ? "border-blue-600 text-blue-600"
-                                    : "border-transparent text-muted-foreground hover:text-foreground"
+                            className={cn("pb-2 text-sm font-medium border-b-2 -mb-px transition-colors",
+                                tabAtiva === "pendentes" ? "border-blue-600 text-blue-600" : "border-transparent text-muted-foreground"
                             )}
                         >
                             Pendentes ({pendentes})
                         </button>
                         <button
                             onClick={() => setTabAtiva("concluidos")}
-                            className={cn(
-                                "pb-2 text-sm font-medium border-b-2 -mb-px transition-colors",
-                                tabAtiva === "concluidos"
-                                    ? "border-blue-600 text-blue-600"
-                                    : "border-transparent text-muted-foreground hover:text-foreground"
+                            className={cn("pb-2 text-sm font-medium border-b-2 -mb-px transition-colors",
+                                tabAtiva === "concluidos" ? "border-blue-600 text-blue-600" : "border-transparent text-muted-foreground"
                             )}
                         >
                             Concluidos ({concluidos})
                         </button>
                     </div>
 
-                    <div className="flex items-center justify-between">
+                    {/* Toolbar */}
+                    <div className="flex items-center justify-between flex-wrap gap-2">
                         <div className="flex items-center gap-2">
-                            <div className="flex border rounded-md">
-                                <Button
-                                    variant={viewMode === "list" ? "secondary" : "ghost"}
-                                    size="sm"
-                                    className="rounded-r-none"
-                                    onClick={() => setViewMode("list")}
-                                >
+                            <div className="flex border rounded-lg">
+                                <Button variant={viewMode === "list" ? "secondary" : "ghost"} size="sm" className="rounded-r-none" onClick={() => setViewMode("list")}>
                                     <List className="h-4 w-4" />
                                 </Button>
-                                <Button
-                                    variant={viewMode === "calendar" ? "secondary" : "ghost"}
-                                    size="sm"
-                                    className="rounded-l-none"
-                                    onClick={() => setViewMode("calendar")}
-                                >
+                                <Button variant={viewMode === "calendar" ? "secondary" : "ghost"} size="sm" className="rounded-l-none" onClick={() => setViewMode("calendar")}>
                                     <Calendar className="h-4 w-4" />
                                 </Button>
                             </div>
-
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <Button className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                                    <Button className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl">
                                         <Plus className="h-4 w-4 mr-1" />
-                                        Atividade
+                                        <span className="hidden sm:inline">Atividade</span>
                                         <ChevronDown className="h-4 w-4 ml-1" />
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="start">
-                                    <DropdownMenuItem onClick={() => abrirModalCriar("chamada")}>
-                                        <Phone className="h-4 w-4 mr-2" /> Chamada
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => abrirModalCriar("reuniao")}>
-                                        <Users className="h-4 w-4 mr-2" /> Reuniao
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => abrirModalCriar("tarefa")}>
-                                        <CheckSquare className="h-4 w-4 mr-2" /> Tarefa
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => abrirModalCriar("prazo")}>
-                                        <Flag className="h-4 w-4 mr-2" /> Prazo
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => abrirModalCriar("email")}>
-                                        <Mail className="h-4 w-4 mr-2" /> E-mail
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => abrirModalCriar("almoco")}>
-                                        <Coffee className="h-4 w-4 mr-2" /> Almoco
-                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => abrirModalCriar("chamada")}><Phone className="h-4 w-4 mr-2" /> Chamada</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => abrirModalCriar("reuniao")}><Users className="h-4 w-4 mr-2" /> Reuniao</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => abrirModalCriar("tarefa")}><CheckSquare className="h-4 w-4 mr-2" /> Tarefa</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => abrirModalCriar("prazo")}><Flag className="h-4 w-4 mr-2" /> Prazo</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => abrirModalCriar("email")}><Mail className="h-4 w-4 mr-2" /> E-mail</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => abrirModalCriar("almoco")}><Coffee className="h-4 w-4 mr-2" /> Almoco</DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         </div>
 
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2">
                             {selecionados.length > 0 && (
-                                <Button variant="destructive" size="sm" onClick={excluirSelecionados}>
+                                <Button variant="destructive" size="sm" className="rounded-xl" onClick={excluirSelecionados}>
                                     <Trash2 className="h-4 w-4 mr-1" />
                                     Excluir ({selecionados.length})
                                 </Button>
                             )}
-                            <span className="text-sm text-muted-foreground">
-                                {atividadesVisiveis.length} atividades
-                            </span>
-                            <Button variant="outline" size="sm">
+                            <span className="text-sm text-muted-foreground hidden sm:inline">{atividadesVisiveis.length} atividades</span>
+                            <Button variant="outline" size="sm" className="rounded-xl">
                                 <Filter className="h-4 w-4 mr-1" />
-                                Filtro
+                                <span className="hidden sm:inline">Filtro</span>
                             </Button>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon">
-                                        <MoreHorizontal className="h-4 w-4" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={() => abrirModalCriar("tarefa")}>
-                                        <Plus className="h-4 w-4 mr-2" />
-                                        Nova atividade
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem onClick={() => setSelecionados(atividadesVisiveis.map((a) => a.id))}>
-                                        Selecionar todos
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => setSelecionados([])}>
-                                        Limpar selecao
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
                         </div>
                     </div>
 
-                    <div className="flex items-center justify-between border-b">
-                        <div className="flex gap-1">
+                    {/* Filtro por tipo — scroll horizontal no mobile */}
+                    <div className="flex items-center border-b overflow-x-auto scrollbar-none">
+                        <div className="flex gap-1 min-w-max">
                             {tiposAtividade.map((tipo) => (
                                 <button
                                     key={tipo.id}
                                     onClick={() => setTipoSelecionado(tipo.id as TipoAtividade)}
                                     className={cn(
-                                        "flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
+                                        "flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap",
                                         tipoSelecionado === tipo.id
                                             ? "border-foreground text-foreground"
                                             : "border-transparent text-muted-foreground hover:text-foreground"
@@ -534,7 +449,29 @@ export default function Atividades() {
                         </div>
                     </div>
 
-                    <div className="border rounded-lg bg-background">
+                    {/* ── MOBILE: Cards ── */}
+                    <div className="md:hidden space-y-3">
+                        {atividadesVisiveis.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                                <CheckSquare className="h-10 w-10 mb-3 opacity-40" />
+                                <p className="font-medium">Nenhuma atividade encontrada</p>
+                                <p className="text-sm mt-1">Adicione uma nova atividade</p>
+                            </div>
+                        ) : (
+                            atividadesVisiveis.map((atividade) => (
+                                <AtividadeCard
+                                    key={atividade.id}
+                                    atividade={atividade}
+                                    onToggle={() => toggleConcluido(atividade)}
+                                    onEditar={() => abrirModalEditar(atividade)}
+                                    onExcluir={() => excluirAtividade(atividade.id)}
+                                />
+                            ))
+                        )}
+                    </div>
+
+                    {/* ── DESKTOP: Tabela ── */}
+                    <div className="hidden md:block border rounded-lg bg-background">
                         <Table>
                             <TableHeader>
                                 <TableRow>
@@ -553,43 +490,17 @@ export default function Atividades() {
                                 {atividadesVisiveis.map((atividade) => (
                                     <TableRow key={atividade.id} className="transition-all duration-300">
                                         <TableCell>
-                                            <Checkbox
-                                                checked={selecionados.includes(atividade.id)}
-                                                onCheckedChange={() => toggleSelecionado(atividade.id)}
-                                            />
+                                            <Checkbox checked={selecionados.includes(atividade.id)} onCheckedChange={() => toggleSelecionado(atividade.id)} />
                                         </TableCell>
                                         <TableCell>
-                                            <Checkbox
-                                                checked={atividade.status === "CONCLUÍDA"}
-                                                onCheckedChange={() => toggleConcluido(atividade)}
-                                                className="transition-transform duration-200 data-[state=checked]:scale-110"
-                                            />
+                                            <Checkbox checked={atividade.status === "CONCLUÍDA"} onCheckedChange={() => toggleConcluido(atividade)} className="transition-transform duration-200 data-[state=checked]:scale-110" />
                                         </TableCell>
                                         <TableCell>{getIconForType(atividade.tipo)}</TableCell>
                                         <TableCell className="font-medium">{atividade.titulo}</TableCell>
-                                        <TableCell>
-                                            <span className="text-blue-600">
-                                                {atividade.leads?.nome || "—"}
-                                            </span>
-                                        </TableCell>
+                                        <TableCell><span className="text-blue-600">{atividade.leads?.nome || "—"}</span></TableCell>
                                         <TableCell>{atividade.leads?.telefone || "—"}</TableCell>
-                                        <TableCell>
-                                            {atividade.status === "PENDENTE" && (
-                                                <Badge className="bg-yellow-100 text-yellow-800">Pendente</Badge>
-                                            )}
-                                            {atividade.status === "EM ANDAMENTO" && (
-                                                <Badge className="bg-blue-100 text-blue-800">Em andamento</Badge>
-                                            )}
-                                            {atividade.status === "CONCLUÍDA" && (
-                                                <Badge className="bg-green-100 text-green-800">Concluída</Badge>
-                                            )}
-                                            {atividade.status === "CANCELADA" && (
-                                                <Badge className="bg-red-100 text-red-800">Cancelada</Badge>
-                                            )}
-                                        </TableCell>
-                                        <TableCell>
-                                            {new Date(atividade.data_inicio).toLocaleDateString("pt-BR")}
-                                        </TableCell>
+                                        <TableCell>{getStatusBadge(atividade.status)}</TableCell>
+                                        <TableCell>{new Date(atividade.data_inicio).toLocaleDateString("pt-BR")}</TableCell>
                                         <TableCell>
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
@@ -598,55 +509,44 @@ export default function Atividades() {
                                                     </Button>
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end">
-                                                    <DropdownMenuItem onClick={() => abrirModalEditar(atividade)}>
-                                                        Editar
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem
-                                                        className="text-destructive"
-                                                        onClick={() => excluirAtividade(atividade.id)}
-                                                    >
-                                                        Excluir
-                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => abrirModalEditar(atividade)}>Editar</DropdownMenuItem>
+                                                    <DropdownMenuItem className="text-destructive" onClick={() => excluirAtividade(atividade.id)}>Excluir</DropdownMenuItem>
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
                                         </TableCell>
                                     </TableRow>
                                 ))}
+                                {atividadesVisiveis.length === 0 && (
+                                    <TableRow>
+                                        <TableCell colSpan={9}>
+                                            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                                                <CheckSquare className="h-12 w-12 mb-4 opacity-50" />
+                                                <p className="text-lg font-medium">Nenhuma atividade encontrada</p>
+                                                <p className="text-sm">Tente ajustar os filtros ou adicione uma nova atividade</p>
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                )}
                             </TableBody>
                         </Table>
-
-                        {atividadesVisiveis.length === 0 && (
-                            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                                <CheckSquare className="h-12 w-12 mb-4 opacity-50" />
-                                <p className="text-lg font-medium">Nenhuma atividade encontrada</p>
-                                <p className="text-sm">Tente ajustar os filtros ou adicione uma nova atividade</p>
-                            </div>
-                        )}
                     </div>
                 </div>
             </main>
 
+            {/* Modal criar/editar */}
             <Dialog open={modalAberto} onOpenChange={setModalAberto}>
-                <DialogContent className="sm:max-w-[600px]">
+                <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
                             {getIconForType(novaAtividade.tipo)}
                             {modalTipo === "criar" ? "Nova Atividade" : "Editar Atividade"}
                         </DialogTitle>
                     </DialogHeader>
-
                     <div className="grid gap-4 py-4">
                         <div className="grid gap-2">
-                            <Label htmlFor="tipo">Tipo de atividade</Label>
-                            <Select
-                                value={novaAtividade.tipo}
-                                onValueChange={(value) =>
-                                    setNovaAtividade({ ...novaAtividade, tipo: value as TipoAtividade })
-                                }
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Selecione o tipo" />
-                                </SelectTrigger>
+                            <Label>Tipo de atividade</Label>
+                            <Select value={novaAtividade.tipo} onValueChange={(v) => setNovaAtividade({ ...novaAtividade, tipo: v as TipoAtividade })}>
+                                <SelectTrigger className="rounded-xl"><SelectValue placeholder="Selecione o tipo" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="chamada"><div className="flex items-center gap-2"><Phone className="h-4 w-4" /> Chamada</div></SelectItem>
                                     <SelectItem value="reuniao"><div className="flex items-center gap-2"><Users className="h-4 w-4" /> Reuniao</div></SelectItem>
@@ -657,65 +557,34 @@ export default function Atividades() {
                                 </SelectContent>
                             </Select>
                         </div>
-
                         <div className="grid gap-2">
-                            <Label htmlFor="assunto">Assunto</Label>
-                            <Input
-                                id="assunto"
-                                value={novaAtividade.titulo}
-                                onChange={(e) => setNovaAtividade({ ...novaAtividade, titulo: e.target.value })}
-                                placeholder="Digite o titulo da atividade"
-                            />
+                            <Label>Assunto</Label>
+                            <Input className="rounded-xl" value={novaAtividade.titulo} onChange={(e) => setNovaAtividade({ ...novaAtividade, titulo: e.target.value })} placeholder="Digite o titulo da atividade" />
                         </div>
-
                         <div className="grid grid-cols-2 gap-4">
                             <div className="grid gap-2">
                                 <Label>Lead</Label>
-                                <Select
-                                    value={novaAtividade.lead_id}
-                                    onValueChange={(value) =>
-                                        setNovaAtividade({ ...novaAtividade, lead_id: value })
-                                    }
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Selecione o lead" />
-                                    </SelectTrigger>
+                                <Select value={novaAtividade.lead_id} onValueChange={(v) => setNovaAtividade({ ...novaAtividade, lead_id: v })}>
+                                    <SelectTrigger className="rounded-xl"><SelectValue placeholder="Selecione o lead" /></SelectTrigger>
                                     <SelectContent>
-                                        {leads.map((l) => (
-                                            <SelectItem key={l.id} value={String(l.id)}>
-                                                {l.nome}
-                                            </SelectItem>
-                                        ))}
+                                        {leads.map((l) => <SelectItem key={l.id} value={String(l.id)}>{l.nome}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
                             </div>
                             <div className="grid gap-2">
-                                <Label>Pessoa de contato</Label>
-                                <Input
-                                    value={leadSelecionado?.nome ?? ""}
-                                    readOnly
-                                    className="bg-muted"
-                                    placeholder="Selecione um lead"
-                                />
+                                <Label>Contato</Label>
+                                <Input className="rounded-xl bg-muted" value={leadSelecionado?.nome ?? ""} readOnly placeholder="Selecione um lead" />
                             </div>
                         </div>
-
                         <div className="grid grid-cols-2 gap-4">
                             <div className="grid gap-2">
                                 <Label>Telefone</Label>
-                                <Input
-                                    value={leadSelecionado?.telefone ?? ""}
-                                    readOnly
-                                    className="bg-muted"
-                                    placeholder="Telefone do lead"
-                                />
+                                <Input className="rounded-xl bg-muted" value={leadSelecionado?.telefone ?? ""} readOnly placeholder="Telefone do lead" />
                             </div>
                             <div className="grid gap-2">
                                 <Label>Status</Label>
                                 <Select value={status} onValueChange={setStatus}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Selecione o status" />
-                                    </SelectTrigger>
+                                    <SelectTrigger className="rounded-xl"><SelectValue placeholder="Status" /></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="PENDENTE">🟡 PENDENTE</SelectItem>
                                         <SelectItem value="EM ANDAMENTO">🔵 EM ANDAMENTO</SelectItem>
@@ -725,48 +594,22 @@ export default function Atividades() {
                                 </Select>
                             </div>
                         </div>
-
                         <div className="grid gap-2">
                             <Label>Data de inicio</Label>
-                            <Input
-                                type="date"
-                                value={novaAtividade.data_inicio}
-                                onChange={(e) => setNovaAtividade({ ...novaAtividade, data_inicio: e.target.value })}
-                            />
+                            <Input className="rounded-xl" type="date" value={novaAtividade.data_inicio} onChange={(e) => setNovaAtividade({ ...novaAtividade, data_inicio: e.target.value })} />
                         </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="grid gap-2">
-                                <Label>Hora inicio</Label>
-                                <Input
-                                    type="time"
-                                    value={novaAtividade.hora_inicio}
-                                    onChange={(e) => setNovaAtividade({ ...novaAtividade, hora_inicio: e.target.value })}
-                                />
-                            </div>
-                        </div>
-
                         <div className="grid gap-2">
-                            <Label htmlFor="notas">Anotacoes</Label>
-                            <Textarea
-                                id="notas"
-                                value={novaAtividade.anotacoes}
-                                onChange={(e) => setNovaAtividade({ ...novaAtividade, anotacoes: e.target.value })}
-                                placeholder="Adicione notas ou observacoes..."
-                                rows={3}
-                            />
+                            <Label>Hora inicio</Label>
+                            <Input className="rounded-xl" type="time" value={novaAtividade.hora_inicio} onChange={(e) => setNovaAtividade({ ...novaAtividade, hora_inicio: e.target.value })} />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label>Anotacoes</Label>
+                            <Textarea className="rounded-xl" value={novaAtividade.anotacoes} onChange={(e) => setNovaAtividade({ ...novaAtividade, anotacoes: e.target.value })} placeholder="Adicione notas ou observacoes..." rows={3} />
                         </div>
                     </div>
-
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setModalAberto(false)}>
-                            Cancelar
-                        </Button>
-                        <Button
-                            onClick={salvarAtividade}
-                            disabled={!novaAtividade.titulo.trim()}
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                        >
+                        <Button variant="outline" className="rounded-xl" onClick={() => setModalAberto(false)}>Cancelar</Button>
+                        <Button disabled={!novaAtividade.titulo.trim()} className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl" onClick={salvarAtividade}>
                             {modalTipo === "criar" ? "Criar atividade" : "Salvar alteracoes"}
                         </Button>
                     </DialogFooter>

@@ -71,89 +71,50 @@ const MobileBottomBar = () => {
   const { isDark } = useTheme();
 
   return (
-    <nav
-      className="fixed bottom-0 left-0 right-0 z-50 md:hidden"
-      style={{
-        background: isDark
-          ? "rgba(18, 22, 36, 0.92)"
-          : "rgba(8, 12, 28, 0.95)",
-        backdropFilter: "blur(20px)",
-        WebkitBackdropFilter: "blur(20px)",
-        borderTop: "1px solid rgba(255,255,255,0.07)",
-        paddingBottom: "env(safe-area-inset-bottom)",
-      }}
-    >
-      <div className="flex items-center justify-around h-16 px-2">
-        {mobileNav.map((item) => {
-          const isActive =
-            location.pathname === item.href ||
-            (item.href !== "/dashboard" && location.pathname.startsWith(item.href));
+    <nav className={`
+      fixed bottom-4 left-4 right-4 z-50
+      flex items-center justify-around
+      h-16 px-2
+      rounded-2xl
+      border md:hidden
+      shadow-lg
+      ${isDark
+        ? "bg-[#1e2536] border-white/10"
+        : "bg-[#0B0F1C] border-white/10"
+      }
+    `}>
+      {mobileNav.map((item) => {
+        const isActive = location.pathname === item.href ||
+          (item.href !== "/dashboard" && location.pathname.startsWith(item.href));
 
-          return (
-            <NavLink
-              key={item.name}
-              to={item.href}
-              end={item.href === "/dashboard"}
-              className="flex flex-col items-center justify-center flex-1 h-full gap-1 select-none"
-              activeClassName=""
-            >
-              <div className="relative flex flex-col items-center gap-1">
-
-                <span
-                  style={{
-                    display: "block",
-                    height: "3px",
-                    width: isActive ? "20px" : "0px",
-                    borderRadius: "99px",
-                    background: isActive ? item.activeColor : "transparent",
-                    transition: "width 0.25s cubic-bezier(.4,0,.2,1)",
-                    marginBottom: "4px",
-                    boxShadow: isActive ? `0 0 8px ${item.activeColor}88` : "none",
-                  }}
-                />
-
-
-                <div
-                  style={{
-                    padding: "6px",
-                    borderRadius: "12px",
-                    background: isActive ? `${item.activeColor}18` : "transparent",
-                    transition: "background 0.2s, transform 0.2s",
-                    transform: isActive ? "scale(1.12)" : "scale(1)",
-                  }}
-                >
-                  <item.icon
-                    style={{
-                      width: "22px",
-                      height: "22px",
-                      color: isActive ? item.activeColor : "rgba(255,255,255,0.35)",
-                      transition: "color 0.2s",
-                    }}
-                  />
-                </div>
-
-                {/* Label */}
-                <span
-                  style={{
-                    fontSize: "9px",
-                    fontWeight: isActive ? 600 : 400,
-                    letterSpacing: "0.02em",
-                    color: isActive ? item.activeColor : "rgba(255,255,255,0.28)",
-                    transition: "color 0.2s",
-                    lineHeight: 1,
-                  }}
-                >
-                  {item.name}
-                </span>
+        return (
+          <NavLink
+            key={item.name}
+            to={item.href}
+            end={item.href === "/dashboard"}
+            className="flex flex-col items-center justify-center gap-1 px-3 py-1 rounded-xl flex-1 transition-all"
+            activeClassName=""
+          >
+            <div className={`
+              flex flex-col items-center gap-1 transition-all duration-200
+              ${isActive ? "scale-110" : "opacity-60"}
+            `}>
+              <div className={`
+                p-1.5 rounded-xl transition-all duration-200
+                ${isActive ? "bg-white/10" : ""}
+              `}>
+                <item.icon className={`h-5 w-5 ${isActive ? item.color : "text-white/50"}`} />
               </div>
-            </NavLink>
-          );
-        })}
-      </div>
+              <span className={`text-[10px] font-medium transition-all ${isActive ? "text-white" : "text-white/40"}`}>
+                {item.name}
+              </span>
+            </div>
+          </NavLink>
+        );
+      })}
     </nav>
   );
 };
-
 
 export const Sidebar = () => {
   const [openMenu, setOpenMenu] = useState<string | null>(null);

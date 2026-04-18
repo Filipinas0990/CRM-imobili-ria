@@ -30,7 +30,16 @@ import Visao from "./pages/Visao";
 import Configuracoes from "./pages/Configuracoes";
 import FollowUps from "./pages/Followups";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5,
+      gcTime: 1000 * 60 * 10,
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 function App() {
   return (

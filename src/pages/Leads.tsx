@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Sidebar } from "@/components/Sidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,8 @@ import { cn } from "@/lib/utils";
 import {
   Plus, Search, Filter, Edit, Trash, Phone, MessageCircle, MoreVertical,
 } from "lucide-react";
+
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { createLead } from "@/integrations/supabase/leads/createLead";
 import { getLeads } from "@/integrations/supabase/leads/getLeads";
@@ -202,20 +204,22 @@ const Leads = () => {
 
   const [selectedLead, setSelectedLead] = useState<any>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [leads, setLeads] = useState<any[]>([]);
   const [busca, setBusca] = useState("");
-  const [loading, setLoading] = useState(true);
 
   const navigate = useNavigate();
 
-  async function carregarLeads() {
-    setLoading(true);
-    const data = await getLeads();
-    setLeads(data ?? []);
-    setLoading(false);
-  }
+  // ✅ React Query — cache automático de 5 minutos
+  const queryClient = useQueryClient();
 
-  useEffect(() => { carregarLeads(); }, []);
+  const { data: leads = [], isLoading: loading } = useQuery({
+    queryKey: ["leads"],
+    queryFn: getLeads,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  function carregarLeads() {
+    queryClient.invalidateQueries({ queryKey: ["leads"] });
+  }
 
   function limparCampos() {
     setNome(""); setEmail(""); setTelefone(""); setStatus("novo");
