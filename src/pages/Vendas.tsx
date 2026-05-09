@@ -18,26 +18,21 @@ import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer, PieChart, Pie, Cell, Legend,
 } from "recharts";
-
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-
-import { getVendas } from "@/integrations/supabase/vendas/getVendas";
-import { getLeads } from "@/integrations/supabase/leads/getLeads";
-import { getImoveis } from "@/integrations/supabase/imoveis/getImoveis";
-import { createVenda } from "@/integrations/supabase/vendas/createVenda";
-import { updateVendaStatus } from "@/integrations/supabase/vendas/updateVenda";
-import { deleteVenda } from "@/integrations/supabase/vendas/deleteVendas";
 import { Sidebar } from "@/components/Sidebar";
 import { toast } from "sonner";
 import {
     DropdownMenu, DropdownMenuContent,
     DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { vendaService } from "@/services/venda.service";
+import { leadService } from "@/services/lead.service";
+import { imovelService } from "@/services/imovel.service";
 
 type Venda = {
     id: string;
     valor: number;
-    tipo: "Venda" | "Locação";
+    tipo: string;
     status: string;
     lead_id: string | null;
     imovel_id: string | null;
@@ -68,6 +63,36 @@ const emptyForm = {
 };
 
 const CHART_COLORS = ["#6366f1", "#22c55e", "#f59e0b", "#ec4899", "#06b6d4", "#8b5cf6"];
+
+// Formata dígitos como milhar pt-BR enquanto o usuário digita
+function formatarDigitos(raw: string): string {
+    const digits = raw.replace(/\D/g, "");
+    if (!digits) return "";
+    return parseInt(digits, 10).toLocaleString("pt-BR");
+}
+
+// Converte string em número — suporta formato pt-BR (2.000.000,50) e en-US (2000000.50)
+function parseValor(val: string): number {
+    const clean = val.replace(/[R$\s]/g, "").trim();
+    if (!clean) return 0;
+    // Tem vírgula E ponto → pt-BR: ponto é milhar, vírgula é decimal
+    if (clean.includes(".") && clean.includes(",")) {
+        return parseFloat(clean.replace(/\./g, "").replace(",", ".")) || 0;
+    }
+    // Só ponto: verifica se parece milhar (ex: 2.000 ou 2.000.000)
+    if (clean.includes(".")) {
+        const parts = clean.split(".");
+        if (parts.length > 1 && parts.slice(1).every((p) => p.length === 3)) {
+            return parseFloat(clean.replace(/\./g, "")) || 0;
+        }
+        return parseFloat(clean) || 0;
+    }
+    // Só vírgula → decimal pt-BR
+    if (clean.includes(",")) {
+        return parseFloat(clean.replace(",", ".")) || 0;
+    }
+    return parseFloat(clean) || 0;
+}
 
 function getStatusStyle(status: string) {
     switch (status) {
@@ -127,51 +152,47 @@ export default function Vendas() {
     const [filtroStatus, setFiltroStatus] = useState("todos");
     const [filtroTipo, setFiltroTipo] = useState("todos");
     const [busca, setBusca] = useState("");
-
     const [periodoEstat, setPeriodoEstat] = useState<number | null>(null);
     const [periodoMenuOpen, setPeriodoMenuOpen] = useState(false);
-
     const [open, setOpen] = useState(false);
     const [form, setForm] = useState<any>(emptyForm);
     const setField = (key: string, value: any) =>
         setForm((prev: any) => ({ ...prev, [key]: value }));
-
-    function handleImovelSelect(id: string) {
-        setField("imovelId", id);
-        const imovel = (imoveisData ?? []).find((i: any) => i.id === id);
-        setField("construtora", imovel?.construtora || "");
-    }
-
     const [openEdit, setOpenEdit] = useState(false);
     const [vendaEditando, setVendaEditando] = useState<Venda | null>(null);
     const [novoStatus, setNovoStatus] = useState("");
 
-    // ✅ React Query — cache automático de 5 minutos
     const queryClient = useQueryClient();
 
     const { data: vendas = [], isLoading: loadingVendas } = useQuery({
         queryKey: ["vendas"],
-        queryFn: getVendas,
+        queryFn: () => vendaService.getAll(),
         staleTime: 1000 * 60 * 5,
     });
 
     const { data: leads = [] } = useQuery({
         queryKey: ["leads"],
-        queryFn: getLeads,
+        queryFn: () => leadService.getAll(),
         staleTime: 1000 * 60 * 5,
     });
 
-    const { data: imoveisRaw } = useQuery({
+    const { data: imoveisRaw = [] } = useQuery({
         queryKey: ["imoveis"],
-        queryFn: getImoveis,
+        queryFn: () => imovelService.getAll(),
         staleTime: 1000 * 60 * 5,
     });
 
-    const imoveisData = Array.isArray(imoveisRaw) ? imoveisRaw : (imoveisRaw as any)?.data || [];
+    const imoveisData = Array.isArray(imoveisRaw) ? imoveisRaw : [];
     const loading = loadingVendas;
 
     function recarregar() {
         queryClient.invalidateQueries({ queryKey: ["vendas"] });
+    }
+
+    function handleImovelSelect(id: string) {
+        setField("imovelId", id);
+        const imovel = imoveisData.find((i: any) => i.id === id);
+        setField("construtora", imovel?.construtora || "");
     }
 
     async function handleCreateVenda() {
@@ -187,12 +208,11 @@ export default function Vendas() {
             toast.error("Campo obrigatório", { description: "Informe o valor da venda para continuar." });
             return;
         }
-
         try {
-            await createVenda({
+            await vendaService.create({
                 lead_id: form.leadId || null,
                 imovel_id: form.imovelId || null,
-                valor: Number(form.valor),
+                valor: parseValor(form.valor),
                 tipo: form.tipo,
                 status: form.status,
                 data_venda: form.dataVenda || null,
@@ -202,8 +222,8 @@ export default function Vendas() {
                 valor_indicacao: Number(form.valorIndicacao),
                 premiacao_venda: form.premiacaoVenda ? Number(form.premiacaoVenda) : null,
                 data_prev_comissao: form.dataPrevComissao || null,
+                construtora: form.construtora,
             });
-
             toast.success("Venda cadastrada com sucesso!", {
                 description: `Venda no valor de R$ ${Number(form.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })} foi criada.`,
             });
@@ -212,7 +232,7 @@ export default function Vendas() {
             recarregar();
         } catch (err: any) {
             toast.error("Erro ao cadastrar venda", {
-                description: err?.message || "Tente novamente mais tarde.",
+                description: err?.response?.data?.message ?? err?.message ?? "Tente novamente mais tarde.",
             });
         }
     }
@@ -220,7 +240,7 @@ export default function Vendas() {
     async function handleUpdateStatus() {
         if (!vendaEditando) return;
         try {
-            await updateVendaStatus(vendaEditando.id, novoStatus);
+            await vendaService.updateStatus(vendaEditando.id, novoStatus);
             toast.success("Status atualizado!", {
                 description: `Venda alterada para "${novoStatus}".`,
             });
@@ -229,7 +249,7 @@ export default function Vendas() {
             recarregar();
         } catch (err: any) {
             toast.error("Erro ao atualizar status", {
-                description: err?.message || "Tente novamente mais tarde.",
+                description: err?.response?.data?.message ?? err?.message ?? "Tente novamente mais tarde.",
             });
         }
     }
@@ -237,12 +257,12 @@ export default function Vendas() {
     async function handleDeleteVenda(id: string) {
         if (!confirm("Deseja apagar esta venda?")) return;
         try {
-            await deleteVenda(id);
+            await vendaService.delete(id);
             toast.success("Venda excluída com sucesso!");
             recarregar();
         } catch (err: any) {
             toast.error("Erro ao excluir venda", {
-                description: err?.message || "Tente novamente mais tarde.",
+                description: err?.response?.data?.message ?? err?.message,
             });
         }
     }
@@ -250,7 +270,7 @@ export default function Vendas() {
     function getLeadNome(id: string | null) {
         if (!id) return "—";
         const lead = (leads as any[]).find((l) => l.id === id);
-        return lead ? lead.nome : "—";
+        return lead ? lead.name : "—";
     }
 
     function getImovelTitulo(id: string | null) {
@@ -569,7 +589,6 @@ export default function Vendas() {
                                     {periodoLabel}
                                     <ChevronDown className="w-3 h-3" />
                                 </button>
-
                                 {periodoMenuOpen && (
                                     <div className="absolute top-9 right-0 z-50 bg-white dark:bg-[#1e2a3a] border border-gray-100 dark:border-slate-700 rounded-xl shadow-lg w-40 py-1">
                                         {PERIODOS.map((op) => (
@@ -688,7 +707,9 @@ export default function Vendas() {
                                     <Select value={form.leadId} onValueChange={(v) => setField("leadId", v)}>
                                         <SelectTrigger className={inputClass}><SelectValue placeholder="Buscar lead cadastrado..." /></SelectTrigger>
                                         <SelectContent className="bg-white dark:bg-[#1e2a3a] border-gray-100 dark:border-slate-700">
-                                            {(leads as any[]).map((l) => <SelectItem key={l.id} value={l.id}>{l.nome}</SelectItem>)}
+                                            {(leads as any[]).map((l) => (
+                                                <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
+                                            ))}
                                         </SelectContent>
                                     </Select>
                                 </div>
@@ -701,7 +722,9 @@ export default function Vendas() {
                                     <Select value={form.imovelId} onValueChange={handleImovelSelect}>
                                         <SelectTrigger className={inputClass}><SelectValue placeholder="Selecione o empreendimento" /></SelectTrigger>
                                         <SelectContent className="bg-white dark:bg-[#1e2a3a] border-gray-100 dark:border-slate-700">
-                                            {imoveisData.map((i: any) => <SelectItem key={i.id} value={i.id}>{i.titulo}</SelectItem>)}
+                                            {imoveisData.map((i: any) => (
+                                                <SelectItem key={i.id} value={i.id}>{i.titulo}</SelectItem>
+                                            ))}
                                         </SelectContent>
                                     </Select>
                                 </div>
@@ -711,7 +734,21 @@ export default function Vendas() {
                                 </div>
                                 <div>
                                     <FieldLabel required>Valor da Venda (VGV)</FieldLabel>
-                                    <Input type="number" placeholder="R$ 0,00" value={form.valor} onChange={(e) => setField("valor", e.target.value)} className={inputClass} />
+                                    <Input
+                                        type="text"
+                                        inputMode="numeric"
+                                        placeholder="Ex: 2.000.000"
+                                        value={form.valor}
+                                        onChange={(e) => setField("valor", formatarDigitos(e.target.value))}
+                                        className={inputClass}
+                                    />
+                                    {form.valor ? (
+                                        <p className="text-xs font-semibold text-emerald-600 mt-1.5">
+                                            = {parseValor(form.valor).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                                        </p>
+                                    ) : (
+                                        <p className="text-xs text-gray-400 mt-1.5">Digite apenas os números</p>
+                                    )}
                                 </div>
                                 <div>
                                     <FieldLabel required>Tipo de Base do Cálculo</FieldLabel>

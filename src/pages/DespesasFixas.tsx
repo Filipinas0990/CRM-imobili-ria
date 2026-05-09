@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import {
   Plus,
   Receipt,
@@ -12,7 +12,7 @@ import {
   AlertTriangle,
   PieChart as PieChartIcon,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,12 +23,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
+import { PieChart, Pie, Cell } from "recharts";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import { Sidebar } from "@/components/Sidebar";
-import { ca } from "date-fns/locale";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { fluxoService, FluxoItem } from "@/services/fluxo.service";
 
 export type DespesaFixa = {
   id: string;
@@ -39,8 +39,6 @@ export type DespesaFixa = {
   formaPagamento: string;
   status: "ativa" | "inativa";
   observacoes?: string;
-  centroCusto?: string;
-  contaVinculada?: string;
 };
 
 const formasPagamento = ["PIX", "Transferência", "Boleto", "Cartão de Crédito", "Débito em conta", "Dinheiro"];
@@ -50,8 +48,7 @@ const DEFAULT_CATEGORIAS = [
   "Impostos", "Marketing", "Portais imobiliários", "Ferramentas / Sistemas", "Outros",
 ];
 
-
-const COMISSAO_MEDIA_POR_VENDA = 1500; // R$ 1.500 média
+const COMISSAO_MEDIA_POR_VENDA = 1500;
 
 const CHART_COLORS = [
   "hsl(var(--primary))",
@@ -69,46 +66,31 @@ function formatCurrency(value: number) {
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-const emptyForm: {
-  descricao: string;
-  valor: string;
-  categoria: string;
-  diaVencimento: string;
-  formaPagamento: string;
-  status: "ativa" | "inativa";
-  observacoes: string;
-  centroCusto: string;
-  contaVinculada: string;
-} = {
+function mapItemToDespesa(item: FluxoItem): DespesaFixa {
+  return {
+    id: item.id,
+    descricao: item.descricao_despesas ?? item.descricao ?? "",
+    valor: Number(item.valor_despesas ?? 0),
+    categoria: item.categoria_despesas ?? "",
+    diaVencimento: item.dia_vencimento ?? 1,
+    formaPagamento: item.forma_pagamento_despesas ?? "",
+    status: item.status_despesas === "inativa" ? "inativa" : "ativa",
+    observacoes: item.observacoes_despesas ?? undefined,
+  };
+}
+
+const emptyForm = {
   descricao: "",
   valor: "",
   categoria: "",
   diaVencimento: "",
   formaPagamento: "",
-  status: "ativa",
+  status: "ativa" as "ativa" | "inativa",
   observacoes: "",
-  centroCusto: "",
-  contaVinculada: "",
 };
 
-function mapRowToDespesa(r: Record<string, unknown>): DespesaFixa {
-  return {
-    id: String(r.id),
-    descricao: String(r.descricao_depesas ?? ""),
-    valor: Number(r.valor_despesas ?? 0),
-    categoria: String(r.categoria_despesas ?? ""),
-    diaVencimento: Number(r.dia_vencimento ?? 1),
-    formaPagamento: String(r.forma_pagamento_despesas ?? ""),
-    status: (r.status_despesas === "inativa" ? "inativa" : "ativa"),
-    observacoes: r.observacoes_despesas != null ? String(r.observacoes_despesas) : undefined,
-    centroCusto: r.centro_custo_despeas != null ? String(r.centro_custo_despeas) : undefined,
-    contaVinculada: r.conta_vinculada_depesas != null ? String(r.conta_vinculada_depesas) : undefined,
-  };
-}
-
 export default function DespesasFixas() {
-  const [despesas, setDespesas] = useState<DespesaFixa[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [filtroCategoria, setFiltroCategoria] = useState("todas");
   const [filtroStatus, setFiltroStatus] = useState("todas");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -118,54 +100,29 @@ export default function DespesasFixas() {
   const [showNovaCategoria, setShowNovaCategoria] = useState(false);
   const [userCategorias, setUserCategorias] = useState<string[]>([]);
 
+  const { data: rawItems = [], isLoading } = useQuery({
+    queryKey: ["fluxo-despesas"],
+    queryFn: () => fluxoService.getAll({ tipo: "financeiro" }),
+  });
+
+  const despesas = useMemo<DespesaFixa[]>(
+    () => rawItems.map(mapItemToDespesa),
+    [rawItems]
+  );
+
   const categorias = useMemo(() => {
     const fromDespesas = [...new Set(despesas.map((d) => d.categoria).filter(Boolean))];
     return [...new Set([...DEFAULT_CATEGORIAS, ...fromDespesas, ...userCategorias])];
   }, [despesas, userCategorias]);
-
-  async function loadDespesasFixas() {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from("financeiro")
-      .select(`
-    id,
-    descricao_depesas,
-  valor_despesas,
-   categoria_despesas,
-    dia_vencimento,
-   forma_pagamento_despesas,
-    status_despesas,
-    observacoes_despesas,
-    centro_custo_despeas,
-    conta_vinculada_depesas
-    
-  `)
-      .eq("tipo", "financeiro")
-      .order("dia_vencimento", { ascending: true });
-    if (!error && data) {
-      setDespesas(data.map(mapRowToDespesa));
-    }
-    setLoading(false);
-  }
-
-  const refresh = () => loadDespesasFixas();
-
-  useEffect(() => {
-    loadDespesasFixas();
-  }, []);
 
   const custoFixoTotal = useMemo(
     () => despesas.filter((d) => d.status === "ativa").reduce((acc, d) => acc + d.valor, 0),
     [despesas]
   );
 
-  const totalDespesas = despesas.length;
   const ativas = despesas.filter((d) => d.status === "ativa").length;
-  const inativas = despesas.filter((d) => d.status === "inativa").length;
-
   const breakEven = COMISSAO_MEDIA_POR_VENDA > 0 ? Math.ceil(custoFixoTotal / COMISSAO_MEDIA_POR_VENDA) : 0;
 
-  // Chart data: por categoria
   const porCategoria = useMemo(() => {
     const map = new Map<string, number>();
     despesas
@@ -182,7 +139,6 @@ export default function DespesasFixas() {
     porCategoria.map((c) => [c.name, { label: c.name, color: c.fill }])
   );
 
-  // Filtros
   const despesasFiltradas = useMemo(() => {
     return despesas.filter((d) => {
       if (filtroCategoria !== "todas" && d.categoria !== filtroCategoria) return false;
@@ -190,6 +146,12 @@ export default function DespesasFixas() {
       return true;
     });
   }, [despesas, filtroCategoria, filtroStatus]);
+
+  const receita = 74150;
+  const percentualDespesas = receita > 0 ? (custoFixoTotal / receita) * 100 : 0;
+  const risco = percentualDespesas > 70 ? "alto" : percentualDespesas > 40 ? "moderado" : "saudável";
+  const riscoColor = risco === "alto" ? "text-destructive" : risco === "moderado" ? "text-warning" : "text-success";
+  const riscoBg = risco === "alto" ? "bg-destructive/10" : risco === "moderado" ? "bg-warning/10" : "bg-success/10";
 
   const openNew = () => {
     setEditId(null);
@@ -207,8 +169,6 @@ export default function DespesasFixas() {
       formaPagamento: d.formaPagamento,
       status: d.status,
       observacoes: d.observacoes || "",
-      centroCusto: d.centroCusto || "",
-      contaVinculada: d.contaVinculada || "",
     });
     setDialogOpen(true);
   };
@@ -229,88 +189,63 @@ export default function DespesasFixas() {
       return;
     }
 
-    const row = {
-      descricao: form.descricao.trim(), // ← coluna obrigatória do banco
-      valor: valor, // ← coluna obrigatória do banco
-      data: new Date().toISOString(), // ← coluna obrigatória do banco
-      tipo: "financeiro", // ← coluna obrigatória do banco
-      categoria: "despesa", // ← necessário para passar no CHECK
-
-
-
-
-      descricao_depesas: form.descricao.trim(),
-      valor_despesas: valor,
-      categoria_despesas: form.categoria,
-      dia_vencimento: dia,
-      forma_pagamento_despesas: form.formaPagamento,
-      status_despesas: form.status,
-      observacoes_despesas: form.observacoes.trim() || null,
-      centro_custo_despeas: form.centroCusto.trim() || null,
-      conta_vinculada_depesas: form.contaVinculada.trim() || null,
-
-    };
-
-    if (editId) {
-      const { error } = await supabase.from("financeiro").update(row).eq("id", editId);
-      if (error) {
-        toast({ title: "Erro ao atualizar", variant: "destructive" });
-        return;
-      }
-      toast({ title: "Despesa atualizada com sucesso!" });
-    } else {
-      const { data, error } = await supabase.from("financeiro").insert([row]);
-
-      if (error) {
-        console.error("ERRO SUPABASE:", error);
-
-        toast({
-          title: "Erro ao cadastrar",
-          description: error.message,
-          variant: "destructive",
+    try {
+      if (editId) {
+        await fluxoService.update(editId, {
+          descricao: form.descricao.trim(),
+          valor,
+          descricao_despesas: form.descricao.trim(),
+          valor_despesas: valor,
+          categoria_despesas: form.categoria,
+          dia_vencimento: dia,
+          forma_pagamento_despesas: form.formaPagamento,
+          status_despesas: form.status,
+          observacoes_despesas: form.observacoes.trim() || null,
         });
-
-        return;
+        toast({ title: "Despesa atualizada com sucesso!" });
+      } else {
+        await fluxoService.create({
+          descricao: form.descricao.trim(),
+          valor,
+          data: new Date().toISOString().split("T")[0],
+          tipo: "financeiro",
+          descricao_despesas: form.descricao.trim(),
+          valor_despesas: valor,
+          categoria_despesas: form.categoria,
+          dia_vencimento: dia,
+          forma_pagamento_despesas: form.formaPagamento,
+          status_despesas: form.status,
+          observacoes_despesas: form.observacoes.trim() || undefined,
+        });
+        toast({ title: "Despesa cadastrada com sucesso!" });
       }
-
-      toast({ title: "Despesa cadastrada com sucesso!" });
+      setDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["fluxo-despesas"] });
+    } catch {
+      toast({ title: "Erro ao salvar despesa", variant: "destructive" });
     }
-    setDialogOpen(false);
-    refresh();
   };
 
   const handleToggleStatus = async (d: DespesaFixa) => {
     const newStatus = d.status === "ativa" ? "inativa" : "ativa";
-
-
-    const { error } = await supabase
-      .from("financeiro")
-
-      .update({ status_despesas: newStatus })
-
-      .eq("id", d.id);
-
-    if (error) {
+    try {
+      await fluxoService.update(d.id, { status_despesas: newStatus });
+      queryClient.invalidateQueries({ queryKey: ["fluxo-despesas"] });
+      toast({ title: d.status === "ativa" ? "Despesa pausada" : "Despesa reativada" });
+    } catch {
       toast({ title: "Erro ao atualizar status", variant: "destructive" });
-      return;
     }
-    refresh();
-
-    toast({
-      title: d.status === "ativa"
-        ? "Despesa pausada" :
-        "Despesa reativada"
-    });
   };
 
   const handleDelete = async (id: string) => {
-    const { error } = await supabase.from("financeiro").delete().eq("id", id);
-    if (error) {
+    if (!confirm("Excluir esta despesa?")) return;
+    try {
+      await fluxoService.delete(id);
+      queryClient.invalidateQueries({ queryKey: ["fluxo-despesas"] });
+      toast({ title: "Despesa removida" });
+    } catch {
       toast({ title: "Erro ao excluir", variant: "destructive" });
-      return;
     }
-    refresh();
-    toast({ title: "Despesa removida" });
   };
 
   const handleAddCategoria = () => {
@@ -322,16 +257,6 @@ export default function DespesasFixas() {
     }
   };
 
-  // Indicador de risco
-  const receita = 74150; // simulada
-  const percentualDespesas = receita > 0 ? (custoFixoTotal / receita) * 100 : 0;
-  const risco =
-    percentualDespesas > 70 ? "alto" : percentualDespesas > 40 ? "moderado" : "saudável";
-  const riscoColor =
-    risco === "alto" ? "text-destructive" : risco === "moderado" ? "text-warning" : "text-success";
-  const riscoBg =
-    risco === "alto" ? "bg-destructive/10" : risco === "moderado" ? "bg-warning/10" : "bg-success/10";
-
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar />
@@ -340,9 +265,7 @@ export default function DespesasFixas() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Despesas Fixas</h1>
-            <p className="text-muted-foreground">
-              Gerencie seus custos operacionais recorrentes
-            </p>
+            <p className="text-muted-foreground">Gerencie seus custos operacionais recorrentes</p>
           </div>
 
           <div className="flex gap-2">
@@ -439,7 +362,8 @@ export default function DespesasFixas() {
                           placeholder="Nova categoria"
                           maxLength={50}
                         />
-
+                        <Button size="sm" onClick={handleAddCategoria}>OK</Button>
+                        <Button variant="ghost" size="sm" onClick={() => setShowNovaCategoria(false)}>✕</Button>
                       </div>
                     )}
                   </div>
@@ -477,26 +401,6 @@ export default function DespesasFixas() {
                       maxLength={300}
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="grid gap-2">
-                      <Label>Centro de Custo</Label>
-                      <Input
-                        value={form.centroCusto}
-                        onChange={(e) => setForm({ ...form, centroCusto: e.target.value })}
-                        placeholder="Opcional"
-                        maxLength={50}
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label>Conta Vinculada</Label>
-                      <Input
-                        value={form.contaVinculada}
-                        onChange={(e) => setForm({ ...form, contaVinculada: e.target.value })}
-                        placeholder="Opcional"
-                        maxLength={50}
-                      />
-                    </div>
-                  </div>
                 </div>
 
                 <DialogFooter>
@@ -506,13 +410,10 @@ export default function DespesasFixas() {
               </DialogContent>
             </Dialog>
           </div>
-
         </div>
-
 
         {/* KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-
           <Card className="shadow-card hover:shadow-card-hover transition-all">
             <CardContent className="p-5">
               <div className="flex items-start justify-between mb-3">
@@ -543,7 +444,6 @@ export default function DespesasFixas() {
             </CardContent>
           </Card>
 
-
           <Card className="shadow-card hover:shadow-card-hover transition-all">
             <CardContent className="p-5">
               <div className="flex items-start justify-between mb-3">
@@ -561,7 +461,6 @@ export default function DespesasFixas() {
             </CardContent>
           </Card>
 
-
           <Card className="shadow-card hover:shadow-card-hover transition-all">
             <CardContent className="p-5">
               <div className="flex items-start justify-between mb-3">
@@ -571,15 +470,10 @@ export default function DespesasFixas() {
                 </div>
               </div>
               <p className={cn("text-xl font-bold capitalize", riscoColor)}>{risco}</p>
-              <Progress
-                value={Math.min(percentualDespesas, 100)}
-                className="mt-2 h-2"
-              />
+              <Progress value={Math.min(percentualDespesas, 100)} className="mt-2 h-2" />
             </CardContent>
           </Card>
         </div>
-
-
 
         {/* Charts + List */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -636,10 +530,6 @@ export default function DespesasFixas() {
             </CardContent>
           </Card>
 
-
-
-
-
           {/* Expense List */}
           <Card className="lg:col-span-2">
             <CardHeader>
@@ -657,9 +547,7 @@ export default function DespesasFixas() {
                     key={d.id}
                     className={cn(
                       "flex items-center justify-between p-4 rounded-lg border transition-all",
-                      d.status === "ativa"
-                        ? "bg-card hover:shadow-sm"
-                        : "bg-muted/30 opacity-70"
+                      d.status === "ativa" ? "bg-card hover:shadow-sm" : "bg-muted/30 opacity-70"
                     )}
                   >
                     <div className="flex-1 min-w-0">
@@ -719,19 +607,14 @@ export default function DespesasFixas() {
 
                 {despesasFiltradas.length === 0 && (
                   <p className="text-sm text-muted-foreground text-center py-8">
-                    {loading ? "Carregando..." : "Nenhuma despesa encontrada"}
+                    {isLoading ? "Carregando..." : "Nenhuma despesa encontrada"}
                   </p>
                 )}
               </div>
             </CardContent>
           </Card>
-
         </div>
       </main>
-
     </div>
-
-
-
   );
 }

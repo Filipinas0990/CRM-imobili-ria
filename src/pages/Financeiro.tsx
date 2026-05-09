@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Sidebar } from "@/components/Sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowUp, ArrowDown, Wallet, Plus, Trash } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { fluxoService, type FluxoItem } from "@/services/fluxo.service";
+import { toast } from "sonner";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
@@ -17,14 +19,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 
-type Transaction = {
-  id: number;
-  descricao: string;
-  valor: number;
-  tipo: "entrada" | "saida";
-  categoria: string;
-  data: string;
-};
+type Transaction = FluxoItem & { tipo: 'entrada' | 'saida' };
 
 const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 const MESES_FULL = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
@@ -34,37 +29,41 @@ const PIE_COLORS = [
   "#f97316", "#eab308", "#ec4899", "#6366f1", "#14b8a6", "#94a3b8",
 ];
 
+const STALE = 1000 * 60 * 5;
+
 export default function Balanco() {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [open, setOpen] = useState(false);
-  const [deleteId, setDeleteId] = useState<number | null>(null);
-  const [senha, setSenha] = useState("");
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const [openDelete, setOpenDelete] = useState(false);
   const [loadingDelete, setLoadingDelete] = useState(false);
+  const [salvando, setSalvando] = useState(false);
   const [descricao, setDescricao] = useState("");
   const [valor, setValor] = useState("");
   const [categoria, setCategoria] = useState("");
   const [tipo, setTipo] = useState<"entrada" | "saida">("entrada");
-  const [data, setData] = useState("");
+  const [data, setData] = useState(new Date().toISOString().split("T")[0]);
 
   const hoje = new Date();
   const [mesFiltro, setMesFiltro] = useState<string>(
     `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}`
   );
 
-  useEffect(() => {
-    loadFinanceiro();
-    setData(new Date().toISOString().split("T")[0]);
-  }, []);
+  const queryClient = useQueryClient();
 
-  async function loadFinanceiro() {
-    const { data, error } = await supabase
-      .from("financeiro")
-      .select("id, descricao, valor, tipo, categoria, data")
-      .eq("status", "confirmado")
-      .in("tipo", ["entrada", "saida"])
-      .order("data", { ascending: false });
-    if (!error && data) setTransactions(data as Transaction[]);
+  const { data: allItems = [], isLoading } = useQuery({
+    queryKey: ["fluxo-caixa"],
+    queryFn: () => fluxoService.getAll({ status: "confirmado" }),
+    staleTime: STALE,
+  });
+
+  // Só entradas e saídas (exclui despesas fixas tipo='financeiro')
+  const transactions = useMemo(
+    () => allItems.filter((t): t is Transaction => t.tipo === "entrada" || t.tipo === "saida"),
+    [allItems]
+  );
+
+  function invalidar() {
+    queryClient.invalidateQueries({ queryKey: ["fluxo-caixa"] });
   }
 
   const mesesDisponiveis = useMemo(() => {
@@ -91,16 +90,15 @@ export default function Balanco() {
     let entradas = 0; let saidas = 0;
     transacoesFiltradas.forEach((t) => {
       if (t.tipo === "entrada") entradas += Number(t.valor);
-      if (t.tipo === "saida") saidas += Number(t.valor);
+      if (t.tipo === "saida")   saidas  += Number(t.valor);
     });
     return { entradas, saidas, saldo: entradas - saidas };
   }, [transacoesFiltradas]);
 
   const barData = useMemo(() => {
     if (mesFiltro === "all") {
-      const meses: { mes: string; Receita: number; Despesa: number }[] = [];
-      for (let i = 5; i >= 0; i--) {
-        const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+      return Array.from({ length: 6 }, (_, i) => {
+        const d = new Date(hoje.getFullYear(), hoje.getMonth() - (5 - i), 1);
         const mesLabel = MESES[d.getMonth()];
         const ano = d.getFullYear(); const mes = d.getMonth();
         let receita = 0; let despesa = 0;
@@ -108,14 +106,13 @@ export default function Balanco() {
           const tDate = new Date(t.data);
           if (tDate.getFullYear() === ano && tDate.getMonth() === mes) {
             if (t.tipo === "entrada") receita += Number(t.valor);
-            if (t.tipo === "saida") despesa += Number(t.valor);
+            if (t.tipo === "saida")   despesa += Number(t.valor);
           }
         });
-        meses.push({ mes: mesLabel, Receita: receita, Despesa: despesa });
-      }
-      return meses;
+        return { mes: mesLabel, Receita: receita, Despesa: despesa };
+      });
     } else {
-      const semanas: { mes: string; Receita: number; Despesa: number }[] = [
+      const semanas = [
         { mes: "Sem 1", Receita: 0, Despesa: 0 },
         { mes: "Sem 2", Receita: 0, Despesa: 0 },
         { mes: "Sem 3", Receita: 0, Despesa: 0 },
@@ -125,7 +122,7 @@ export default function Balanco() {
         const dia = new Date(t.data).getDate();
         const semIdx = Math.min(Math.floor((dia - 1) / 7), 3);
         if (t.tipo === "entrada") semanas[semIdx].Receita += Number(t.valor);
-        if (t.tipo === "saida") semanas[semIdx].Despesa += Number(t.valor);
+        if (t.tipo === "saida")   semanas[semIdx].Despesa += Number(t.valor);
       });
       return semanas;
     }
@@ -135,32 +132,51 @@ export default function Balanco() {
     const grupos: Record<string, number> = {};
     transacoesFiltradas.filter((t) => t.tipo === "entrada").forEach((t) => {
       const cat = t.categoria || "Sem categoria";
-      if (!grupos[cat]) grupos[cat] = 0;
-      grupos[cat] += Number(t.valor);
+      grupos[cat] = (grupos[cat] || 0) + Number(t.valor);
     });
     return Object.entries(grupos).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).map(([name, value]) => ({ name, value }));
   }, [transacoesFiltradas]);
 
   async function salvar() {
-    if (!descricao || !valor || !categoria) return;
-    const row = { descricao, valor: Number(valor), categoria, tipo, data, status: "confirmado" };
-    const { error } = await supabase.from("financeiro").insert([row]);
-    if (error) return;
-    setDescricao(""); setValor(""); setCategoria(""); setTipo("entrada");
-    setOpen(false);
-    loadFinanceiro();
+    if (!descricao || !valor || !categoria) {
+      toast.error("Preencha todos os campos");
+      return;
+    }
+    setSalvando(true);
+    try {
+      await fluxoService.create({
+        descricao,
+        valor: Number(valor),
+        categoria,
+        tipo,
+        data,
+        status: "confirmado",
+      });
+      setDescricao(""); setValor(""); setCategoria(""); setTipo("entrada");
+      setOpen(false);
+      invalidar();
+      toast.success("Transação cadastrada!");
+    } catch {
+      toast.error("Erro ao cadastrar transação");
+    } finally {
+      setSalvando(false);
+    }
   }
 
   async function confirmarDelete() {
-    if (!deleteId || !senha) return;
+    if (!deleteId) return;
     setLoadingDelete(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user?.email) { alert("Usuário não autenticado"); setLoadingDelete(false); return; }
-    const { error: authError } = await supabase.auth.signInWithPassword({ email: user.email, password: senha });
-    if (authError) { alert("Senha incorreta"); setLoadingDelete(false); return; }
-    await supabase.from("financeiro").delete().eq("id", deleteId);
-    setSenha(""); setDeleteId(null); setOpenDelete(false); setLoadingDelete(false);
-    loadFinanceiro();
+    try {
+      await fluxoService.delete(deleteId);
+      setDeleteId(null);
+      setOpenDelete(false);
+      invalidar();
+      toast.success("Transação excluída");
+    } catch {
+      toast.error("Erro ao excluir transação");
+    } finally {
+      setLoadingDelete(false);
+    }
   }
 
   function formatarMesLabel(key: string) {
@@ -169,7 +185,6 @@ export default function Balanco() {
     return `${MESES_FULL[parseInt(mes) - 1]} ${ano}`;
   }
 
-  // ─── Modal Nova Transação (compartilhado desktop/mobile) ──────
   const modalNovaTransacao = (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -179,21 +194,18 @@ export default function Balanco() {
           <span className="sm:hidden">Nova</span>
         </Button>
       </DialogTrigger>
-      <DialogContent
-        className="sm:max-w-[520px] max-h-[90vh] overflow-y-auto"
-        aria-describedby={undefined}
-      >
+      <DialogContent className="sm:max-w-[520px] max-h-[90vh] overflow-y-auto" aria-describedby={undefined}>
         <DialogHeader><DialogTitle>Nova Transação</DialogTitle></DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="descricao">Descrição</Label>
-            <Input id="descricao" className="rounded-xl" value={descricao} onChange={(e) => setDescricao(e.target.value)} />
+            <Label>Descrição</Label>
+            <Input className="rounded-xl" value={descricao} onChange={(e) => setDescricao(e.target.value)} />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Tipo</Label>
               <Select value={tipo} onValueChange={(v) => setTipo(v as any)}>
-                <SelectTrigger className="rounded-xl"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="entrada">Entrada</SelectItem>
                   <SelectItem value="saida">Saída</SelectItem>
@@ -201,8 +213,8 @@ export default function Balanco() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="data-transacao">Data</Label>
-              <Input id="data-transacao" className="rounded-xl" type="date" value={data} onChange={(e) => setData(e.target.value)} />
+              <Label>Data</Label>
+              <Input className="rounded-xl" type="date" value={data} onChange={(e) => setData(e.target.value)} />
             </div>
           </div>
           <div className="space-y-2">
@@ -231,25 +243,36 @@ export default function Balanco() {
             </Select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="valor">Valor</Label>
-            <Input id="valor" className="rounded-xl" value={valor} onChange={(e) => setValor(e.target.value)} />
+            <Label>Valor (R$)</Label>
+            <Input className="rounded-xl" type="number" min="0" step="0.01" value={valor} onChange={(e) => setValor(e.target.value)} />
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" className="rounded-xl" onClick={() => setOpen(false)}>Cancelar</Button>
-            <Button className="rounded-xl" onClick={salvar}>Salvar</Button>
+            <Button className="rounded-xl" onClick={salvar} disabled={salvando}>
+              {salvando ? "Salvando..." : "Salvar"}
+            </Button>
           </div>
         </div>
       </DialogContent>
     </Dialog>
   );
 
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen bg-background">
+        <Sidebar />
+        <main className="flex-1 ml-20 flex items-center justify-center">
+          <div className="animate-spin rounded-full h-10 w-10 border-4 border-primary border-t-transparent" />
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar />
 
-      {/* ══════════════════════════════════════════
-          DESKTOP — exatamente igual ao original
-      ══════════════════════════════════════════ */}
+      {/* DESKTOP */}
       <main className="hidden md:block flex-1 ml-20 p-8 space-y-8 overflow-y-auto">
         <div className="flex justify-between items-center flex-wrap gap-4">
           <div>
@@ -276,21 +299,23 @@ export default function Balanco() {
               <CardTitle className="text-sm">Entradas</CardTitle>
               <ArrowUp className="text-green-500" />
             </CardHeader>
-            <CardContent className="text-3xl font-bold">R$ {resumo.entradas.toLocaleString("pt-BR")}</CardContent>
+            <CardContent className="text-3xl font-bold">R$ {resumo.entradas.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</CardContent>
           </Card>
           <Card>
             <CardHeader className="flex justify-between items-center">
               <CardTitle className="text-sm">Saídas</CardTitle>
               <ArrowDown className="text-red-500" />
             </CardHeader>
-            <CardContent className="text-3xl font-bold">R$ {resumo.saidas.toLocaleString("pt-BR")}</CardContent>
+            <CardContent className="text-3xl font-bold">R$ {resumo.saidas.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</CardContent>
           </Card>
           <Card>
             <CardHeader className="flex justify-between items-center">
               <CardTitle className="text-sm">Saldo</CardTitle>
               <Wallet />
             </CardHeader>
-            <CardContent className="text-3xl font-bold">R$ {resumo.saldo.toLocaleString("pt-BR")}</CardContent>
+            <CardContent className={`text-3xl font-bold ${resumo.saldo >= 0 ? "text-green-600" : "text-red-600"}`}>
+              R$ {resumo.saldo.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+            </CardContent>
           </Card>
         </div>
 
@@ -307,7 +332,7 @@ export default function Balanco() {
                 <BarChart data={barData} barCategoryGap="30%">
                   <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
                   <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                  <Tooltip formatter={(value: number) => `R$ ${value.toLocaleString("pt-BR")}`} />
+                  <Tooltip formatter={(v: number) => `R$ ${v.toLocaleString("pt-BR")}`} />
                   <Bar dataKey="Receita" fill="#22c55e" radius={[4, 4, 0, 0]} />
                   <Bar dataKey="Despesa" fill="#ef4444" radius={[4, 4, 0, 0]} />
                 </BarChart>
@@ -329,7 +354,7 @@ export default function Balanco() {
                     <Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={2} dataKey="value">
                       {pieData.map((_, index) => <Cell key={index} fill={PIE_COLORS[index % PIE_COLORS.length]} />)}
                     </Pie>
-                    <Tooltip formatter={(value: number, name: string) => [`R$ ${value.toLocaleString("pt-BR")}`, name]} />
+                    <Tooltip formatter={(v: number, name: string) => [`R$ ${v.toLocaleString("pt-BR")}`, name]} />
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="w-full max-h-40 overflow-y-auto mt-2 space-y-1 pr-1">
@@ -351,7 +376,7 @@ export default function Balanco() {
                   })}
                 </div>
               </>) : (
-                <p className="text-muted-foreground text-sm py-10">Sem receitas neste mês.</p>
+                <p className="text-muted-foreground text-sm py-10">Sem receitas neste período.</p>
               )}
             </CardContent>
           </Card>
@@ -360,17 +385,22 @@ export default function Balanco() {
         <Card>
           <CardHeader><CardTitle>Transações Recentes</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            {transactions.map((t) => (
+            {transacoesFiltradas.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">Nenhuma transação neste período.</p>
+            ) : transacoesFiltradas.map((t) => (
               <div key={t.id} className="flex justify-between items-center border rounded-lg p-4 hover:bg-muted/40 transition">
                 <div>
                   <p className="font-medium">{t.descricao}</p>
-                  <p className="text-sm text-muted-foreground">{new Date(t.data).toLocaleDateString("pt-BR")}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {t.categoria} · {new Date(t.data).toLocaleDateString("pt-BR")}
+                  </p>
                 </div>
                 <div className="flex items-center gap-4">
                   <span className={`font-bold ${t.tipo === "entrada" ? "text-green-600" : "text-red-600"}`}>
-                    {t.tipo === "entrada" ? "+" : "-"} R$ {Number(t.valor).toLocaleString("pt-BR")}
+                    {t.tipo === "entrada" ? "+" : "-"} R$ {Number(t.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                   </span>
-                  <Button size="icon" className="bg-red-500 hover:bg-red-600 text-white rounded-lg" onClick={() => { setDeleteId(t.id); setOpenDelete(true); }}>
+                  <Button size="icon" className="bg-red-500 hover:bg-red-600 text-white rounded-lg"
+                    onClick={() => { setDeleteId(t.id); setOpenDelete(true); }}>
                     <Trash className="w-4 h-4" />
                   </Button>
                 </div>
@@ -380,12 +410,9 @@ export default function Balanco() {
         </Card>
       </main>
 
-      {/* ══════════════════════════════════════════
-          MOBILE — layout otimizado para celular
-      ══════════════════════════════════════════ */}
+      {/* MOBILE */}
       <main className="md:hidden flex-1 overflow-y-auto pb-24">
         <div className="p-4 space-y-4">
-
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold">Financeiro</h1>
@@ -410,25 +437,21 @@ export default function Balanco() {
                 <ArrowUp className="w-3.5 h-3.5 text-green-600" />
                 <p className="text-xs font-medium text-green-700">Entradas</p>
               </div>
-              <p className="text-sm font-bold text-green-700 leading-tight">
-                R$ {resumo.entradas.toLocaleString("pt-BR")}
-              </p>
+              <p className="text-sm font-bold text-green-700">R$ {resumo.entradas.toLocaleString("pt-BR")}</p>
             </div>
             <div className="rounded-2xl border bg-red-50 p-3 text-center">
               <div className="flex items-center justify-center gap-1 mb-1">
                 <ArrowDown className="w-3.5 h-3.5 text-red-600" />
                 <p className="text-xs font-medium text-red-700">Saídas</p>
               </div>
-              <p className="text-sm font-bold text-red-700 leading-tight">
-                R$ {resumo.saidas.toLocaleString("pt-BR")}
-              </p>
+              <p className="text-sm font-bold text-red-700">R$ {resumo.saidas.toLocaleString("pt-BR")}</p>
             </div>
             <div className="rounded-2xl border bg-blue-50 p-3 text-center">
               <div className="flex items-center justify-center gap-1 mb-1">
                 <Wallet className="w-3.5 h-3.5 text-blue-600" />
                 <p className="text-xs font-medium text-blue-700">Saldo</p>
               </div>
-              <p className={`text-sm font-bold leading-tight ${resumo.saldo >= 0 ? "text-blue-700" : "text-red-700"}`}>
+              <p className={`text-sm font-bold ${resumo.saldo >= 0 ? "text-blue-700" : "text-red-700"}`}>
                 R$ {resumo.saldo.toLocaleString("pt-BR")}
               </p>
             </div>
@@ -443,7 +466,7 @@ export default function Balanco() {
               <BarChart data={barData} barCategoryGap="30%">
                 <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={{ fontSize: 11 }} />
                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                <Tooltip formatter={(value: number) => `R$ ${value.toLocaleString("pt-BR")}`} />
+                <Tooltip formatter={(v: number) => `R$ ${v.toLocaleString("pt-BR")}`} />
                 <Bar dataKey="Receita" fill="#22c55e" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="Despesa" fill="#ef4444" radius={[4, 4, 0, 0]} />
               </BarChart>
@@ -473,10 +496,8 @@ export default function Balanco() {
                       <span className={`font-bold text-sm ${t.tipo === "entrada" ? "text-green-600" : "text-red-600"}`}>
                         {t.tipo === "entrada" ? "+" : "-"} R$ {Number(t.valor).toLocaleString("pt-BR")}
                       </span>
-                      <button
-                        className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 transition-colors"
-                        onClick={() => { setDeleteId(t.id); setOpenDelete(true); }}
-                      >
+                      <button className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 transition-colors"
+                        onClick={() => { setDeleteId(t.id); setOpenDelete(true); }}>
                         <Trash className="w-3.5 h-3.5 text-red-500" />
                       </button>
                     </div>
@@ -488,39 +509,19 @@ export default function Balanco() {
         </div>
       </main>
 
-      {/* ══════════════════════════════════════════
-          MODAL DELETE — compartilhado
-      ══════════════════════════════════════════ */}
+      {/* MODAL CONFIRMAR EXCLUSÃO */}
       <Dialog open={openDelete} onOpenChange={setOpenDelete}>
-        <DialogContent
-          className="sm:max-w-[420px]"
-          aria-describedby={undefined}
-        >
+        <DialogContent className="sm:max-w-[420px]" aria-describedby={undefined}>
           <DialogHeader><DialogTitle>Confirmar exclusão</DialogTitle></DialogHeader>
-          <form onSubmit={(e) => { e.preventDefault(); confirmarDelete(); }} className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Digite sua senha para confirmar a exclusão desta transação.
-            </p>
-            <div className="space-y-2">
-              <Label htmlFor="senha-delete">Senha</Label>
-              <Input
-                id="senha-delete"
-                type="password"
-                autoComplete="current-password"
-                className="rounded-xl"
-                value={senha}
-                onChange={(e) => setSenha(e.target.value)}
-              />
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="outline" className="rounded-xl" onClick={() => setOpenDelete(false)}>
-                Cancelar
-              </Button>
-              <Button type="submit" variant="destructive" className="rounded-xl" disabled={loadingDelete}>
-                {loadingDelete ? "Excluindo..." : "Excluir"}
-              </Button>
-            </div>
-          </form>
+          <p className="text-sm text-muted-foreground">
+            Tem certeza que deseja excluir esta transação? Esta ação não pode ser desfeita.
+          </p>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" className="rounded-xl" onClick={() => setOpenDelete(false)}>Cancelar</Button>
+            <Button variant="destructive" className="rounded-xl" disabled={loadingDelete} onClick={confirmarDelete}>
+              {loadingDelete ? "Excluindo..." : "Excluir"}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

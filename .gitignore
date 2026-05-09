@@ -45,3 +45,11 @@ supabase/migrations
 
 .vercel
 .env*.local
+.env.production
+
+
+
+
+
+
+ .claude/

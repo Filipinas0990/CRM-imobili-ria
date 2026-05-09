@@ -1,93 +1,61 @@
-// pages/Imoveis.tsx
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Sidebar } from "@/components/Sidebar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Filter, MapPin, BedDouble, Bath, Maximize } from "lucide-react";
+import { Plus, Search, Filter, MapPin, BedDouble, Bath, Maximize, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { imovelService, type Imovel } from "@/services/imovel.service";
 
-import { supabase } from "@/integrations/supabase/client";
-import { getImoveis } from "@/integrations/supabase/imoveis/getImoveis";
-import { createImovel } from "@/integrations/supabase/imoveis/createImovel";
-import { updateImovel } from "@/integrations/supabase/imoveis/updateImovel";
-import { deleteImovel } from "@/integrations/supabase/imoveis/deleteImovel";
+const STALE = 1000 * 60 * 5;
 
-const BUCKET = "imoveis";
+const emptyForm = {
+  titulo: "",
+  descricao: "",
+  preco: "",
+  endereco: "",
+  tipo: "",
+  quartos: "",
+  banheiros: "",
+  area: "",
+};
 
 const Imoveis = () => {
-  const [imoveis, setImoveis] = useState<any[]>([]);
   const [search, setSearch] = useState("");
-
   const [modalOpen, setModalOpen] = useState(false);
-  const [editing, setEditing] = useState<any | null>(null);
+  const [editing, setEditing] = useState<Imovel | null>(null);
+  const [salvando, setSalvando] = useState(false);
+  const [form, setForm] = useState<typeof emptyForm>(emptyForm);
 
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const queryClient = useQueryClient();
 
-  const [form, setForm] = useState<any>({
-    titulo: "",
-    descricao: "",
-    preco: "",
-    endereco: "",
-    tipo: "",
-    quartos: "",
-    banheiros: "",
-    area: "",
+  const { data: imoveis = [], isLoading } = useQuery({
+    queryKey: ["imoveis"],
+    queryFn: () => imovelService.getAll(),
+    staleTime: STALE,
   });
 
   function openNew() {
     setEditing(null);
-    setSelectedFile(null);
-    setForm({ titulo: "", descricao: "", preco: "", endereco: "", tipo: "", quartos: "", banheiros: "", area: "" });
+    setForm(emptyForm);
     setModalOpen(true);
   }
 
-  function openEdit(imovel: any) {
+  function openEdit(imovel: Imovel) {
     setEditing(imovel);
-    setSelectedFile(null);
     setForm({
-      titulo: imovel.titulo,
-      descricao: imovel.descricao,
-      preco: imovel.preco,
-      endereco: imovel.endereco,
-      tipo: imovel.tipo,
-      quartos: imovel.quartos,
-      banheiros: imovel.banheiros,
-      area: imovel.area
+      titulo: imovel.titulo ?? "",
+      descricao: imovel.descricao ?? "",
+      preco: imovel.preco != null ? String(imovel.preco) : "",
+      endereco: imovel.endereco ?? "",
+      tipo: imovel.tipo ?? "",
+      quartos: imovel.quartos != null ? String(imovel.quartos) : "",
+      banheiros: imovel.banheiros != null ? String(imovel.banheiros) : "",
+      area: imovel.area != null ? String(imovel.area) : "",
     });
     setModalOpen(true);
-  }
-
-  async function load() {
-    let res: any = await getImoveis();
-    if (res?.data && Array.isArray(res.data)) res = res.data;
-    if (!res || !Array.isArray(res)) {
-      setImoveis([]);
-      return;
-    }
-
-    const withUrls = await Promise.all(
-      res.map(async (p: any) => {
-        if (p.foto_path) {
-          const result = await supabase.storage.from(BUCKET).createSignedUrl(p.foto_path, 3600);
-          return { ...p, foto_url: result.data?.signedUrl ?? null };
-        }
-        return { ...p, foto_url: null };
-      })
-    );
-
-    setImoveis(withUrls);
-  }
-
-  async function uploadFile(imovelId: string, file: File) {
-    const ext = file.name.split(".").pop();
-    const fileName = `${Date.now()}.${ext}`;
-    const filePath = `${imovelId}/${fileName}`;
-
-    const { error } = await supabase.storage.from(BUCKET).upload(filePath, file);
-    if (error) throw error;
-    return filePath;
   }
 
   async function save() {
@@ -97,59 +65,43 @@ const Imoveis = () => {
     }
 
     const payload = {
-      ...form,
-      preco: form.preco ? Number(form.preco) : null,
-      area: form.area ? Number(form.area) : null,
-      quartos: form.quartos ? Number(form.quartos) : null,
-      banheiros: form.banheiros ? Number(form.banheiros) : null,
+      titulo: form.titulo,
+      descricao: form.descricao || undefined,
+      endereco: form.endereco || undefined,
+      tipo: form.tipo || undefined,
+      preco: form.preco ? Number(form.preco) : undefined,
+      area: form.area ? Number(form.area) : undefined,
+      quartos: form.quartos ? Number(form.quartos) : undefined,
+      banheiros: form.banheiros ? Number(form.banheiros) : undefined,
     };
 
+    setSalvando(true);
     try {
       if (editing) {
-        await updateImovel(editing.id, payload);
-
-        if (selectedFile) {
-          const path = await uploadFile(editing.id, selectedFile);
-          await updateImovel(editing.id, { foto_path: path });
-        }
+        await imovelService.update(editing.id, payload);
       } else {
-        const created = await createImovel(payload);
-
-        let createdId = created?.id ?? created?.data?.[0]?.id ?? null;
-
-        if (!createdId) {
-          await load();
-          const candidate = imoveis.find((i) => i.titulo === payload.titulo && !i.foto_path);
-          createdId = candidate?.id ?? null;
-        }
-
-        if (createdId && selectedFile) {
-          const path = await uploadFile(createdId, selectedFile);
-          await updateImovel(createdId, { foto_path: path });
-        }
+        await imovelService.create(payload);
       }
-
       setModalOpen(false);
-      setSelectedFile(null);
-      await load();
+      queryClient.invalidateQueries({ queryKey: ["imoveis"] });
+      queryClient.invalidateQueries({ queryKey: ["imoveis-select"] });
     } catch (err: any) {
-      alert(err?.message ?? "Erro ao salvar imóvel");
+      alert(err?.response?.data?.message ?? err?.message ?? "Erro ao salvar imóvel");
+    } finally {
+      setSalvando(false);
     }
   }
 
   async function remove(id: string) {
     if (!confirm("Tem certeza que deseja remover este imóvel?")) return;
-
-    const imovel = imoveis.find((i) => i.id === id);
-    if (imovel?.foto_path) await supabase.storage.from(BUCKET).remove([imovel.foto_path]);
-
-    await deleteImovel(id);
-    await load();
+    try {
+      await imovelService.delete(id);
+      queryClient.invalidateQueries({ queryKey: ["imoveis"] });
+      queryClient.invalidateQueries({ queryKey: ["imoveis-select"] });
+    } catch (err: any) {
+      alert(err?.response?.data?.message ?? err?.message ?? "Erro ao remover imóvel");
+    }
   }
-
-  useEffect(() => {
-    load();
-  }, []);
 
   const filtered = imoveis.filter((i) =>
     (i.titulo || "").toLowerCase().includes(search.toLowerCase())
@@ -159,7 +111,6 @@ const Imoveis = () => {
     <div className="min-h-screen bg-background">
       <Sidebar />
 
-      {/* CONTEÚDO AJUSTADO À SIDEBAR FIXA */}
       <main className="ml-16 overflow-y-auto">
         <div className="p-8 space-y-6">
           <div className="flex items-center justify-between">
@@ -189,64 +140,64 @@ const Imoveis = () => {
                 </Button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filtered.map((property) => (
-                  <Card key={property.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-                    <div className="h-48 bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
-                      {property.foto_url ? (
-                        <img src={property.foto_url} alt={property.titulo} className="w-full h-full object-cover" />
-                      ) : (
-                        <p className="text-muted-foreground">Imagem do imóvel</p>
-                      )}
-                    </div>
+              {isLoading ? (
+                <div className="flex items-center justify-center py-16">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {filtered.map((property) => (
+                      <Card key={property.id} className="overflow-hidden hover:shadow-lg transition-shadow">
+                        <div className="h-48 bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+                          <p className="text-muted-foreground text-sm">Sem imagem</p>
+                        </div>
 
-                    <CardContent className="p-4 space-y-3">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h3 className="font-semibold line-clamp-1">{property.titulo}</h3>
-
-                          <div className="flex items-center gap-2 mt-1">
-                            <MapPin className="w-3 h-3 text-muted-foreground" />
-                            <span className="text-sm text-muted-foreground">{property.endereco}</span>
+                        <CardContent className="p-4 space-y-3">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <h3 className="font-semibold line-clamp-1">{property.titulo}</h3>
+                              {property.endereco && (
+                                <div className="flex items-center gap-2 mt-1">
+                                  <MapPin className="w-3 h-3 text-muted-foreground" />
+                                  <span className="text-sm text-muted-foreground">{property.endereco}</span>
+                                </div>
+                              )}
+                              {property.descricao && (
+                                <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                                  {property.descricao}
+                                </p>
+                              )}
+                            </div>
+                            <Badge>{property.tipo || "—"}</Badge>
                           </div>
 
-                          <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                            {property.descricao}
-                          </p>
-                        </div>
+                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                            <div className="flex items-center gap-1"><BedDouble className="w-4 h-4" />{property.quartos || 0}</div>
+                            <div className="flex items-center gap-1"><Bath className="w-4 h-4" />{property.banheiros || 0}</div>
+                            <div className="flex items-center gap-1"><Maximize className="w-4 h-4" />{property.area || 0}m²</div>
+                          </div>
 
-                        <Badge>{property.tipo || "—"}</Badge>
-                      </div>
+                          <div className="pt-3 border-t flex items-center justify-between">
+                            <span className="text-xl font-bold text-primary">
+                              R$ {(property.preco || 0).toLocaleString("pt-BR")}
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <Button size="sm" variant="outline" onClick={() => openEdit(property)}>Editar</Button>
+                              <Button size="sm" variant="destructive" onClick={() => remove(property.id)}>Excluir</Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
 
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                        <div className="flex items-center gap-1"><BedDouble className="w-4 h-4" />{property.quartos || 0}</div>
-                        <div className="flex items-center gap-1"><Bath className="w-4 h-4" />{property.banheiros || 0}</div>
-                        <div className="flex items-center gap-1"><Maximize className="w-4 h-4" />{property.area || 0}m²</div>
-                      </div>
-
-                      <div className="pt-3 border-t flex items-center justify-between">
-                        <span className="text-xl font-bold text-primary">
-                          R$ {(property.preco || 0).toLocaleString("pt-BR")}
-                        </span>
-
-                        <div className="flex items-center gap-2">
-                          <Button size="sm" variant="outline" onClick={() => openEdit(property)}>
-                            Editar
-                          </Button>
-                          <Button size="sm" variant="destructive" onClick={() => remove(property.id)}>
-                            Excluir
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-
-              {filtered.length === 0 && (
-                <div className="mt-6 text-center text-muted-foreground">
-                  Nenhum imóvel encontrado.
-                </div>
+                  {filtered.length === 0 && (
+                    <div className="mt-6 text-center text-muted-foreground">
+                      Nenhum imóvel encontrado.
+                    </div>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>
@@ -259,28 +210,21 @@ const Imoveis = () => {
             <DialogTitle>{editing ? "Editar Imóvel" : "Novo Imóvel"}</DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <Input placeholder="Título" value={form.titulo} onChange={(e) => setForm({ ...form, titulo: e.target.value })} />
+          <div className="space-y-3">
+            <Input placeholder="Título *" value={form.titulo} onChange={(e) => setForm({ ...form, titulo: e.target.value })} />
             <Input placeholder="Descrição" value={form.descricao} onChange={(e) => setForm({ ...form, descricao: e.target.value })} />
-            <Input placeholder="Tipo" value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })} />
+            <Input placeholder="Tipo (ex: Apartamento, Casa)" value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })} />
             <Input placeholder="Endereço" value={form.endereco} onChange={(e) => setForm({ ...form, endereco: e.target.value })} />
-            <Input placeholder="Preço" type="number" value={form.preco} onChange={(e) => setForm({ ...form, preco: e.target.value })} />
-            <Input placeholder="Quartos" type="number" value={form.quartos} onChange={(e) => setForm({ ...form, quartos: e.target.value })} />
-            <Input placeholder="Banheiros" type="number" value={form.banheiros} onChange={(e) => setForm({ ...form, banheiros: e.target.value })} />
-            <Input placeholder="Área (m²)" type="number" value={form.area} onChange={(e) => setForm({ ...form, area: e.target.value })} />
-
-            <div>
-              <label className="block text-sm mb-2">Foto do imóvel</label>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-              />
-              {selectedFile && <div className="text-sm mt-2">Arquivo: {selectedFile.name}</div>}
+            <Input placeholder="Preço (R$)" type="number" value={form.preco} onChange={(e) => setForm({ ...form, preco: e.target.value })} />
+            <div className="grid grid-cols-3 gap-3">
+              <Input placeholder="Quartos" type="number" value={form.quartos} onChange={(e) => setForm({ ...form, quartos: e.target.value })} />
+              <Input placeholder="Banheiros" type="number" value={form.banheiros} onChange={(e) => setForm({ ...form, banheiros: e.target.value })} />
+              <Input placeholder="Área (m²)" type="number" value={form.area} onChange={(e) => setForm({ ...form, area: e.target.value })} />
             </div>
 
-            <Button className="w-full mt-4" onClick={save}>
-              Salvar
+            <Button className="w-full mt-2" onClick={save} disabled={salvando}>
+              {salvando ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              {salvando ? "Salvando..." : "Salvar"}
             </Button>
           </div>
         </DialogContent>

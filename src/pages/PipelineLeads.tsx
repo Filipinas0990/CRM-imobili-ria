@@ -11,9 +11,9 @@ import {
     DialogTitle,
     DialogFooter,
 } from "@/components/ui/dialog";
-import { getLeads } from "@/integrations/supabase/leads/getLeads";
-import { updateLead } from "@/integrations/supabase/leads/updateLead";
-import { deleteLead } from "@/integrations/supabase/leads/deleteLead";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { leadService } from "@/services/lead.service";
+import { toast } from "sonner";
 import {
     Users,
     UserCheck,
@@ -117,13 +117,13 @@ function LeadCard({
                 <div
                     className={clsx(
                         "w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0",
-                        getAvatarColor(lead.nome || "A")
+                        getAvatarColor(lead.name || "A")
                     )}
                 >
-                    {getInitials(lead.nome || "?")}
+                    {getInitials(lead.name || "?")}
                 </div>
                 <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm text-foreground truncate">{lead.nome}</p>
+                    <p className="font-semibold text-sm text-foreground truncate">{lead.name}</p>
                     {lead.email && (
                         <div className="flex items-center gap-1 mt-0.5">
                             <Mail className="w-3 h-3 text-muted-foreground shrink-0" />
@@ -140,7 +140,7 @@ function LeadCard({
                         <div className="flex items-center gap-1 mt-0.5">
                             <Calendar className="w-3 h-3 text-muted-foreground shrink-0" />
                             <p className="text-xs text-muted-foreground">
-                                Captado em: {new Date(lead.criado_em).toLocaleDateString("pt-BR")}
+                                Captado em: {new Date(lead.created_at).toLocaleDateString("pt-BR")}
                             </p>
                         </div>
                     )}
@@ -175,16 +175,10 @@ function LeadCard({
             </div>
 
             <div className="flex items-center justify-between mt-2 pt-2 border-t border-border">
-                {lead.corretor && (
+                {lead.gestor_responsavel && (
                     <span className="text-xs bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 rounded-full px-2 py-0.5 font-medium">
-                        {lead.corretor}
+                        {lead.gestor_responsavel}
                     </span>
-                )}
-                {lead.score !== undefined && (
-                    <div className="flex items-center gap-1 ml-auto">
-                        <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
-                        <span className="text-xs text-muted-foreground font-medium">{lead.score}/100</span>
-                    </div>
                 )}
             </div>
         </div>
@@ -205,20 +199,28 @@ export default function PipelineLeads() {
     const [periodoMenuOpen, setPeriodoMenuOpen] = useState(false);
 
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
 
-    async function carregar() {
-        const data = await getLeads();
-        setLeads(data || []);
-    }
+    const { data: leadsData = [] } = useQuery({
+        queryKey: ["leads"],
+        queryFn: () => leadService.getAll(),
+        staleTime: 1000 * 60 * 5,
+    });
 
+    // Sincroniza dados do React Query com o estado local (para otimismo no drag-drop)
     useEffect(() => {
-        carregar();
-    }, []);
+        setLeads(leadsData);
+    }, [leadsData]);
+
+    function invalidar() {
+        queryClient.invalidateQueries({ queryKey: ["leads"] });
+    }
 
     async function onDrop(etapaId: string) {
         if (!draggingId) return;
         const lead = leads.find((l) => l.id === draggingId);
-        await updateLead(draggingId, { status: etapaId });
+
+        // Atualiza localmente de imediato
         setLeads((prev) =>
             prev.map((l) =>
                 l.id === draggingId ? { ...l, status: etapaId, _animate: true } : l
@@ -226,18 +228,34 @@ export default function PipelineLeads() {
         );
         setDraggingId(null);
         setHoverCol(null);
+
+        try {
+            await leadService.updateStatus(draggingId, etapaId);
+            invalidar();
+        } catch {
+            toast.error("Erro ao mover lead");
+            invalidar(); // reverte via refetch
+        }
+
         if (etapaId === "Proposta" && lead) {
             setLeadParaVenda(lead);
             setOpenConfirmVenda(true);
         }
+
         setTimeout(() => {
             setLeads((prev) => prev.map((l) => ({ ...l, _animate: false })));
         }, 300);
     }
 
     async function moverParaBolsao(id: string) {
-        await updateLead(id, { status: "bolsao" });
         setLeads((prev) => prev.map((l) => l.id === id ? { ...l, status: "bolsao" } : l));
+        try {
+            await leadService.updateStatus(id, "bolsao");
+            invalidar();
+        } catch {
+            toast.error("Erro ao mover para bolsão");
+            invalidar();
+        }
     }
 
     function confirmarExcluir(lead: any) {
@@ -247,8 +265,14 @@ export default function PipelineLeads() {
 
     async function excluirLead() {
         if (!leadParaExcluir) return;
-        await deleteLead(leadParaExcluir.id);
-        setLeads((prev) => prev.filter((l) => l.id !== leadParaExcluir.id));
+        try {
+            await leadService.delete(leadParaExcluir.id);
+            setLeads((prev) => prev.filter((l) => l.id !== leadParaExcluir.id));
+            toast.success("Lead excluído!");
+            invalidar();
+        } catch {
+            toast.error("Erro ao excluir lead");
+        }
         setOpenConfirmExcluir(false);
         setLeadParaExcluir(null);
     }
@@ -265,8 +289,8 @@ export default function PipelineLeads() {
     const leadsEstat = periodoEstat === null
         ? leadsKanban
         : leadsKanban.filter((l) => {
-            if (!l.criado_em) return true;
-            const diff = (Date.now() - new Date(l.criado_em).getTime()) / (1000 * 60 * 60 * 24);
+            if (!l.created_at) return true;
+            const diff = (Date.now() - new Date(l.created_at).getTime()) / (1000 * 60 * 60 * 24);
             return diff <= periodoEstat;
         });
 
@@ -274,7 +298,7 @@ export default function PipelineLeads() {
         if (!search) return true;
         const q = search.toLowerCase();
         return (
-            l.nome?.toLowerCase().includes(q) ||
+            l.name?.toLowerCase().includes(q) ||
             l.telefone?.includes(q) ||
             l.email?.toLowerCase().includes(q)
         );
@@ -294,8 +318,8 @@ export default function PipelineLeads() {
 
     const timelineMap: Record<string, number> = {};
     leadsEstat.forEach((l) => {
-        if (!l.criado_em) return;
-        const d = new Date(l.criado_em);
+        if (!l.created_at) return;
+        const d = new Date(l.created_at);
         const key = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
         timelineMap[key] = (timelineMap[key] || 0) + 1;
     });
@@ -375,7 +399,6 @@ export default function PipelineLeads() {
                                     onChange={(e) => setSearch(e.target.value)}
                                 />
                             </div>
-
                         </div>
 
                         <div
@@ -494,6 +517,7 @@ export default function PipelineLeads() {
                                 </div>
                             )}
                         </div>
+
                         <div className="bg-purple-50 dark:bg-purple-950 border border-purple-100 dark:border-purple-900 rounded-xl p-5">
                             <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
                                 <TrendingUp className="w-4 h-4 text-purple-600" />
@@ -570,7 +594,7 @@ export default function PipelineLeads() {
                         <DialogTitle>Finalizar como venda?</DialogTitle>
                     </DialogHeader>
                     <p className="text-sm text-muted-foreground">
-                        Deseja transformar o lead <strong>{leadParaVenda?.nome}</strong> em uma venda?
+                        Deseja transformar o lead <strong>{leadParaVenda?.name}</strong> em uma venda?
                     </p>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setOpenConfirmVenda(false)}>Não</Button>
@@ -592,7 +616,7 @@ export default function PipelineLeads() {
                         <DialogTitle>Excluir lead?</DialogTitle>
                     </DialogHeader>
                     <p className="text-sm text-muted-foreground">
-                        Tem certeza que deseja excluir o lead <strong>{leadParaExcluir?.nome}</strong>? Esta ação não pode ser desfeita.
+                        Tem certeza que deseja excluir o lead <strong>{leadParaExcluir?.name}</strong>? Esta ação não pode ser desfeita.
                     </p>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setOpenConfirmExcluir(false)}>Cancelar</Button>

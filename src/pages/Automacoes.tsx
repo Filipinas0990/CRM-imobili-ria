@@ -5,67 +5,31 @@ import {
     Zap, CheckCircle, ArrowRight, Edit2, Trash2, Loader2,
     Settings, List, HelpCircle, PhoneCall, ChevronDown,
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-
-// ─── Tipos ────────────────────────────────────────────────────────────────────
-type NodeType = "start" | "message" | "menu" | "question" | "transfer" | "end";
-type FluxoStatus = "ativo" | "rascunho";
-type TriggerType = "always" | "first_contact" | "off_hours";
-
-interface MenuOption {
-    number: number;
-    label: string;
-    next_node_id?: string;
-}
-
-interface FluxoNo {
-    id: string;
-    type: NodeType;
-    label: string;
-    message: string;
-    order_index: number;
-    next_node_id?: string;
-    delay_seconds?: number;
-    x: number;
-    y: number;
-    // Menu
-    options?: MenuOption[];
-    // Pergunta
-    variable_name?: string;
-    // Transferir
-    transfer_message?: string;
-}
-
-interface Fluxo {
-    id: string;
-    nome: string;
-    status: FluxoStatus;
-    trigger_type: TriggerType;
-    instance_name: string;
-    restart_after_hours: number;
-    nos: FluxoNo[];
-}
-
-function uid() { return crypto.randomUUID(); }
+import {
+    automacaoService,
+    FluxoNo, Fluxo, FluxoStatus, TriggerType, NodeType, MenuOption,
+} from "@/services/automacao.service";
 
 // ─── Config visual dos nós ────────────────────────────────────────────────────
 const NODE_CONFIG: Record<NodeType, { bg: string; border: string; icon: string; label: string; Icon: any }> = {
-    start: { bg: "bg-amber-50 dark:bg-amber-900/20", border: "border-amber-400", icon: "text-amber-500", label: "Início", Icon: Zap },
-    message: { bg: "bg-blue-50 dark:bg-blue-900/20", border: "border-blue-400", icon: "text-blue-500", label: "Mensagem", Icon: Settings },
-    menu: { bg: "bg-purple-50 dark:bg-purple-900/20", border: "border-purple-400", icon: "text-purple-500", label: "Menu", Icon: List },
-    question: { bg: "bg-cyan-50 dark:bg-cyan-900/20", border: "border-cyan-400", icon: "text-cyan-500", label: "Pergunta", Icon: HelpCircle },
+    start:    { bg: "bg-amber-50 dark:bg-amber-900/20",   border: "border-amber-400",  icon: "text-amber-500",  label: "Início",     Icon: Zap },
+    message:  { bg: "bg-blue-50 dark:bg-blue-900/20",     border: "border-blue-400",   icon: "text-blue-500",   label: "Mensagem",   Icon: Settings },
+    menu:     { bg: "bg-purple-50 dark:bg-purple-900/20", border: "border-purple-400", icon: "text-purple-500", label: "Menu",       Icon: List },
+    question: { bg: "bg-cyan-50 dark:bg-cyan-900/20",     border: "border-cyan-400",   icon: "text-cyan-500",   label: "Pergunta",   Icon: HelpCircle },
     transfer: { bg: "bg-orange-50 dark:bg-orange-900/20", border: "border-orange-400", icon: "text-orange-500", label: "Transferir", Icon: PhoneCall },
-    end: { bg: "bg-red-50 dark:bg-red-900/20", border: "border-red-400", icon: "text-red-500", label: "Finalizar", Icon: CheckCircle },
+    end:      { bg: "bg-red-50 dark:bg-red-900/20",       border: "border-red-400",    icon: "text-red-500",    label: "Finalizar",  Icon: CheckCircle },
 };
 
 const TRIGGER_LABELS: Record<TriggerType, string> = {
-    always: "Sempre que receber mensagem",
+    always:        "Sempre que receber mensagem",
     first_contact: "Apenas no primeiro contato",
-    off_hours: "Fora do horário comercial",
+    off_hours:     "Fora do horário comercial",
 };
 
 const ADDABLE_NODES: NodeType[] = ["message", "menu", "question", "transfer"];
+
+function uid() { return crypto.randomUUID(); }
 
 // ─── Card do nó ───────────────────────────────────────────────────────────────
 const NoCard = ({ no, selected, onSelect, onEdit, onDelete, onConnect, connecting }: {
@@ -87,7 +51,6 @@ const NoCard = ({ no, selected, onSelect, onEdit, onDelete, onConnect, connectin
             style={{ left: no.x, top: no.y }}
             onClick={(e) => { e.stopPropagation(); onSelect(); }}
         >
-            {/* Header */}
             <div className={`flex items-center justify-between px-3 py-2 border-b ${cfg.border} border-opacity-30`}>
                 <div className="flex items-center gap-2">
                     <Icon className={`w-4 h-4 ${cfg.icon}`} />
@@ -107,15 +70,10 @@ const NoCard = ({ no, selected, onSelect, onEdit, onDelete, onConnect, connectin
                 </div>
             </div>
 
-            {/* Body */}
             <div className="px-3 py-2.5 space-y-1">
                 <p className="text-xs font-medium text-gray-800 dark:text-gray-100">{no.label}</p>
+                {no.message && <p className="text-[11px] text-gray-500 line-clamp-2">{no.message}</p>}
 
-                {no.message && (
-                    <p className="text-[11px] text-gray-500 line-clamp-2">{no.message}</p>
-                )}
-
-                {/* Opções do menu */}
                 {no.type === "menu" && no.options && no.options.length > 0 && (
                     <div className="mt-1 space-y-0.5">
                         {no.options.map(opt => (
@@ -126,14 +84,12 @@ const NoCard = ({ no, selected, onSelect, onEdit, onDelete, onConnect, connectin
                     </div>
                 )}
 
-                {/* Variável da pergunta */}
                 {no.type === "question" && no.variable_name && (
                     <p className="text-[10px] text-cyan-600 dark:text-cyan-400">
                         💾 Salva em: <strong>{`{{${no.variable_name}}}`}</strong>
                     </p>
                 )}
 
-                {/* Mensagem de transferência */}
                 {no.type === "transfer" && no.transfer_message && (
                     <p className="text-[11px] text-orange-600 line-clamp-1">{no.transfer_message}</p>
                 )}
@@ -143,7 +99,6 @@ const NoCard = ({ no, selected, onSelect, onEdit, onDelete, onConnect, connectin
                 )}
             </div>
 
-            {/* Saída direita — apenas nós que não são menu e não são end */}
             {no.type !== "end" && no.type !== "menu" && (
                 <button onClick={(e) => { e.stopPropagation(); onConnect(); }}
                     className={`absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all
@@ -152,7 +107,6 @@ const NoCard = ({ no, selected, onSelect, onEdit, onDelete, onConnect, connectin
                 </button>
             )}
 
-            {/* Entrada esquerda */}
             {no.type !== "start" && (
                 <div className="absolute -left-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-white border-2 border-gray-300 flex items-center justify-center">
                     <div className="w-2 h-2 rounded-full bg-gray-400" />
@@ -200,14 +154,14 @@ const NoEditModal = ({ no, allNodes, onSave, onClose }: {
                 </div>
 
                 <div className="px-6 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
-                    {/* Título */}
                     <div>
                         <label className="text-xs font-medium text-gray-500 mb-1 block">Título interno</label>
-                        <input className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-[#22263a] border border-gray-200 dark:border-[#2a2f45] rounded-xl text-gray-800 dark:text-gray-100 focus:outline-none focus:border-blue-400"
-                            value={form.label} onChange={(e) => setForm(f => ({ ...f, label: e.target.value }))} />
+                        <input
+                            className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-[#22263a] border border-gray-200 dark:border-[#2a2f45] rounded-xl text-gray-800 dark:text-gray-100 focus:outline-none focus:border-blue-400"
+                            value={form.label}
+                            onChange={(e) => setForm(f => ({ ...f, label: e.target.value }))} />
                     </div>
 
-                    {/* Mensagem principal */}
                     {["start", "message", "end", "menu", "question"].includes(form.type) && (
                         <div>
                             <label className="text-xs font-medium text-gray-500 mb-1 block">
@@ -227,7 +181,6 @@ const NoEditModal = ({ no, allNodes, onSave, onClose }: {
                         </div>
                     )}
 
-                    {/* Opções do menu */}
                     {form.type === "menu" && (
                         <div>
                             <div className="flex items-center justify-between mb-2">
@@ -267,7 +220,6 @@ const NoEditModal = ({ no, allNodes, onSave, onClose }: {
                         </div>
                     )}
 
-                    {/* Variável da pergunta */}
                     {form.type === "question" && (
                         <div>
                             <label className="text-xs font-medium text-gray-500 mb-1 block">
@@ -288,7 +240,6 @@ const NoEditModal = ({ no, allNodes, onSave, onClose }: {
                         </div>
                     )}
 
-                    {/* Próximo nó da pergunta */}
                     {form.type === "question" && (
                         <div>
                             <label className="text-xs font-medium text-gray-500 mb-1 block">Após receber a resposta, ir para:</label>
@@ -304,7 +255,6 @@ const NoEditModal = ({ no, allNodes, onSave, onClose }: {
                         </div>
                     )}
 
-                    {/* Transferir */}
                     {form.type === "transfer" && (
                         <div>
                             <label className="text-xs font-medium text-gray-500 mb-1 block">
@@ -323,7 +273,6 @@ const NoEditModal = ({ no, allNodes, onSave, onClose }: {
                         </div>
                     )}
 
-                    {/* Delay */}
                     {!["menu", "transfer"].includes(form.type) && (
                         <div>
                             <label className="text-xs font-medium text-gray-500 mb-1 block">
@@ -355,6 +304,7 @@ const ConfigModal = ({ fluxo, onSave, onClose }: {
 }) => {
     const [trigger, setTrigger] = useState<TriggerType>(fluxo.trigger_type);
     const [restartHours, setRestartHours] = useState(fluxo.restart_after_hours ?? 24);
+
     return (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-white dark:bg-[#1a1d27] rounded-2xl shadow-2xl w-full max-w-md">
@@ -367,8 +317,10 @@ const ConfigModal = ({ fluxo, onSave, onClose }: {
                 <div className="px-6 py-4 space-y-4">
                     <div>
                         <label className="text-xs font-medium text-gray-500 mb-1 block">Quando o bot deve responder?</label>
-                        <select className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-[#22263a] border border-gray-200 dark:border-[#2a2f45] rounded-xl text-gray-800 dark:text-gray-100 focus:outline-none focus:border-blue-400"
-                            value={trigger} onChange={(e) => setTrigger(e.target.value as TriggerType)}>
+                        <select
+                            className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-[#22263a] border border-gray-200 dark:border-[#2a2f45] rounded-xl text-gray-800 dark:text-gray-100 focus:outline-none focus:border-blue-400"
+                            value={trigger}
+                            onChange={(e) => setTrigger(e.target.value as TriggerType)}>
                             {Object.entries(TRIGGER_LABELS).map(([k, v]) => (
                                 <option key={k} value={k}>{v}</option>
                             ))}
@@ -397,7 +349,8 @@ const ConfigModal = ({ fluxo, onSave, onClose }: {
                 </div>
                 <div className="px-6 py-4 border-t border-gray-100 dark:border-[#2a2f45] flex justify-end gap-2">
                     <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Cancelar</button>
-                    <button onClick={() => onSave({ trigger_type: trigger, restart_after_hours: restartHours })}
+                    <button
+                        onClick={() => onSave({ trigger_type: trigger, restart_after_hours: restartHours })}
                         className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-xl">
                         Salvar
                     </button>
@@ -424,143 +377,50 @@ const Automacoes = () => {
     // ─── Init ─────────────────────────────────────────────────────────────────
     useEffect(() => {
         async function init() {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
-
-            const { data: inst } = await supabase
-                .from("whatsapp_instancias")
-                .select("instance_name")
-                .eq("user_id", user.id)
-                .maybeSingle();
-
-            const instName = inst?.instance_name ?? `inst-${user.id.slice(0, 8)}`;
-
-            const { data: flowData } = await supabase
-                .from("automation_flows")
-                .select("*, automation_nodes(*)")
-                .eq("user_id", user.id)
-                .order("created_at", { ascending: true })
-                .limit(1)
-                .maybeSingle();
-
-            if (flowData) {
-                setFluxo({
-                    id: flowData.id,
-                    nome: flowData.name,
-                    status: flowData.status as FluxoStatus,
-                    trigger_type: (flowData.trigger_type ?? "always") as TriggerType,
-                    instance_name: flowData.instance_name,
-                    restart_after_hours: flowData.restart_after_hours ?? 24,
-                    nos: (flowData.automation_nodes ?? [])
-                        .map((n: any) => ({
-                            id: n.id,
-                            type: n.type as NodeType,
-                            label: n.label ?? "",
-                            message: n.message ?? "",
-                            order_index: n.order_index ?? 0,
-                            next_node_id: n.next_node_id ?? undefined,
-                            delay_seconds: n.delay_seconds ?? 2,
-                            x: n.x ?? 60,
-                            y: n.y ?? 120,
-                            options: n.node_data?.options ?? undefined,
-                            variable_name: n.node_data?.variable_name ?? undefined,
-                            transfer_message: n.node_data?.transfer_message ?? undefined,
-                        }))
-                        .sort((a: FluxoNo, b: FluxoNo) => a.order_index - b.order_index),
-                });
-            } else {
-                const { data: newFlow, error: flowError } = await supabase
-                    .from("automation_flows")
-                    .insert({
-                        user_id: user.id,
-                        instance_name: instName,
-                        name: "Meu Fluxo",
-                        status: "rascunho",
+            setLoading(true);
+            try {
+                const flows = await automacaoService.listFlows();
+                if (flows.length > 0) {
+                    const fullFlow = await automacaoService.getFlow(flows[0].id);
+                    setFluxo(fullFlow);
+                } else {
+                    // Cria fluxo padrão
+                    const newFlow = await automacaoService.createFlow({
+                        nome: "Meu Fluxo",
                         trigger_type: "always",
                         restart_after_hours: 24,
-                    })
-                    .select()
-                    .single();
-
-                if (flowError || !newFlow) {
-                    toast.error("Erro ao criar fluxo inicial.");
-                    setLoading(false);
-                    return;
-                }
-
-                const startId = uid();
-                const endId = uid();
-
-                await supabase.from("automation_nodes").insert([
-                    { id: startId, flow_id: newFlow.id, type: "start", label: "Início", message: "Olá! Como posso te ajudar? 😊", order_index: 0, next_node_id: endId, delay_seconds: 2, x: 80, y: 140, node_data: {} },
-                    { id: endId, flow_id: newFlow.id, type: "end", label: "Finalizar", message: "Em breve um corretor vai te atender! 🏡", order_index: 1, next_node_id: null, delay_seconds: 0, x: 500, y: 140, node_data: {} },
-                ]);
-
-                setFluxo({
-                    id: newFlow.id, nome: "Meu Fluxo", status: "rascunho",
-                    trigger_type: "always", instance_name: instName, restart_after_hours: 24,
-                    nos: [
+                    });
+                    const startId = uid();
+                    const endId = uid();
+                    const nos: FluxoNo[] = [
                         { id: startId, type: "start", label: "Início", message: "Olá! Como posso te ajudar? 😊", order_index: 0, next_node_id: endId, delay_seconds: 2, x: 80, y: 140 },
                         { id: endId, type: "end", label: "Finalizar", message: "Em breve um corretor vai te atender! 🏡", order_index: 1, delay_seconds: 0, x: 500, y: 140 },
-                    ],
-                });
+                    ];
+                    await automacaoService.saveNodes(newFlow.id, nos);
+                    setFluxo({ ...newFlow, nos });
+                }
+            } catch (err: any) {
+                toast.error(`Erro ao carregar automações: ${err?.message ?? "Tente novamente"}`);
             }
-
             setLoading(false);
         }
         init();
     }, []);
 
-    // ─── Salvar com upsert ────────────────────────────────────────────────────
+    // ─── Salvar ───────────────────────────────────────────────────────────────
     async function salvarFluxo() {
         if (!fluxo) return;
         setSaving(true);
         try {
-            const { error: flowError } = await supabase
-                .from("automation_flows")
-                .update({ trigger_type: fluxo.trigger_type, restart_after_hours: fluxo.restart_after_hours })
-                .eq("id", fluxo.id);
-            if (flowError) throw flowError;
-
-            const { data: existingNodes } = await supabase
-                .from("automation_nodes").select("id").eq("flow_id", fluxo.id);
-
-            const existingIds = new Set((existingNodes ?? []).map((n: any) => n.id));
-            const currentIds = new Set(fluxo.nos.map(n => n.id));
-            const toDelete = [...existingIds].filter(id => !currentIds.has(id));
-
-            if (toDelete.length > 0) {
-                await supabase.from("automation_nodes").delete().in("id", toDelete);
-            }
-
-            const { error: upsertError } = await supabase
-                .from("automation_nodes")
-                .upsert(
-                    fluxo.nos.map((n, i) => ({
-                        id: n.id,
-                        flow_id: fluxo.id,
-                        type: n.type,
-                        label: n.label,
-                        message: n.message,
-                        order_index: i,
-                        next_node_id: n.next_node_id ?? null,
-                        delay_seconds: n.delay_seconds ?? 2,
-                        x: Math.round(n.x),
-                        y: Math.round(n.y),
-                        node_data: {
-                            options: n.options ?? null,
-                            variable_name: n.variable_name ?? null,
-                            transfer_message: n.transfer_message ?? null,
-                        },
-                    })),
-                    { onConflict: "id" }
-                );
-
-            if (upsertError) throw upsertError;
+            await automacaoService.updateFlow(fluxo.id, {
+                nome: fluxo.nome,
+                trigger_type: fluxo.trigger_type,
+                restart_after_hours: fluxo.restart_after_hours,
+            });
+            await automacaoService.saveNodes(fluxo.id, fluxo.nos);
             toast.success("Fluxo salvo!");
         } catch (err: any) {
-            console.error("Erro ao salvar:", err);
-            toast.error(`Erro ao salvar: ${err.message}`);
+            toast.error(`Erro ao salvar: ${err?.message ?? "Tente novamente"}`);
         }
         setSaving(false);
     }
@@ -569,10 +429,13 @@ const Automacoes = () => {
     async function toggleStatus() {
         if (!fluxo) return;
         const next: FluxoStatus = fluxo.status === "ativo" ? "rascunho" : "ativo";
-        const { error } = await supabase.from("automation_flows").update({ status: next }).eq("id", fluxo.id);
-        if (error) { toast.error("Erro ao alterar status."); return; }
-        setFluxo({ ...fluxo, status: next });
-        toast.success(next === "ativo" ? "✅ Bot ativado!" : "⏸ Bot pausado.");
+        try {
+            await automacaoService.updateFlow(fluxo.id, { status: next });
+            setFluxo({ ...fluxo, status: next });
+            toast.success(next === "ativo" ? "✅ Bot ativado!" : "⏸ Bot pausado.");
+        } catch {
+            toast.error("Erro ao alterar status.");
+        }
     }
 
     // ─── Nós ──────────────────────────────────────────────────────────────────
@@ -642,7 +505,6 @@ const Automacoes = () => {
         const lines: JSX.Element[] = [];
 
         fluxo.nos.forEach(no => {
-            // Conexão normal (next_node_id)
             if (no.next_node_id && no.type !== "menu") {
                 const dest = fluxo.nos.find(n => n.id === no.next_node_id);
                 if (dest) {
@@ -658,7 +520,6 @@ const Automacoes = () => {
                 }
             }
 
-            // Conexões das opções do menu
             if (no.type === "menu" && no.options) {
                 no.options.forEach((opt, idx) => {
                     if (!opt.next_node_id) return;
@@ -733,7 +594,6 @@ const Automacoes = () => {
                                 <Settings className="w-3.5 h-3.5" /> Configurar
                             </button>
 
-                            {/* Dropdown de adicionar nó */}
                             <div className="relative">
                                 <button
                                     onClick={() => setShowAddMenu(v => !v)}

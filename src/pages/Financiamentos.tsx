@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
-    Plus, Search, Filter, MapPin, BedDouble, Bath,
+    Plus, Search, MapPin, BedDouble, Bath,
     Maximize, Landmark, MoreVertical, Share2, Eye,
     CheckCircle2, Building2, DollarSign, Car,
-    Home, Store, Building, Warehouse, TrendingUp, Key
+    Home, Store, Building, Warehouse, TrendingUp, Key, Loader2
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,12 +20,10 @@ import {
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@/components/ui/select";
-
 import { Sidebar } from "@/components/Sidebar";
-import { getImoveis } from "@/integrations/supabase/imoveis/getImoveis";
-import { createImovel } from "@/integrations/supabase/imoveis/createImovel";
-import { updateImovel } from "@/integrations/supabase/imoveis/updateImovel";
-import { deleteImovel } from "@/integrations/supabase/imoveis/deleteImovel";
+import { imovelService, type Imovel } from "@/services/imovel.service";
+
+const STALE = 1000 * 60 * 5;
 
 const TIPO_CONFIG: Record<string, { icon: React.ReactNode; bg: string; iconColor: string }> = {
     "Apartamento na Planta": { icon: <Building2 className="w-9 h-9" />, bg: "from-blue-100 to-blue-50 dark:from-blue-900/30 dark:to-blue-800/10", iconColor: "text-blue-500 dark:text-blue-400" },
@@ -62,7 +61,7 @@ const ESTADOS_BR = [
 ];
 
 const emptyForm = {
-    titulo: "", tipo: "", construtora: "", classificacao: "",
+    titulo: "", tipo: "", construtora: "",
     status: "Disponível", fase_obra: "Sem fase definida", descricao: "",
     estado: "", cep: "", cidade: "", bairro: "", endereco: "", complemento: "",
     preco: "", renda_ideal: "", entrada: "", parcelas: "", taxa_juros: "",
@@ -88,15 +87,26 @@ const SectionTitle = ({ icon, title }: { icon: React.ReactNode; title: string })
 );
 
 const Financiamentos = () => {
-    const [items, setItems] = useState<any[]>([]);
     const [search, setSearch] = useState("");
-    const [loading, setLoading] = useState(true); // ✅ useState dentro do componente
     const [modalOpen, setModalOpen] = useState(false);
-    const [editing, setEditing] = useState<any | null>(null);
-    const [form, setForm] = useState<any>(emptyForm);
+    const [editing, setEditing] = useState<Imovel | null>(null);
+    const [salvando, setSalvando] = useState(false);
+    const [form, setForm] = useState<typeof emptyForm>(emptyForm);
+
+    const queryClient = useQueryClient();
+
+    const { data: allImoveis = [], isLoading } = useQuery({
+        queryKey: ["imoveis"],
+        queryFn: () => imovelService.getAll(),
+        staleTime: STALE,
+    });
+
+    const items = allImoveis.filter((i) =>
+        TIPOS_FINANCIAMENTO.includes(i.tipo ?? "") || i.tipo === "Financiamento"
+    );
 
     const setField = (key: string, value: any) =>
-        setForm((prev: any) => ({ ...prev, [key]: value }));
+        setForm((prev) => ({ ...prev, [key]: value }));
 
     function openNew() {
         setEditing(null);
@@ -104,13 +114,12 @@ const Financiamentos = () => {
         setModalOpen(true);
     }
 
-    function openEdit(item: any) {
+    function openEdit(item: Imovel) {
         setEditing(item);
         setForm({
             titulo: item.titulo ?? "",
             tipo: item.tipo ?? "",
             construtora: item.construtora ?? "",
-            classificacao: item.classificacao ?? "",
             status: item.status ?? "Disponível",
             fase_obra: item.fase_obra ?? "Sem fase definida",
             descricao: item.descricao ?? "",
@@ -120,68 +129,87 @@ const Financiamentos = () => {
             bairro: item.bairro ?? "",
             endereco: item.endereco ?? "",
             complemento: item.complemento ?? "",
-            preco: item.preco ?? "",
-            renda_ideal: item.renda_ideal ?? "",
-            entrada: item.entrada ?? "",
-            parcelas: item.parcelas ?? "",
-            taxa_juros: item.taxa_juros ?? "",
+            preco: item.preco != null ? String(item.preco) : "",
+            renda_ideal: item.renda_ideal != null ? String(item.renda_ideal) : "",
+            entrada: item.entrada != null ? String(item.entrada) : "",
+            parcelas: item.parcelas != null ? String(item.parcelas) : "",
+            taxa_juros: item.taxa_juros != null ? String(item.taxa_juros) : "",
             fgts: item.fgts ?? false,
             sob_consulta: item.sob_consulta ?? false,
             preco_varia: item.preco_varia ?? false,
-            unidades_disponiveis: item.unidades_disponiveis ?? "",
-            area_minima: item.area_minima ?? "",
-            area_maxima: item.area_maxima ?? "",
-            quartos: item.quartos ?? "",
-            banheiros: item.banheiros ?? "",
-            vagas_garagem: item.vagas_garagem ?? "",
+            unidades_disponiveis: item.unidades_disponiveis != null ? String(item.unidades_disponiveis) : "",
+            area_minima: item.area_minima != null ? String(item.area_minima) : "",
+            area_maxima: item.area_maxima != null ? String(item.area_maxima) : "",
+            quartos: item.quartos != null ? String(item.quartos) : "",
+            banheiros: item.banheiros != null ? String(item.banheiros) : "",
+            vagas_garagem: item.vagas_garagem != null ? String(item.vagas_garagem) : "",
         });
         setModalOpen(true);
-    }
-
-    async function load() {
-        setLoading(true);
-        let res: any = await getImoveis();
-        if (res?.data && Array.isArray(res.data)) res = res.data;
-        if (!Array.isArray(res)) { setItems([]); setLoading(false); return; }
-        setItems(res.filter((i: any) => TIPOS_FINANCIAMENTO.includes(i.tipo) || i.tipo === "Financiamento"));
-        setLoading(false);
     }
 
     async function save() {
         if (!form.titulo?.trim()) { alert("Título é obrigatório"); return; }
         if (!form.tipo) { alert("Tipo é obrigatório"); return; }
 
+        const toNum = (v: string) => (v ? Number(v) : undefined);
+        const toInt = (v: string) => { const n = parseInt(v, 10); return isNaN(n) ? undefined : n; };
+
         const payload = {
-            ...form,
-            preco: form.preco ? Number(form.preco) : null,
-            renda_ideal: form.renda_ideal ? Number(form.renda_ideal) : null,
-            entrada: form.entrada ? Number(form.entrada) : null,
-            parcelas: form.parcelas ? Number(form.parcelas) : null,
-            taxa_juros: form.taxa_juros ? Number(form.taxa_juros) : null,
-            unidades_disponiveis: form.unidades_disponiveis ? Number(form.unidades_disponiveis) : null,
-            area_minima: form.area_minima ? Number(form.area_minima) : null,
-            area_maxima: form.area_maxima ? Number(form.area_maxima) : null,
-            quartos: form.quartos ? Number(form.quartos) : null,
-            banheiros: form.banheiros ? Number(form.banheiros) : null,
-            vagas_garagem: form.vagas_garagem ? Number(form.vagas_garagem) : null,
+            titulo: form.titulo,
+            tipo: form.tipo,
+            construtora: form.construtora || undefined,
+            status: form.status || undefined,
+            fase_obra: form.fase_obra || undefined,
+            descricao: form.descricao || undefined,
+            estado: form.estado || undefined,
+            cep: form.cep || undefined,
+            cidade: form.cidade || undefined,
+            bairro: form.bairro || undefined,
+            endereco: form.endereco || undefined,
+            complemento: form.complemento || undefined,
+            preco: toNum(form.preco),
+            renda_ideal: toNum(form.renda_ideal),
+            entrada: toNum(form.entrada),
+            parcelas: toInt(form.parcelas),
+            taxa_juros: toNum(form.taxa_juros),
+            fgts: form.fgts,
+            sob_consulta: form.sob_consulta,
+            preco_varia: form.preco_varia,
+            unidades_disponiveis: toInt(form.unidades_disponiveis),
+            area_minima: toNum(form.area_minima),
+            area_maxima: toNum(form.area_maxima),
+            quartos: toInt(form.quartos),
+            banheiros: toInt(form.banheiros),
+            vagas_garagem: toInt(form.vagas_garagem),
         };
 
+        setSalvando(true);
         try {
-            editing ? await updateImovel(editing.id, payload) : await createImovel(payload);
+            if (editing) {
+                await imovelService.update(editing.id, payload);
+            } else {
+                await imovelService.create(payload);
+            }
             setModalOpen(false);
-            await load();
+            queryClient.invalidateQueries({ queryKey: ["imoveis"] });
+            queryClient.invalidateQueries({ queryKey: ["imoveis-select"] });
         } catch (err: any) {
-            alert(err?.message ?? "Erro ao salvar");
+            alert(err?.response?.data?.message ?? err?.message ?? "Erro ao salvar");
+        } finally {
+            setSalvando(false);
         }
     }
 
     async function remove(id: string) {
         if (!confirm("Deseja remover este financiamento?")) return;
-        await deleteImovel(id);
-        await load();
+        try {
+            await imovelService.delete(id);
+            queryClient.invalidateQueries({ queryKey: ["imoveis"] });
+            queryClient.invalidateQueries({ queryKey: ["imoveis-select"] });
+        } catch (err: any) {
+            alert(err?.response?.data?.message ?? err?.message ?? "Erro ao remover");
+        }
     }
-
-    useEffect(() => { load(); }, []);
 
     const filtered = items.filter((i) => (i.titulo || "").toLowerCase().includes(search.toLowerCase()));
     const total = items.length;
@@ -195,20 +223,16 @@ const Financiamentos = () => {
             <main className="ml-16 overflow-y-auto min-h-screen">
                 <div className="p-8 space-y-6">
 
-                    {/* Header */}
                     <div className="flex items-center justify-between">
                         <div>
                             <h1 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">Financiamentos</h1>
                             <p className="text-gray-500 dark:text-slate-400 mt-1 text-sm">Gerencie seus imóveis financiados</p>
                         </div>
-                        <div className="flex items-center gap-3">
-                            <Button onClick={openNew} className="bg-blue-600 hover:bg-blue-700 text-white gap-2 font-semibold shadow-md">
-                                <Plus className="w-4 h-4" /> Novo Financiamento
-                            </Button>
-                        </div>
+                        <Button onClick={openNew} className="bg-blue-600 hover:bg-blue-700 text-white gap-2 font-semibold shadow-md">
+                            <Plus className="w-4 h-4" /> Novo Financiamento
+                        </Button>
                     </div>
 
-                    {/* Stats */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                         {[
                             { label: "Total de Imóveis", value: total, icon: <Building2 className="w-5 h-5 text-blue-500" />, iconBg: "bg-blue-50 dark:bg-blue-500/10" },
@@ -226,20 +250,13 @@ const Financiamentos = () => {
                         ))}
                     </div>
 
-                    {/* Busca + Grid */}
                     <div className="rounded-xl border border-gray-200 dark:border-slate-700/60 bg-white dark:bg-[#161e2e] p-6 space-y-5 shadow-sm">
-                        <div className="flex items-center gap-3">
-                            <div className="relative flex-1">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                <Input placeholder="Buscar financiamentos..." className="pl-10 bg-gray-50 dark:bg-[#0f1623] border-gray-200 dark:border-slate-700 text-gray-900 dark:text-slate-200 placeholder:text-gray-400" value={search} onChange={(e) => setSearch(e.target.value)} />
-                            </div>
-                            <Button variant="outline" className="border-gray-200 dark:border-slate-700 text-gray-500 gap-2">
-                                <Filter className="w-4 h-4" /> Filtros
-                            </Button>
+                        <div className="relative flex-1">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                            <Input placeholder="Buscar financiamentos..." className="pl-10 bg-gray-50 dark:bg-[#0f1623] border-gray-200 dark:border-slate-700 text-gray-900 dark:text-slate-200 placeholder:text-gray-400" value={search} onChange={(e) => setSearch(e.target.value)} />
                         </div>
 
-                        {/* ✅ Skeleton loading ou cards */}
-                        {loading ? (
+                        {isLoading ? (
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                                 {[...Array(4)].map((_, i) => (
                                     <div key={i} className="rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700/50 bg-white dark:bg-[#0f1623] animate-pulse">
@@ -247,7 +264,6 @@ const Financiamentos = () => {
                                         <div className="p-3 space-y-2">
                                             <div className="h-4 bg-gray-100 dark:bg-slate-800 rounded w-3/4" />
                                             <div className="h-3 bg-gray-100 dark:bg-slate-800 rounded w-1/2" />
-                                            <div className="h-3 bg-gray-100 dark:bg-slate-800 rounded w-2/3" />
                                             <div className="h-7 bg-gray-100 dark:bg-slate-800 rounded mt-2" />
                                         </div>
                                     </div>
@@ -257,7 +273,7 @@ const Financiamentos = () => {
                             <>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                                     {filtered.map((item) => {
-                                        const config = getTipoConfig(item.tipo);
+                                        const config = getTipoConfig(item.tipo ?? "");
                                         return (
                                             <div key={item.id} className="rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700/50 bg-white dark:bg-[#0f1623] hover:border-blue-300 dark:hover:border-blue-500/40 hover:shadow-lg transition-all duration-200 group">
                                                 <div className={`relative h-64 bg-gradient-to-br ${config.bg} flex items-center justify-center overflow-hidden`}>
@@ -298,15 +314,15 @@ const Financiamentos = () => {
                                                     </div>
 
                                                     <div className="flex items-center gap-3 text-xs text-gray-400 dark:text-slate-500 flex-wrap">
-                                                        {item.quartos > 0 && <div className="flex items-center gap-1"><BedDouble className="w-3 h-3" /><span>{item.quartos}</span></div>}
-                                                        {item.banheiros > 0 && <div className="flex items-center gap-1"><Bath className="w-3 h-3" /><span>{item.banheiros}</span></div>}
+                                                        {(item.quartos ?? 0) > 0 && <div className="flex items-center gap-1"><BedDouble className="w-3 h-3" /><span>{item.quartos}</span></div>}
+                                                        {(item.banheiros ?? 0) > 0 && <div className="flex items-center gap-1"><Bath className="w-3 h-3" /><span>{item.banheiros}</span></div>}
                                                         {(item.area_minima || item.area_maxima) && (
                                                             <div className="flex items-center gap-1">
                                                                 <Maximize className="w-3 h-3" />
                                                                 <span>{item.area_minima && item.area_maxima ? `${item.area_minima}–${item.area_maxima}m²` : `${item.area_minima || item.area_maxima}m²`}</span>
                                                             </div>
                                                         )}
-                                                        {item.vagas_garagem > 0 && <div className="flex items-center gap-1"><Car className="w-3 h-3" /><span>{item.vagas_garagem}</span></div>}
+                                                        {(item.vagas_garagem ?? 0) > 0 && <div className="flex items-center gap-1"><Car className="w-3 h-3" /><span>{item.vagas_garagem}</span></div>}
                                                     </div>
 
                                                     <div className="pt-2 border-t border-gray-100 dark:border-slate-800">
@@ -318,8 +334,8 @@ const Financiamentos = () => {
                                                                     {item.preco_varia ? "A partir de " : ""}
                                                                     R$ {(Number(item.preco) || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                                                                 </p>
-                                                                {item.renda_ideal > 0 && <p className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">Renda ideal: R$ {Number(item.renda_ideal).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>}
-                                                                {item.entrada > 0 && <p className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">Entrada: R$ {Number(item.entrada).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>}
+                                                                {(Number(item.renda_ideal) || 0) > 0 && <p className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">Renda ideal: R$ {Number(item.renda_ideal).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>}
+                                                                {(Number(item.entrada) || 0) > 0 && <p className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">Entrada: R$ {Number(item.entrada).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>}
                                                             </>
                                                         )}
                                                         {item.fgts && <span className="inline-block mt-1 text-xs px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400">Aceita FGTS</span>}
@@ -354,7 +370,6 @@ const Financiamentos = () => {
                 </div>
             </main>
 
-            {/* MODAL */}
             <Dialog open={modalOpen} onOpenChange={setModalOpen}>
                 <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col bg-white dark:bg-[#161e2e] border-gray-200 dark:border-slate-700 p-0">
                     <div className="px-6 pt-6 pb-4 border-b border-gray-100 dark:border-slate-700 flex-shrink-0">
@@ -383,7 +398,7 @@ const Financiamentos = () => {
                                 </div>
                                 <div>
                                     <FieldLabel required>Tipo</FieldLabel>
-                                    <Select value={form.tipo} onValueChange={(v) => setField("tipo", v)}>
+                                    <Select value={form.tipo || "_none"} onValueChange={(v) => setField("tipo", v === "_none" ? "" : v)}>
                                         <SelectTrigger className={inputClass}><SelectValue placeholder="Selecione o tipo" /></SelectTrigger>
                                         <SelectContent className="bg-white dark:bg-[#1e2a3a] border-gray-100 dark:border-slate-700">
                                             {TIPOS_FINANCIAMENTO.map((t) => <SelectItem key={t} value={t} className="cursor-pointer">{t}</SelectItem>)}
@@ -419,7 +434,7 @@ const Financiamentos = () => {
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <FieldLabel>Estado</FieldLabel>
-                                    <Select value={form.estado} onValueChange={(v) => setField("estado", v)}>
+                                    <Select value={form.estado || "_none"} onValueChange={(v) => setField("estado", v === "_none" ? "" : v)}>
                                         <SelectTrigger className={inputClass}><SelectValue placeholder="Selecione" /></SelectTrigger>
                                         <SelectContent className="bg-white dark:bg-[#1e2a3a] border-gray-100 dark:border-slate-700 max-h-48">
                                             {ESTADOS_BR.map((e) => <SelectItem key={e} value={e} className="cursor-pointer">{e}</SelectItem>)}
@@ -449,7 +464,7 @@ const Financiamentos = () => {
                                         { id: "fgts", label: "Aceita FGTS", sub: "Permite uso do FGTS na compra" },
                                     ].map(({ id, label, sub }) => (
                                         <div key={id} className="flex items-start gap-3 rounded-lg border border-gray-200 dark:border-slate-700 p-3 bg-gray-50 dark:bg-slate-800/50">
-                                            <Checkbox id={id} checked={form[id]} onCheckedChange={(v) => setField(id, v)} className="mt-0.5 border-gray-300 dark:border-slate-600 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600" />
+                                            <Checkbox id={id} checked={(form as any)[id]} onCheckedChange={(v) => setField(id, v)} className="mt-0.5 border-gray-300 dark:border-slate-600 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600" />
                                             <div>
                                                 <label htmlFor={id} className="text-sm font-medium text-gray-700 dark:text-slate-200 cursor-pointer">{label}</label>
                                                 <p className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">{sub}</p>
@@ -467,7 +482,7 @@ const Financiamentos = () => {
                                 <div><FieldLabel>Área Máxima (m²)</FieldLabel><Input placeholder="0" type="number" value={form.area_maxima} onChange={(e) => setField("area_maxima", e.target.value)} className={inputClass} /></div>
                                 <div>
                                     <FieldLabel>Quartos</FieldLabel>
-                                    <Select value={String(form.quartos || "")} onValueChange={(v) => setField("quartos", v)}>
+                                    <Select value={form.quartos || "_none"} onValueChange={(v) => setField("quartos", v === "_none" ? "" : v)}>
                                         <SelectTrigger className={inputClass}><SelectValue placeholder="Selecione" /></SelectTrigger>
                                         <SelectContent className="bg-white dark:bg-[#1e2a3a] border-gray-100 dark:border-slate-700">
                                             {["0", "1", "2", "3", "4", "5+"].map((q) => <SelectItem key={q} value={q} className="cursor-pointer">{q}</SelectItem>)}
@@ -482,7 +497,10 @@ const Financiamentos = () => {
 
                     <div className="px-6 py-4 border-t border-gray-100 dark:border-slate-700 flex items-center justify-end gap-3 flex-shrink-0 bg-white dark:bg-[#161e2e]">
                         <Button variant="outline" onClick={() => setModalOpen(false)} className="border-gray-200 dark:border-slate-600 text-gray-600 dark:text-slate-300">Cancelar</Button>
-                        <Button onClick={save} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6">{editing ? "Salvar Alterações" : "Criar Financiamento"}</Button>
+                        <Button onClick={save} disabled={salvando} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6">
+                            {salvando && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                            {editing ? "Salvar Alterações" : "Criar Financiamento"}
+                        </Button>
                     </div>
                 </DialogContent>
             </Dialog>

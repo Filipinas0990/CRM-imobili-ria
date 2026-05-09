@@ -1,5 +1,5 @@
-import { supabase } from "@/integrations/supabase/client"
-import { useEffect, useState, useCallback } from "react"
+import { useState, useCallback } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Sidebar } from "@/components/Sidebar"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -26,24 +26,10 @@ import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
+import { tarefaService, Tarefa, TarefaTipo, TarefaStatus, CreateTarefaPayload } from "@/services/tarefa.service"
+import { leadService } from "@/services/lead.service"
 
-type Lead = { id: string; nome: string; telefone: string }
-type TipoAtividade = "all" | "chamada" | "reuniao" | "tarefa" | "prazo" | "email" | "almoco"
-type Atividade = {
-    id: string; user_id: string; lead_id: string; tipo: TipoAtividade
-    titulo: string; anotacoes: string | null; data_inicio: string
-    hora_inicio: string | null; hora_fim: string | null; prioridade: string; status: string
-    concluido: boolean; leads?: Lead | null
-}
-type NovaAtividade = {
-    lead_id: string; tipo: TipoAtividade; titulo: string
-    anotacoes: string; data_inicio: string; hora_inicio: string; hora_fim: string
-}
-
-const defaultNovaAtividade: NovaAtividade = {
-    lead_id: "", tipo: "tarefa", titulo: "", anotacoes: "",
-    data_inicio: "", hora_inicio: "", hora_fim: "",
-}
+type TipoFiltro = "all" | TarefaTipo
 
 const tiposAtividade = [
     { id: "all", label: "Tudo", icon: null },
@@ -55,7 +41,7 @@ const tiposAtividade = [
     { id: "almoco", label: "Almoco", icon: Coffee },
 ]
 
-function getIconForType(tipo: TipoAtividade) {
+function getIconForType(tipo: TarefaTipo) {
     switch (tipo) {
         case "chamada": return <Phone className="h-4 w-4 text-emerald-600" />
         case "reuniao": return <Users className="h-4 w-4 text-violet-600" />
@@ -67,114 +53,89 @@ function getIconForType(tipo: TipoAtividade) {
     }
 }
 
-function getStatusBadge(status: string) {
+function getStatusBadge(status: TarefaStatus) {
     if (status === "PENDENTE") return <Badge className="bg-yellow-100 text-yellow-800 border-0">Pendente</Badge>
-    if (status === "EM ANDAMENTO") return <Badge className="bg-blue-100 text-blue-800 border-0">Em andamento</Badge>
+    if (status === "EM_ANDAMENTO") return <Badge className="bg-blue-100 text-blue-800 border-0">Em andamento</Badge>
     if (status === "CONCLUÍDA") return <Badge className="bg-green-100 text-green-800 border-0">Concluída</Badge>
     if (status === "CANCELADA") return <Badge className="bg-red-100 text-red-800 border-0">Cancelada</Badge>
     return null
 }
 
-// ─── Card Mobile ─────────────────────────────────────────────────
+const defaultPayload: CreateTarefaPayload = {
+    lead_id: "", tipo: "tarefa", titulo: "", descricao: "",
+    data_inicio: "", data_fim: "", status: "PENDENTE", prioridade: "normal",
+}
 
-function AtividadeCard({ atividade, onToggle, onEditar, onExcluir }: {
-    atividade: Atividade
+// ─── Card Mobile ─────────────────────────────────────────────────
+function AtividadeCard({ tarefa, onToggle, onEditar, onExcluir }: {
+    tarefa: Tarefa
     onToggle: () => void
     onEditar: () => void
     onExcluir: () => void
 }) {
     const [menuOpen, setMenuOpen] = useState(false)
-    const atrasada = !atividade.concluido && new Date(atividade.data_inicio) < new Date()
+    const concluido = tarefa.status === "CONCLUÍDA"
+    const atrasada = !concluido && tarefa.data_inicio && new Date(tarefa.data_inicio) < new Date()
 
     return (
         <div className={cn(
             "relative rounded-2xl border bg-card shadow-sm overflow-hidden transition-all active:scale-[0.98]",
-            atividade.concluido ? "opacity-60" : "",
+            concluido ? "opacity-60" : "",
             atrasada ? "border-red-200" : ""
         )}>
-            {/* Faixa lateral por tipo */}
             <div className={cn(
                 "absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl",
-                atividade.tipo === "chamada" ? "bg-emerald-400" :
-                    atividade.tipo === "reuniao" ? "bg-violet-400" :
-                        atividade.tipo === "prazo" ? "bg-orange-400" :
-                            atividade.tipo === "email" ? "bg-sky-400" :
-                                atividade.tipo === "almoco" ? "bg-amber-400" :
+                tarefa.tipo === "chamada" ? "bg-emerald-400" :
+                    tarefa.tipo === "reuniao" ? "bg-violet-400" :
+                        tarefa.tipo === "prazo" ? "bg-orange-400" :
+                            tarefa.tipo === "email" ? "bg-sky-400" :
+                                tarefa.tipo === "almoco" ? "bg-amber-400" :
                                     "bg-blue-400"
             )} />
-
             <div className="pl-4 pr-3 py-4">
-                {/* Header */}
                 <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-3 flex-1 min-w-0">
-                        {/* Checkbox de conclusão */}
                         <div onClick={(e) => { e.stopPropagation(); onToggle(); }}>
-                            <Checkbox
-                                checked={atividade.concluido}
-                                className="transition-transform duration-200 data-[state=checked]:scale-110 flex-shrink-0"
-                            />
+                            <Checkbox checked={concluido} className="transition-transform duration-200 data-[state=checked]:scale-110 flex-shrink-0" />
                         </div>
-
                         <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
-                                {getIconForType(atividade.tipo)}
-                                <p className={cn(
-                                    "font-semibold text-sm text-foreground leading-tight truncate",
-                                    atividade.concluido && "line-through text-muted-foreground"
-                                )}>
-                                    {atividade.titulo}
+                                {getIconForType(tarefa.tipo)}
+                                <p className={cn("font-semibold text-sm text-foreground leading-tight truncate", concluido && "line-through text-muted-foreground")}>
+                                    {tarefa.titulo}
                                 </p>
                             </div>
-                            {atividade.leads?.nome && (
-                                <p className="text-xs text-blue-600 mt-0.5">{atividade.leads.nome}</p>
-                            )}
+                            {tarefa.pessoa && <p className="text-xs text-blue-600 mt-0.5">{tarefa.pessoa}</p>}
                         </div>
                     </div>
-
-                    {/* Menu */}
                     <div className="relative flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-                        <button
-                            className="p-1.5 rounded-lg hover:bg-muted transition-colors"
-                            onClick={() => setMenuOpen(!menuOpen)}
-                        >
+                        <button className="p-1.5 rounded-lg hover:bg-muted transition-colors" onClick={() => setMenuOpen(!menuOpen)}>
                             <MoreVertical className="w-4 h-4 text-muted-foreground" />
                         </button>
                         {menuOpen && (
                             <>
                                 <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
                                 <div className="absolute right-0 top-8 z-20 bg-background border rounded-xl shadow-lg py-1 w-36">
-                                    <button
-                                        className="flex items-center gap-2 w-full px-3 py-2.5 text-sm hover:bg-muted transition-colors"
-                                        onClick={() => { setMenuOpen(false); onEditar(); }}
-                                    >
-                                        <CheckSquare className="w-3.5 h-3.5 text-muted-foreground" />
-                                        Editar
+                                    <button className="flex items-center gap-2 w-full px-3 py-2.5 text-sm hover:bg-muted transition-colors" onClick={() => { setMenuOpen(false); onEditar(); }}>
+                                        <CheckSquare className="w-3.5 h-3.5 text-muted-foreground" /> Editar
                                     </button>
-                                    <button
-                                        className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                                        onClick={() => { setMenuOpen(false); onExcluir(); }}
-                                    >
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                        Excluir
+                                    <button className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors" onClick={() => { setMenuOpen(false); onExcluir(); }}>
+                                        <Trash2 className="w-3.5 h-3.5" /> Excluir
                                     </button>
                                 </div>
                             </>
                         )}
                     </div>
                 </div>
-
-                {/* Info rodapé */}
                 <div className="flex items-center justify-between mt-3">
                     <div className="flex items-center gap-2 flex-wrap">
-                        {getStatusBadge(atividade.status)}
+                        {getStatusBadge(tarefa.status)}
                         {atrasada && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200">
-                                Atrasada
-                            </span>
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200">Atrasada</span>
                         )}
                     </div>
                     <span className="text-xs text-muted-foreground flex-shrink-0">
-                        {new Date(atividade.data_inicio).toLocaleDateString("pt-BR")}
+                        {tarefa.data_inicio ? new Date(tarefa.data_inicio).toLocaleDateString("pt-BR") : "—"}
                     </span>
                 </div>
             </div>
@@ -183,154 +144,131 @@ function AtividadeCard({ atividade, onToggle, onEditar, onExcluir }: {
 }
 
 // ─── Página principal ─────────────────────────────────────────────
-
-export default function Atividades() {
-    const [tipoSelecionado, setTipoSelecionado] = useState<TipoAtividade>("all")
+export default function Tarefas() {
+    const queryClient = useQueryClient()
+    const [tipoSelecionado, setTipoSelecionado] = useState<TipoFiltro>("all")
     const [viewMode, setViewMode] = useState<"list" | "calendar">("list")
-    const [leads, setLeads] = useState<Lead[]>([])
     const [modalAberto, setModalAberto] = useState(false)
     const [modalTipo, setModalTipo] = useState<"criar" | "editar">("criar")
-    const [atividadeEditando, setAtividadeEditando] = useState<Atividade | null>(null)
-    const [novaAtividade, setNovaAtividade] = useState<NovaAtividade>(defaultNovaAtividade)
-    const [atividades, setAtividades] = useState<Atividade[]>([])
+    const [tarefaEditando, setTarefaEditando] = useState<Tarefa | null>(null)
+    const [payload, setPayload] = useState<CreateTarefaPayload>(defaultPayload)
     const [selecionados, setSelecionados] = useState<string[]>([])
-    const [status, setStatus] = useState("PENDENTE")
     const [tabAtiva, setTabAtiva] = useState<"pendentes" | "concluidos">("pendentes")
 
-    async function carregarTarefas() {
-        const { data, error } = await supabase.from("tarefas").select("*").order("data_inicio", { ascending: true })
-        if (error) return
-        setAtividades(data.map((t) => ({
-            id: t.id, user_id: t.user_id, lead_id: t.lead_id, tipo: t.tipo,
-            titulo: t.titulo, anotacoes: t.descricao, data_inicio: t.data_inicio,
-            hora_inicio: t.data_inicio ? new Date(t.data_inicio).toISOString().slice(11, 16) : null,
-            hora_fim: t.data_fim ? new Date(t.data_fim).toISOString().slice(11, 16) : null,
-            prioridade: t.prioridade, status: t.status, concluido: t.status === "CONCLUÍDA",
-            leads: { id: t.lead_id, nome: t.pessoa, telefone: t.telefone },
-        })))
-    }
+    const { data: tarefas = [], isLoading } = useQuery({
+        queryKey: ['tarefas'],
+        queryFn: () => tarefaService.getAll(),
+        staleTime: 1000 * 60 * 5,
+    })
 
-    async function carregarLeads() {
-        const { data, error } = await supabase.from("leads").select("id, nome, telefone")
-        if (error) return
-        setLeads(data || [])
-    }
+    const { data: leads = [] } = useQuery({
+        queryKey: ['leads'],
+        queryFn: () => leadService.getAll(),
+        staleTime: 1000 * 60 * 5,
+    })
 
-    useEffect(() => { carregarTarefas(); carregarLeads() }, [])
+    function reload() { queryClient.invalidateQueries({ queryKey: ['tarefas'] }) }
 
-    const atividadesVisiveis = atividades
-        .filter((a) => tabAtiva === "pendentes" ? !a.concluido : a.concluido)
-        .filter((a) => tipoSelecionado === "all" || a.tipo === tipoSelecionado)
+    const concluidos = tarefas.filter(t => t.status === "CONCLUÍDA").length
+    const pendentes = tarefas.filter(t => t.status !== "CONCLUÍDA").length
+    const atrasados = tarefas.filter(t => t.status !== "CONCLUÍDA" && t.data_inicio && new Date(t.data_inicio) < new Date()).length
 
-    const concluidos = atividades.filter((a) => a.concluido).length
-    const pendentes = atividades.filter((a) => !a.concluido).length
-    const atrasados = atividades.filter((a) => !a.concluido && new Date(a.data_inicio) < new Date()).length
-    const leadSelecionado = leads.find((l) => String(l.id) === novaAtividade.lead_id)
+    const tarefasVisiveis = tarefas
+        .filter(t => tabAtiva === "pendentes" ? t.status !== "CONCLUÍDA" : t.status === "CONCLUÍDA")
+        .filter(t => tipoSelecionado === "all" || t.tipo === tipoSelecionado)
 
-    const toggleConcluido = async (atividade: Atividade) => {
-        const novoStatus = atividade.status === "CONCLUÍDA" ? "PENDENTE" : "CONCLUÍDA"
-        setAtividades((prev) => prev.map((a) =>
-            a.id === atividade.id ? { ...a, status: novoStatus, concluido: novoStatus === "CONCLUÍDA" } : a
-        ))
-        const { error } = await supabase.from("tarefas").update({ status: novoStatus }).eq("id", atividade.id)
-        if (error) {
-            toast.error("Erro ao atualizar status")
-            setAtividades((prev) => prev.map((a) =>
-                a.id === atividade.id ? { ...a, status: atividade.status, concluido: atividade.concluido } : a
-            ))
-            return
-        }
-        novoStatus === "CONCLUÍDA"
-            ? toast.success("Tarefa concluída! ✅")
-            : toast.success("Tarefa reaberta")
-    }
+    const leadSelecionado = leads.find(l => l.id === payload.lead_id)
 
-    const toggleSelecionado = useCallback((id: string) => {
-        setSelecionados((prev) => prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id])
-    }, [])
-
-    const abrirModalCriar = (tipo: TipoAtividade = "tarefa") => {
+    function abrirModalCriar(tipo: TarefaTipo = "tarefa") {
         setModalTipo("criar")
-        setNovaAtividade({ ...defaultNovaAtividade, tipo })
-        setAtividadeEditando(null)
+        setTarefaEditando(null)
+        setPayload({ ...defaultPayload, tipo })
         setModalAberto(true)
     }
 
-    const abrirModalEditar = (atividade: Atividade) => {
+    function abrirModalEditar(tarefa: Tarefa) {
         setModalTipo("editar")
-        setAtividadeEditando(atividade)
-        setNovaAtividade({
-            lead_id: atividade.lead_id ?? "", tipo: atividade.tipo,
-            titulo: atividade.titulo ?? "", anotacoes: atividade.anotacoes ?? "",
-            data_inicio: atividade.data_inicio ? atividade.data_inicio.split("T")[0] : "",
-            hora_inicio: atividade.hora_inicio ?? "", hora_fim: atividade.hora_fim ?? "",
+        setTarefaEditando(tarefa)
+        setPayload({
+            lead_id: tarefa.lead_id ?? "",
+            tipo: tarefa.tipo,
+            titulo: tarefa.titulo,
+            descricao: tarefa.descricao ?? "",
+            data_inicio: tarefa.data_inicio ? tarefa.data_inicio.split("T")[0] : "",
+            data_fim: tarefa.data_fim ? tarefa.data_fim.split("T")[0] : "",
+            status: tarefa.status,
+            prioridade: tarefa.prioridade,
+            pessoa: tarefa.pessoa ?? "",
+            telefone: tarefa.telefone ?? "",
         })
         setModalAberto(true)
     }
 
-    const salvarAtividade = async () => {
-        if (!novaAtividade.titulo.trim()) return
-
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) { toast.error("Usuário não autenticado"); return }
-
-        const payload = {
-            lead_id: novaAtividade.lead_id || null,
-            tipo: novaAtividade.tipo,
-            titulo: novaAtividade.titulo,
-            descricao: novaAtividade.anotacoes || null,
-            data_inicio: novaAtividade.data_inicio
-                ? new Date(novaAtividade.data_inicio).toISOString()
-                : null,
-            data_fim: novaAtividade.hora_fim
-                ? new Date(novaAtividade.data_inicio + "T" + novaAtividade.hora_fim).toISOString()
-                : null,
-            prioridade: "normal",
-            status: status,
-            pessoa: leadSelecionado?.nome || null,
-            telefone: leadSelecionado?.telefone || null,
+    async function salvar() {
+        if (!payload.titulo.trim()) return
+        try {
+            const body: CreateTarefaPayload = {
+                ...payload,
+                lead_id: payload.lead_id || undefined,
+                pessoa: leadSelecionado?.name ?? payload.pessoa,
+                telefone: leadSelecionado?.telefone ?? payload.telefone,
+                data_inicio: payload.data_inicio || undefined,
+                data_fim: payload.data_fim || undefined,
+            }
+            if (modalTipo === "editar" && tarefaEditando) {
+                await tarefaService.update(tarefaEditando.id, body)
+                toast.success("Atividade atualizada! ✅")
+            } else {
+                await tarefaService.create(body)
+                toast.success("Atividade criada com sucesso!")
+            }
+            reload()
+            setModalAberto(false)
+            setPayload(defaultPayload)
+        } catch (e: any) {
+            toast.error(e?.response?.data?.message ?? "Erro ao salvar atividade")
         }
-
-        if (modalTipo === "editar" && atividadeEditando) {
-
-            const { error } = await supabase
-                .from("tarefas")
-                .update(payload)
-                .eq("id", atividadeEditando.id)
-
-            if (error) { toast.error("Erro ao atualizar atividade", { description: error.message }); return }
-            toast.success("Atividade atualizada! ✅")
-        } else {
-
-            const { error } = await supabase
-                .from("tarefas")
-                .insert([{ user_id: user.id, ...payload }])
-
-            if (error) { toast.error("Erro ao criar atividade", { description: error.message }); return }
-            toast.success("Atividade criada com sucesso!")
-        }
-
-        await carregarTarefas()
-        setModalAberto(false)
-        setNovaAtividade(defaultNovaAtividade)
-        setStatus("PENDENTE")
     }
 
-    const excluirAtividade = useCallback(async (id: string) => {
-        const { error } = await supabase.from("tarefas").delete().eq("id", id)
-        if (error) { toast.error("Erro ao excluir atividade"); return }
-        toast.success("Atividade excluída!")
-        await carregarTarefas()
+    async function toggleConcluido(tarefa: Tarefa) {
+        try {
+            if (tarefa.status === "CONCLUÍDA") {
+                await tarefaService.updateStatus(tarefa.id, "PENDENTE")
+                toast.success("Tarefa reaberta")
+            } else {
+                await tarefaService.concluir(tarefa.id)
+                toast.success("Tarefa concluída! ✅")
+            }
+            reload()
+        } catch {
+            toast.error("Erro ao atualizar status")
+        }
+    }
+
+    const excluir = useCallback(async (id: string) => {
+        try {
+            await tarefaService.delete(id)
+            toast.success("Atividade excluída!")
+            queryClient.invalidateQueries({ queryKey: ['tarefas'] })
+        } catch {
+            toast.error("Erro ao excluir atividade")
+        }
+    }, [queryClient])
+
+    async function excluirSelecionados() {
+        try {
+            await Promise.all(selecionados.map(id => tarefaService.delete(id)))
+            toast.success(`${selecionados.length} atividade(s) excluída(s)!`)
+            reload()
+            setSelecionados([])
+        } catch {
+            toast.error("Erro ao excluir atividades")
+        }
+    }
+
+    const toggleSelecionado = useCallback((id: string) => {
+        setSelecionados(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])
     }, [])
-
-    const excluirSelecionados = async () => {
-        if (selecionados.length === 0) return
-        const { error } = await supabase.from("tarefas").delete().in("id", selecionados)
-        if (error) { toast.error("Erro ao excluir atividades"); return }
-        toast.success(`${selecionados.length} atividade(s) excluída(s)!`)
-        await carregarTarefas()
-        setSelecionados([])
-    }
 
     return (
         <div className="min-h-screen bg-muted/40">
@@ -351,13 +289,13 @@ export default function Atividades() {
                         </Button>
                     </div>
 
-                    {/* Stats */}
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="bg-red-50 border border-red-100 rounded-xl p-4">
+                    {/* Stats — exatamente como no original: 2 cards lado a lado ocupando metade da tela */}
+                    <div className="flex gap-3">
+                        <div className="bg-red-50 border border-red-100 rounded-xl p-4 w-64">
                             <p className="text-sm font-medium text-red-700">Atrasados</p>
                             <p className="text-3xl font-bold text-red-600 mt-1">{atrasados}</p>
                         </div>
-                        <div className="bg-green-50 border border-green-100 rounded-xl p-4">
+                        <div className="bg-green-50 border border-green-100 rounded-xl p-4 w-64">
                             <p className="text-sm font-medium text-green-700">Concluidos</p>
                             <p className="text-3xl font-bold text-green-600 mt-1">{concluidos}</p>
                         </div>
@@ -365,20 +303,16 @@ export default function Atividades() {
 
                     {/* Tabs */}
                     <div className="flex items-center gap-4 border-b">
-                        <button
-                            onClick={() => setTabAtiva("pendentes")}
+                        <button onClick={() => setTabAtiva("pendentes")}
                             className={cn("pb-2 text-sm font-medium border-b-2 -mb-px transition-colors",
                                 tabAtiva === "pendentes" ? "border-blue-600 text-blue-600" : "border-transparent text-muted-foreground"
-                            )}
-                        >
+                            )}>
                             Pendentes ({pendentes})
                         </button>
-                        <button
-                            onClick={() => setTabAtiva("concluidos")}
+                        <button onClick={() => setTabAtiva("concluidos")}
                             className={cn("pb-2 text-sm font-medium border-b-2 -mb-px transition-colors",
                                 tabAtiva === "concluidos" ? "border-blue-600 text-blue-600" : "border-transparent text-muted-foreground"
-                            )}
-                        >
+                            )}>
                             Concluidos ({concluidos})
                         </button>
                     </div>
@@ -420,28 +354,26 @@ export default function Atividades() {
                                     Excluir ({selecionados.length})
                                 </Button>
                             )}
-                            <span className="text-sm text-muted-foreground hidden sm:inline">{atividadesVisiveis.length} atividades</span>
+                            <span className="text-sm text-muted-foreground hidden sm:inline">{tarefasVisiveis.length} atividades</span>
                             <Button variant="outline" size="sm" className="rounded-xl">
                                 <Filter className="h-4 w-4 mr-1" />
                                 <span className="hidden sm:inline">Filtro</span>
                             </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl">
+                                <MoreHorizontal className="h-4 w-4" />
+                            </Button>
                         </div>
                     </div>
 
-                    {/* Filtro por tipo — scroll horizontal no mobile */}
+                    {/* Filtro por tipo */}
                     <div className="flex items-center border-b overflow-x-auto scrollbar-none">
                         <div className="flex gap-1 min-w-max">
                             {tiposAtividade.map((tipo) => (
-                                <button
-                                    key={tipo.id}
-                                    onClick={() => setTipoSelecionado(tipo.id as TipoAtividade)}
+                                <button key={tipo.id} onClick={() => setTipoSelecionado(tipo.id as TipoFiltro)}
                                     className={cn(
                                         "flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap",
-                                        tipoSelecionado === tipo.id
-                                            ? "border-foreground text-foreground"
-                                            : "border-transparent text-muted-foreground hover:text-foreground"
-                                    )}
-                                >
+                                        tipoSelecionado === tipo.id ? "border-foreground text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
+                                    )}>
                                     {tipo.icon && <tipo.icon className="h-4 w-4" />}
                                     {tipo.label}
                                 </button>
@@ -449,28 +381,26 @@ export default function Atividades() {
                         </div>
                     </div>
 
-                    {/* ── MOBILE: Cards ── */}
+                    {/* Mobile: Cards */}
                     <div className="md:hidden space-y-3">
-                        {atividadesVisiveis.length === 0 ? (
+                        {isLoading && [1, 2, 3].map(i => <div key={i} className="h-32 rounded-2xl bg-muted animate-pulse" />)}
+                        {!isLoading && tarefasVisiveis.length === 0 && (
                             <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
                                 <CheckSquare className="h-10 w-10 mb-3 opacity-40" />
                                 <p className="font-medium">Nenhuma atividade encontrada</p>
                                 <p className="text-sm mt-1">Adicione uma nova atividade</p>
                             </div>
-                        ) : (
-                            atividadesVisiveis.map((atividade) => (
-                                <AtividadeCard
-                                    key={atividade.id}
-                                    atividade={atividade}
-                                    onToggle={() => toggleConcluido(atividade)}
-                                    onEditar={() => abrirModalEditar(atividade)}
-                                    onExcluir={() => excluirAtividade(atividade.id)}
-                                />
-                            ))
                         )}
+                        {!isLoading && tarefasVisiveis.map(t => (
+                            <AtividadeCard key={t.id} tarefa={t}
+                                onToggle={() => toggleConcluido(t)}
+                                onEditar={() => abrirModalEditar(t)}
+                                onExcluir={() => excluir(t.id)}
+                            />
+                        ))}
                     </div>
 
-                    {/* ── DESKTOP: Tabela ── */}
+                    {/* Desktop: Tabela */}
                     <div className="hidden md:block border rounded-lg bg-background">
                         <Table>
                             <TableHeader>
@@ -487,20 +417,23 @@ export default function Atividades() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {atividadesVisiveis.map((atividade) => (
-                                    <TableRow key={atividade.id} className="transition-all duration-300">
+                                {isLoading && (
+                                    <TableRow><TableCell colSpan={9} className="text-center py-8 animate-pulse">Carregando...</TableCell></TableRow>
+                                )}
+                                {!isLoading && tarefasVisiveis.map(t => (
+                                    <TableRow key={t.id} className="transition-all duration-300">
                                         <TableCell>
-                                            <Checkbox checked={selecionados.includes(atividade.id)} onCheckedChange={() => toggleSelecionado(atividade.id)} />
+                                            <Checkbox checked={selecionados.includes(t.id)} onCheckedChange={() => toggleSelecionado(t.id)} />
                                         </TableCell>
                                         <TableCell>
-                                            <Checkbox checked={atividade.status === "CONCLUÍDA"} onCheckedChange={() => toggleConcluido(atividade)} className="transition-transform duration-200 data-[state=checked]:scale-110" />
+                                            <Checkbox checked={t.status === "CONCLUÍDA"} onCheckedChange={() => toggleConcluido(t)} className="transition-transform duration-200 data-[state=checked]:scale-110" />
                                         </TableCell>
-                                        <TableCell>{getIconForType(atividade.tipo)}</TableCell>
-                                        <TableCell className="font-medium">{atividade.titulo}</TableCell>
-                                        <TableCell><span className="text-blue-600">{atividade.leads?.nome || "—"}</span></TableCell>
-                                        <TableCell>{atividade.leads?.telefone || "—"}</TableCell>
-                                        <TableCell>{getStatusBadge(atividade.status)}</TableCell>
-                                        <TableCell>{new Date(atividade.data_inicio).toLocaleDateString("pt-BR")}</TableCell>
+                                        <TableCell>{getIconForType(t.tipo)}</TableCell>
+                                        <TableCell className="font-medium">{t.titulo}</TableCell>
+                                        <TableCell><span className="text-blue-600">{t.pessoa || "—"}</span></TableCell>
+                                        <TableCell>{t.telefone || "—"}</TableCell>
+                                        <TableCell>{getStatusBadge(t.status)}</TableCell>
+                                        <TableCell>{t.data_inicio ? new Date(t.data_inicio).toLocaleDateString("pt-BR") : "—"}</TableCell>
                                         <TableCell>
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
@@ -509,14 +442,15 @@ export default function Atividades() {
                                                     </Button>
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end">
-                                                    <DropdownMenuItem onClick={() => abrirModalEditar(atividade)}>Editar</DropdownMenuItem>
-                                                    <DropdownMenuItem className="text-destructive" onClick={() => excluirAtividade(atividade.id)}>Excluir</DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => abrirModalEditar(t)}>Editar</DropdownMenuItem>
+                                                    <DropdownMenuSeparator />
+                                                    <DropdownMenuItem className="text-destructive" onClick={() => excluir(t.id)}>Excluir</DropdownMenuItem>
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
                                         </TableCell>
                                     </TableRow>
                                 ))}
-                                {atividadesVisiveis.length === 0 && (
+                                {!isLoading && tarefasVisiveis.length === 0 && (
                                     <TableRow>
                                         <TableCell colSpan={9}>
                                             <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
@@ -538,14 +472,14 @@ export default function Atividades() {
                 <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
-                            {getIconForType(novaAtividade.tipo)}
+                            {getIconForType(payload.tipo as TarefaTipo)}
                             {modalTipo === "criar" ? "Nova Atividade" : "Editar Atividade"}
                         </DialogTitle>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                         <div className="grid gap-2">
                             <Label>Tipo de atividade</Label>
-                            <Select value={novaAtividade.tipo} onValueChange={(v) => setNovaAtividade({ ...novaAtividade, tipo: v as TipoAtividade })}>
+                            <Select value={payload.tipo} onValueChange={(v) => setPayload(p => ({ ...p, tipo: v as TarefaTipo }))}>
                                 <SelectTrigger className="rounded-xl"><SelectValue placeholder="Selecione o tipo" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="chamada"><div className="flex items-center gap-2"><Phone className="h-4 w-4" /> Chamada</div></SelectItem>
@@ -559,21 +493,21 @@ export default function Atividades() {
                         </div>
                         <div className="grid gap-2">
                             <Label>Assunto</Label>
-                            <Input className="rounded-xl" value={novaAtividade.titulo} onChange={(e) => setNovaAtividade({ ...novaAtividade, titulo: e.target.value })} placeholder="Digite o titulo da atividade" />
+                            <Input className="rounded-xl" value={payload.titulo} onChange={e => setPayload(p => ({ ...p, titulo: e.target.value }))} placeholder="Digite o titulo da atividade" />
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div className="grid gap-2">
                                 <Label>Lead</Label>
-                                <Select value={novaAtividade.lead_id} onValueChange={(v) => setNovaAtividade({ ...novaAtividade, lead_id: v })}>
+                                <Select value={payload.lead_id} onValueChange={v => setPayload(p => ({ ...p, lead_id: v }))}>
                                     <SelectTrigger className="rounded-xl"><SelectValue placeholder="Selecione o lead" /></SelectTrigger>
                                     <SelectContent>
-                                        {leads.map((l) => <SelectItem key={l.id} value={String(l.id)}>{l.nome}</SelectItem>)}
+                                        {leads.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
                             </div>
                             <div className="grid gap-2">
                                 <Label>Contato</Label>
-                                <Input className="rounded-xl bg-muted" value={leadSelecionado?.nome ?? ""} readOnly placeholder="Selecione um lead" />
+                                <Input className="rounded-xl bg-muted" value={leadSelecionado?.name ?? ""} readOnly placeholder="Selecione um lead" />
                             </div>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
@@ -583,11 +517,11 @@ export default function Atividades() {
                             </div>
                             <div className="grid gap-2">
                                 <Label>Status</Label>
-                                <Select value={status} onValueChange={setStatus}>
+                                <Select value={payload.status} onValueChange={v => setPayload(p => ({ ...p, status: v as TarefaStatus }))}>
                                     <SelectTrigger className="rounded-xl"><SelectValue placeholder="Status" /></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="PENDENTE">🟡 PENDENTE</SelectItem>
-                                        <SelectItem value="EM ANDAMENTO">🔵 EM ANDAMENTO</SelectItem>
+                                        <SelectItem value="EM_ANDAMENTO">🔵 EM ANDAMENTO</SelectItem>
                                         <SelectItem value="CONCLUÍDA">🟢 CONCLUÍDA</SelectItem>
                                         <SelectItem value="CANCELADA">🔴 CANCELADA</SelectItem>
                                     </SelectContent>
@@ -596,20 +530,20 @@ export default function Atividades() {
                         </div>
                         <div className="grid gap-2">
                             <Label>Data de inicio</Label>
-                            <Input className="rounded-xl" type="date" value={novaAtividade.data_inicio} onChange={(e) => setNovaAtividade({ ...novaAtividade, data_inicio: e.target.value })} />
+                            <Input className="rounded-xl" type="date" value={payload.data_inicio} onChange={e => setPayload(p => ({ ...p, data_inicio: e.target.value }))} />
                         </div>
                         <div className="grid gap-2">
                             <Label>Hora inicio</Label>
-                            <Input className="rounded-xl" type="time" value={novaAtividade.hora_inicio} onChange={(e) => setNovaAtividade({ ...novaAtividade, hora_inicio: e.target.value })} />
+                            <Input className="rounded-xl" type="time" value={payload.data_fim} onChange={e => setPayload(p => ({ ...p, data_fim: e.target.value }))} />
                         </div>
                         <div className="grid gap-2">
                             <Label>Anotacoes</Label>
-                            <Textarea className="rounded-xl" value={novaAtividade.anotacoes} onChange={(e) => setNovaAtividade({ ...novaAtividade, anotacoes: e.target.value })} placeholder="Adicione notas ou observacoes..." rows={3} />
+                            <Textarea className="rounded-xl" value={payload.descricao} onChange={e => setPayload(p => ({ ...p, descricao: e.target.value }))} placeholder="Adicione notas ou observacoes..." rows={3} />
                         </div>
                     </div>
                     <DialogFooter>
                         <Button variant="outline" className="rounded-xl" onClick={() => setModalAberto(false)}>Cancelar</Button>
-                        <Button disabled={!novaAtividade.titulo.trim()} className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl" onClick={salvarAtividade}>
+                        <Button disabled={!payload.titulo.trim()} className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl" onClick={salvar}>
                             {modalTipo === "criar" ? "Criar atividade" : "Salvar alteracoes"}
                         </Button>
                     </DialogFooter>

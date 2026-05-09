@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc *)",
+      "Bash(curl -s http://localhost:3000/financeiro)",
+      "Bash(curl -s http://localhost:3000/despesas)",
+      "Bash(curl -s http://localhost:3000/transacoes)",
+      "Bash(curl -s http://localhost:3000/)",
+      "Bash(curl -s http://localhost:3000/routes)",
+      "Bash(curl -s http://localhost:3000/docs)",
+      "Bash(curl -s http://localhost:3000/api)",
+      "Bash(curl -s http://localhost:3000/health)",
+      "Bash(curl -s http://localhost:3000/fluxo)",
+      "Bash(curl -s http://localhost:3000/fluxo-caixa)",
+      "Bash(curl -s http://localhost:3000/caixa)",
+      "Bash(curl -s http://localhost:3000/lancamentos)",
+      "Bash(curl -s http://localhost:3000/fluxo/saldo -H \"Authorization: Bearer test\")",
+      "Bash(curl -s http://localhost:3000/financeiro/saldo)",
+      "Bash(curl -s http://localhost:3000/fluxo-caixa/saldo)",
+      "Bash(curl -s http://localhost:3000/api/v1/fluxo-caixa)",
+      "Bash(curl -s http://localhost:3000/api/v1/fluxo-caixa/saldo)"
+    ]
+  }
+}

@@ -1,11 +1,12 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
-    Plus, Search, Filter, MapPin, BedDouble, Bath,
+    Plus, Search, MapPin, BedDouble, Bath,
     Maximize, Landmark, MoreVertical, Share2, Eye,
     CheckCircle2, Building2, DollarSign, Car,
     Home, Store, Trees, Building, Warehouse,
-    Tractor, TreePine, Castle, TrendingUp
+    Tractor, TreePine, Castle, TrendingUp, Loader2
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -20,15 +21,10 @@ import {
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@/components/ui/select";
-
-import { supabase } from "@/integrations/supabase/client";
 import { Sidebar } from "@/components/Sidebar";
+import { imovelService, type Imovel } from "@/services/imovel.service";
 
-import { getImoveis } from "@/integrations/supabase/imoveis/getImoveis";
-import { createImovel } from "@/integrations/supabase/imoveis/createImovel";
-import { updateImovel } from "@/integrations/supabase/imoveis/updateImovel";
-import { deleteImovel } from "@/integrations/supabase/imoveis/deleteImovel";
-
+const STALE = 1000 * 60 * 5;
 
 const TIPO_CONFIG: Record<string, { icon: React.ReactNode; bg: string; iconColor: string }> = {
     "Terreno": { icon: <Trees className="w-9 h-9" />, bg: "from-green-100 to-green-50 dark:from-green-900/30 dark:to-green-800/10", iconColor: "text-green-500 dark:text-green-400" },
@@ -96,16 +92,26 @@ const SectionTitle = ({ icon, title }: { icon: React.ReactNode; title: string })
 );
 
 const Loteamentos = () => {
-    const [loteamentos, setLoteamentos] = useState<any[]>([]);
     const [search, setSearch] = useState("");
     const [modalOpen, setModalOpen] = useState(false);
-    const [editing, setEditing] = useState<any | null>(null);
-    const [form, setForm] = useState<any>(emptyForm);
+    const [editing, setEditing] = useState<Imovel | null>(null);
+    const [salvando, setSalvando] = useState(false);
+    const [form, setForm] = useState<typeof emptyForm>(emptyForm);
 
-    const [loading, setLoading] = useState(true);
+    const queryClient = useQueryClient();
+
+    const { data: allImoveis = [], isLoading } = useQuery({
+        queryKey: ["imoveis"],
+        queryFn: () => imovelService.getAll(),
+        staleTime: STALE,
+    });
+
+    const loteamentos = allImoveis.filter((i) =>
+        TIPOS_LOTE.includes(i.tipo ?? "") || i.tipo === "Loteamento"
+    );
 
     const setField = (key: string, value: any) =>
-        setForm((prev: any) => ({ ...prev, [key]: value }));
+        setForm((prev) => ({ ...prev, [key]: value }));
 
     function openNew() {
         setEditing(null);
@@ -113,7 +119,7 @@ const Loteamentos = () => {
         setModalOpen(true);
     }
 
-    function openEdit(item: any) {
+    function openEdit(item: Imovel) {
         setEditing(item);
         setForm({
             titulo: item.titulo ?? "",
@@ -130,76 +136,93 @@ const Loteamentos = () => {
             bairro: item.bairro ?? "",
             endereco: item.endereco ?? "",
             complemento: item.complemento ?? "",
-            preco: item.preco ?? "",
-            renda_ideal: item.renda_ideal ?? "",
+            preco: item.preco != null ? String(item.preco) : "",
+            renda_ideal: item.renda_ideal != null ? String(item.renda_ideal) : "",
             preco_varia: item.preco_varia ?? false,
-            iptu: item.iptu ?? "",
-            unidades_disponiveis: item.unidades_disponiveis ?? "",
+            iptu: item.iptu != null ? String(item.iptu) : "",
+            unidades_disponiveis: item.unidades_disponiveis != null ? String(item.unidades_disponiveis) : "",
             sob_consulta: item.sob_consulta ?? false,
-            area_minima: item.area_minima ?? "",
-            area_maxima: item.area_maxima ?? "",
-            quartos: item.quartos ?? "",
-            banheiros: item.banheiros ?? "",
-            vagas_garagem: item.vagas_garagem ?? "",
+            area_minima: item.area_minima != null ? String(item.area_minima) : "",
+            area_maxima: item.area_maxima != null ? String(item.area_maxima) : "",
+            quartos: item.quartos != null ? String(item.quartos) : "",
+            banheiros: item.banheiros != null ? String(item.banheiros) : "",
+            vagas_garagem: item.vagas_garagem != null ? String(item.vagas_garagem) : "",
         });
         setModalOpen(true);
     }
 
-    async function load() {
-        setLoading(true);
-        let res: any = await getImoveis();
-        if (res?.data && Array.isArray(res.data)) res = res.data;
-        if (!Array.isArray(res)) { setLoteamentos([]); setLoading(false); return; }
-        const only = res.filter((i: any) =>
-            TIPOS_LOTE.includes(i.tipo) || i.tipo === "Loteamento"
-        );
-        setLoteamentos(only);
-        setLoading(false);
-    }
     async function save() {
         if (!form.titulo?.trim()) { alert("Título é obrigatório"); return; }
         if (!form.tipo) { alert("Tipo é obrigatório"); return; }
 
-        const payload = {
-            ...form,
-            preco: form.preco ? Number(form.preco) : null,
-            renda_ideal: form.renda_ideal ? Number(form.renda_ideal) : null,
-            iptu: form.iptu ? Number(form.iptu) : null,
-            area_minima: form.area_minima ? Number(form.area_minima) : null,
-            area_maxima: form.area_maxima ? Number(form.area_maxima) : null,
-            quartos: form.quartos ? Number(form.quartos) : null,
-            banheiros: form.banheiros ? Number(form.banheiros) : null,
-            vagas_garagem: form.vagas_garagem ? Number(form.vagas_garagem) : null,
-            unidades_disponiveis: form.unidades_disponiveis ? Number(form.unidades_disponiveis) : null,
+        const toNum = (v: string) => (v ? Number(v) : undefined);
+        const toInt = (v: string) => {
+            const n = parseInt(v, 10);
+            return isNaN(n) ? undefined : n;
         };
 
+        const payload = {
+            titulo: form.titulo,
+            tipo: form.tipo,
+            construtora: form.construtora || undefined,
+            classificacao: form.classificacao || undefined,
+            id_canal_pro: form.id_canal_pro || undefined,
+            status: form.status || undefined,
+            fase_obra: form.fase_obra || undefined,
+            descricao: form.descricao || undefined,
+            estado: form.estado || undefined,
+            cep: form.cep || undefined,
+            cidade: form.cidade || undefined,
+            bairro: form.bairro || undefined,
+            endereco: form.endereco || undefined,
+            complemento: form.complemento || undefined,
+            preco: toNum(form.preco),
+            renda_ideal: toNum(form.renda_ideal),
+            preco_varia: form.preco_varia,
+            iptu: toNum(form.iptu),
+            unidades_disponiveis: toInt(form.unidades_disponiveis),
+            sob_consulta: form.sob_consulta,
+            area_minima: toNum(form.area_minima),
+            area_maxima: toNum(form.area_maxima),
+            quartos: toInt(form.quartos),
+            banheiros: toInt(form.banheiros),
+            vagas_garagem: toInt(form.vagas_garagem),
+        };
+
+        setSalvando(true);
         try {
             if (editing) {
-                await updateImovel(editing.id, payload);
+                await imovelService.update(editing.id, payload);
             } else {
-                await createImovel(payload);
+                await imovelService.create(payload);
             }
             setModalOpen(false);
-            await load();
+            queryClient.invalidateQueries({ queryKey: ["imoveis"] });
+            queryClient.invalidateQueries({ queryKey: ["imoveis-select"] });
         } catch (err: any) {
-            alert(err?.message ?? "Erro ao salvar loteamento");
+            alert(err?.response?.data?.message ?? err?.message ?? "Erro ao salvar loteamento");
+        } finally {
+            setSalvando(false);
         }
     }
 
     async function remove(id: string) {
         if (!confirm("Deseja remover este loteamento?")) return;
-        await deleteImovel(id);
-        await load();
+        try {
+            await imovelService.delete(id);
+            queryClient.invalidateQueries({ queryKey: ["imoveis"] });
+            queryClient.invalidateQueries({ queryKey: ["imoveis-select"] });
+        } catch (err: any) {
+            alert(err?.response?.data?.message ?? err?.message ?? "Erro ao remover loteamento");
+        }
     }
-
-    useEffect(() => { load(); }, []);
 
     const filtered = loteamentos.filter((i) =>
         (i.titulo || "").toLowerCase().includes(search.toLowerCase())
     );
 
     const totalLoteamentos = loteamentos.length;
-    const ativos = loteamentos.filter((i) => i.status === "Ativo" || i.ativo !== false).length;
+    const ativos = loteamentos.filter((i) => i.status === "Ativo").length;
     const vgvTotal = loteamentos.reduce((acc, i) => acc + (Number(i.preco) || 0), 0);
 
     return (
@@ -209,20 +232,17 @@ const Loteamentos = () => {
             <main className="ml-16 overflow-y-auto min-h-screen">
                 <div className="p-8 space-y-6">
 
-
                     <div className="flex items-center justify-between">
                         <div>
                             <h1 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">Loteamentos</h1>
                             <p className="text-gray-500 dark:text-slate-400 mt-1 text-sm">Gerencie seus loteamentos cadastrados</p>
                         </div>
                         <div className="flex items-center gap-3">
-
                             <Button onClick={openNew} className="bg-blue-600 hover:bg-blue-700 text-white gap-2 font-semibold shadow-md shadow-blue-100 dark:shadow-blue-900/30">
                                 <Plus className="w-4 h-4" /> Novo Loteamento
                             </Button>
                         </div>
                     </div>
-
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                         {[
@@ -241,7 +261,6 @@ const Loteamentos = () => {
                         ))}
                     </div>
 
-
                     <div className="rounded-xl border border-gray-200 dark:border-slate-700/60 bg-white dark:bg-[#161e2e] p-6 space-y-5 shadow-sm">
                         <div className="flex items-center gap-3">
                             <div className="relative flex-1">
@@ -253,14 +272,9 @@ const Loteamentos = () => {
                                     onChange={(e) => setSearch(e.target.value)}
                                 />
                             </div>
-                            {/*  <Button variant="outline" className="border-gray-200 dark:border-slate-700 text-gray-500 gap-2">
-                                <Filter className="w-4 h-4" /> Filtros
-                            </Button>
-                         */}
                         </div>
 
-
-                        {loading ? (
+                        {isLoading ? (
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                                 {[...Array(4)].map((_, i) => (
                                     <div key={i} className="rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700/50 bg-white dark:bg-[#0f1623] animate-pulse">
@@ -278,10 +292,9 @@ const Loteamentos = () => {
                             <>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                                     {filtered.map((item) => {
-                                        const config = getTipoConfig(item.tipo);
+                                        const config = getTipoConfig(item.tipo ?? "");
                                         return (
                                             <div key={item.id} className="rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700/50 bg-white dark:bg-[#0f1623] hover:border-blue-300 dark:hover:border-blue-500/40 hover:shadow-lg transition-all duration-200 group">
-
 
                                                 <div className={`relative h-56 bg-gradient-to-br ${config.bg} flex items-center justify-center overflow-hidden`}>
                                                     <div className={`${config.iconColor} opacity-40 group-hover:opacity-60 group-hover:scale-110 transition-all duration-300`}>
@@ -312,7 +325,6 @@ const Loteamentos = () => {
                                                     </div>
                                                 </div>
 
-
                                                 <div className="p-3 space-y-2">
                                                     <div>
                                                         <h3 className="font-bold text-gray-900 dark:text-white text-sm line-clamp-1">{item.titulo}</h3>
@@ -330,8 +342,8 @@ const Loteamentos = () => {
                                                     </div>
 
                                                     <div className="flex items-center gap-3 text-xs text-gray-400 dark:text-slate-500 flex-wrap">
-                                                        {item.quartos > 0 && <div className="flex items-center gap-1"><BedDouble className="w-3 h-3" /><span>{item.quartos}</span></div>}
-                                                        {item.banheiros > 0 && <div className="flex items-center gap-1"><Bath className="w-3 h-3" /><span>{item.banheiros}</span></div>}
+                                                        {(item.quartos ?? 0) > 0 && <div className="flex items-center gap-1"><BedDouble className="w-3 h-3" /><span>{item.quartos}</span></div>}
+                                                        {(item.banheiros ?? 0) > 0 && <div className="flex items-center gap-1"><Bath className="w-3 h-3" /><span>{item.banheiros}</span></div>}
                                                         {(item.area_minima || item.area_maxima) && (
                                                             <div className="flex items-center gap-1">
                                                                 <Maximize className="w-3 h-3" />
@@ -342,7 +354,7 @@ const Loteamentos = () => {
                                                                 </span>
                                                             </div>
                                                         )}
-                                                        {item.vagas_garagem > 0 && <div className="flex items-center gap-1"><Car className="w-3 h-3" /><span>{item.vagas_garagem}</span></div>}
+                                                        {(item.vagas_garagem ?? 0) > 0 && <div className="flex items-center gap-1"><Car className="w-3 h-3" /><span>{item.vagas_garagem}</span></div>}
                                                     </div>
 
                                                     <div className="pt-2 border-t border-gray-100 dark:border-slate-800">
@@ -354,14 +366,14 @@ const Loteamentos = () => {
                                                                     {item.preco_varia ? "A partir de " : ""}
                                                                     R$ {(Number(item.preco) || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                                                                 </p>
-                                                                {item.renda_ideal > 0 && (
+                                                                {(Number(item.renda_ideal) || 0) > 0 && (
                                                                     <p className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">
                                                                         Renda ideal: R$ {Number(item.renda_ideal).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                                                                     </p>
                                                                 )}
                                                             </>
                                                         )}
-                                                        {item.unidades_disponiveis > 0 && (
+                                                        {(item.unidades_disponiveis ?? 0) > 0 && (
                                                             <p className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">
                                                                 {item.unidades_disponiveis} unidades disponíveis
                                                             </p>
@@ -398,15 +410,11 @@ const Loteamentos = () => {
                             </>
                         )}
                     </div>
-
-
                 </div>
             </main>
 
-
             <Dialog open={modalOpen} onOpenChange={setModalOpen}>
                 <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col bg-white dark:bg-[#161e2e] border-gray-200 dark:border-slate-700 p-0">
-
 
                     <div className="px-6 pt-6 pb-4 border-b border-gray-100 dark:border-slate-700 flex-shrink-0">
                         <DialogHeader>
@@ -417,7 +425,6 @@ const Loteamentos = () => {
                                 Preencha os dados do loteamento
                             </p>
                         </DialogHeader>
-
 
                         {form.tipo && (() => {
                             const cfg = getTipoConfig(form.tipo);
@@ -430,9 +437,7 @@ const Loteamentos = () => {
                         })()}
                     </div>
 
-
                     <div className="overflow-y-auto flex-1 px-6 py-5 space-y-8">
-
 
                         <section>
                             <SectionTitle icon={<Building2 className="w-5 h-5" />} title="Dados da Venda" />
@@ -458,7 +463,7 @@ const Loteamentos = () => {
                                 </div>
                                 <div>
                                     <FieldLabel>Classificação</FieldLabel>
-                                    <Select value={form.classificacao} onValueChange={(v) => setField("classificacao", v)}>
+                                    <Select value={form.classificacao || "_none"} onValueChange={(v) => setField("classificacao", v === "_none" ? "" : v)}>
                                         <SelectTrigger className={inputClass}><SelectValue placeholder="Selecione" /></SelectTrigger>
                                         <SelectContent className="bg-white dark:bg-[#1e2a3a] border-gray-100 dark:border-slate-700">
                                             {["Econômico", "Médio", "Alto Padrão", "Luxo"].map((c) => (
@@ -496,13 +501,12 @@ const Loteamentos = () => {
                             </div>
                         </section>
 
-
                         <section>
                             <SectionTitle icon={<MapPin className="w-5 h-5" />} title="Localização" />
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <FieldLabel>Estado</FieldLabel>
-                                    <Select value={form.estado} onValueChange={(v) => setField("estado", v)}>
+                                    <Select value={form.estado || "_none"} onValueChange={(v) => setField("estado", v === "_none" ? "" : v)}>
                                         <SelectTrigger className={inputClass}><SelectValue placeholder="Selecione o estado" /></SelectTrigger>
                                         <SelectContent className="bg-white dark:bg-[#1e2a3a] border-gray-100 dark:border-slate-700 max-h-48">
                                             {ESTADOS_BR.map((e) => <SelectItem key={e} value={e} className="cursor-pointer">{e}</SelectItem>)}
@@ -531,7 +535,6 @@ const Loteamentos = () => {
                                 </div>
                             </div>
                         </section>
-
 
                         <section>
                             <SectionTitle icon={<DollarSign className="w-5 h-5" />} title="Valores e Unidades" />
@@ -573,7 +576,6 @@ const Loteamentos = () => {
                             </div>
                         </section>
 
-
                         <section>
                             <SectionTitle icon={<Maximize className="w-5 h-5" />} title="Características" />
                             <div className="grid grid-cols-2 gap-4">
@@ -587,7 +589,7 @@ const Loteamentos = () => {
                                 </div>
                                 <div>
                                     <FieldLabel>Quartos</FieldLabel>
-                                    <Select value={String(form.quartos || "")} onValueChange={(v) => setField("quartos", v)}>
+                                    <Select value={String(form.quartos || "_none")} onValueChange={(v) => setField("quartos", v === "_none" ? "" : v)}>
                                         <SelectTrigger className={inputClass}><SelectValue placeholder="Selecione" /></SelectTrigger>
                                         <SelectContent className="bg-white dark:bg-[#1e2a3a] border-gray-100 dark:border-slate-700">
                                             {["0", "1", "2", "3", "4", "5+"].map((q) => <SelectItem key={q} value={q} className="cursor-pointer">{q}</SelectItem>)}
@@ -607,12 +609,12 @@ const Loteamentos = () => {
 
                     </div>
 
-
                     <div className="px-6 py-4 border-t border-gray-100 dark:border-slate-700 flex items-center justify-end gap-3 flex-shrink-0 bg-white dark:bg-[#161e2e]">
                         <Button variant="outline" onClick={() => setModalOpen(false)} className="border-gray-200 dark:border-slate-600 text-gray-600 dark:text-slate-300">
                             Cancelar
                         </Button>
-                        <Button onClick={save} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6">
+                        <Button onClick={save} disabled={salvando} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6">
+                            {salvando && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                             {editing ? "Salvar Alterações" : "Criar Loteamento"}
                         </Button>
                     </div>

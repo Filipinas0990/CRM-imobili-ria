@@ -9,13 +9,14 @@ import {
     MoreVertical, ArrowLeftRight, Tag,
 } from "lucide-react";
 import { format } from "date-fns";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useAuthStore } from "@/store/auth.store";
+import { whatsappService, TabStatus } from "@/services/whatsapp.service";
 
-const PROXY_URL = `${import.meta.env.VITE_SUPABASE_FUNCTIONS_URL}/evolution-proxy`;
+// Proxy no novo backend — repassa chamadas para a Evolution API com o API key correto
+const PROXY_URL = `${import.meta.env.VITE_API_URL}/api/v1/whatsapp/evolution`;
 
 type ConnStatus = "checking" | "connected" | "disconnected" | "loading_qr" | "qr_ready";
-type TabStatus = "pendentes" | "atendimento" | "fechados";
 
 interface Conversa {
     id: string;
@@ -45,6 +46,10 @@ function formatPhone(jid: string) {
         return `+55 (${ddd}) ${rest.slice(0, 5)}-${rest.slice(5)}`;
     }
     return `+${num}`;
+}
+
+function jidToPhone(jid: string) {
+    return jid.replace("@s.whatsapp.net", "").replace("@g.us", "");
 }
 
 function getInitials(name: string) {
@@ -111,6 +116,8 @@ const TAB_CONFIG = [
 
 // ─── Componente ───────────────────────────────────────────────────────────────
 const WhatsApp = () => {
+    const user = useAuthStore((s) => s.user);
+
     const [conversas, setConversas] = useState<Conversa[]>([]);
     const [selectedConversa, setSelectedConversa] = useState<Conversa | null>(null);
     const [mensagens, setMensagens] = useState<Mensagem[]>([]);
@@ -121,28 +128,38 @@ const WhatsApp = () => {
     const [qrCode, setQrCode] = useState<string | null>(null);
     const [qrError, setQrError] = useState<string | null>(null);
     const [instanceName, setInstanceName] = useState<string | null>(null);
-    const [userId, setUserId] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<TabStatus>("pendentes");
     const [loadingConversas, setLoadingConversas] = useState(false);
     const [templates, setTemplates] = useState<any[]>([]);
     const [showTemplates, setShowTemplates] = useState(false);
-    const [statusMap, setStatusMap] = useState<Record<string, TabStatus>>({});
+    // phone (stripped) → TabStatus and phone → conversaId (backend UUID)
+    const [, setStatusMap] = useState<Record<string, TabStatus>>({});
+    const [conversaIdMap, setConversaIdMap] = useState<Record<string, string>>({});
     const [debugInfo, setDebugInfo] = useState<string>("");
     const bottomRef = useRef<HTMLDivElement>(null);
     const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const msgPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const registradoNoMicroservico = useRef(false);
+    const webhookConfigurado = useRef(false);
 
     // ─── evoFetch ───────────────────────────────────────────────────────────────
     const evoFetch = useCallback(async (path: string, options?: RequestInit) => {
-        const res = await fetch(`${PROXY_URL}?path=${encodeURIComponent(path)}`, {
+        // Remove barra inicial do path para montar a URL corretamente
+        const cleanPath = path.startsWith("/") ? path.slice(1) : path;
+        const token = useAuthStore.getState().accessToken;
+        const res = await fetch(`${PROXY_URL}/${cleanPath}`, {
             ...options,
-            headers: { "Content-Type": "application/json", ...(options?.headers ?? {}) },
+            headers: {
+                "Content-Type": "application/json",
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                ...(options?.headers ?? {}),
+            },
         });
         const text = await res.text();
         try { return JSON.parse(text); } catch { throw new Error(text.slice(0, 200)); }
     }, []);
 
-    // ─── Configura webhook automaticamente para a instância ─────────────────────
+    // ─── Configura webhook na Evolution ─────────────────────────────────────────
     const setupWebhook = useCallback(async (instName: string) => {
         try {
             await evoFetch(`/webhook/set/${instName}`, {
@@ -150,99 +167,67 @@ const WhatsApp = () => {
                 body: JSON.stringify({
                     webhook: {
                         enabled: true,
-                        url: `${import.meta.env.VITE_SUPABASE_FUNCTIONS_URL}/whatsapp-webhook`,
+                        url: `${import.meta.env.VITE_API_URL}/api/v1/whatsapp/webhook`,
                         webhook_by_events: false,
                         webhook_base64: false,
                         events: ["MESSAGES_UPSERT"],
                     },
                 }),
             });
-            console.log(`✅ Webhook configurado para ${instName}`);
         } catch (err) {
-            console.warn(`⚠️ Erro ao configurar webhook para ${instName}:`, err);
+            console.warn(`⚠️ Erro ao configurar webhook:`, err);
         }
     }, [evoFetch]);
 
-    // ─── Carrega status das conversas do Supabase (por usuário, com RLS) ────────
-    const loadStatusMap = useCallback(async (uid: string) => {
-        const { data } = await supabase
-            .from("whatsapp_conversas")
-            .select("remote_jid, status")
-            .eq("user_id", uid)
-            .not("remote_jid", "is", null);
-        if (!data) return {};
-        const map: Record<string, TabStatus> = {};
-        data.forEach((r: any) => { if (r.remote_jid) map[r.remote_jid] = r.status ?? "pendentes"; });
-        return map;
-    }, []);
-
-    // ─── Salva status no Supabase (upsert leve, só quando muda) ─────────────────
-    const saveStatus = useCallback(async (uid: string, remoteJid: string, status: TabStatus) => {
-        await supabase.from("whatsapp_conversas").upsert({
-            user_id: uid,
-            remote_jid: remoteJid,
-            status,
-            atualizado_em: new Date().toISOString(),
-        }, { onConflict: "user_id,remote_jid" });
-    }, []);
-
-    // ─── Init: carrega usuário + instância do banco (isolado por user_id) ────────
-    useEffect(() => {
-        async function init() {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
-            setUserId(user.id);
-
-            const map = await loadStatusMap(user.id);
-            setStatusMap(map);
-
-            let { data: inst } = await supabase
-                .from("whatsapp_instancias")
-                .select("instance_name, status")
-                .eq("user_id", user.id)
-                .single();
-
-            if (!inst) {
-                const instName = `inst-${user.id.slice(0, 8)}`;
-                await supabase.from("whatsapp_instancias").insert({
-                    user_id: user.id,
-                    instance_name: instName,
-                    status: "disconnected",
-                });
-                setInstanceName(instName);
-            } else {
-                setInstanceName(inst.instance_name);
-            }
+    // ─── Registra corretor no microserviço ───────────────────────────────────────
+    const registrarCorretor = useCallback(async (instName: string, uid: string) => {
+        try {
+            await fetch(`${import.meta.env.VITE_MICROSERVICO_URL}/corretores`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "x-api-key": import.meta.env.VITE_MICROSERVICO_API_KEY,
+                },
+                body: JSON.stringify({ nome: uid, instancia: instName }),
+            });
+        } catch (err) {
+            console.warn(`⚠️ Erro ao registrar corretor no microserviço:`, err);
         }
-        init();
-        supabase.from("whatsapp_templates").select("*").then(({ data }) => setTemplates(data ?? []));
-    }, [loadStatusMap]);
+    }, []);
 
-    // ─── Realtime: atualiza statusMap quando outro usuário/aba muda status ───────
+    // ─── Carrega status das conversas do backend ─────────────────────────────────
+    const loadConversasMaps = useCallback(async () => {
+        const backendConversas = await whatsappService.getConversas();
+        const sMap: Record<string, TabStatus> = {};
+        const idMap: Record<string, string> = {};
+        backendConversas.forEach((c) => {
+            sMap[c.telefone] = c.status;
+            idMap[c.telefone] = c.id;
+        });
+        setStatusMap(sMap);
+        setConversaIdMap(idMap);
+        return { sMap, idMap };
+    }, []);
+
+    // ─── Init: deriva instance name do user ID ───────────────────────────────────
     useEffect(() => {
-        if (!userId) return;
-        const channel = supabase
-            .channel(`conversas_${userId}`)
-            .on("postgres_changes", {
-                event: "*",
-                schema: "public",
-                table: "whatsapp_conversas",
-                filter: `user_id=eq.${userId}`,
-            }, (payload: any) => {
-                const row = payload.new;
-                if (!row?.remote_jid) return;
-                setStatusMap((prev) => ({ ...prev, [row.remote_jid]: row.status ?? "pendentes" }));
-                setConversas((prev) => prev.map((c) =>
-                    c.remoteJid === row.remote_jid ? { ...c, status: row.status ?? "pendentes" } : c
-                ));
-            })
-            .subscribe();
-        return () => { supabase.removeChannel(channel); };
-    }, [userId]);
+        if (!user) {
+            console.warn("[WA] user is null — instanceName não será definido");
+            return;
+        }
+
+        // Padrão consistente com o backend: inst-{primeiros 8 chars do UUID}
+        const instName = `inst-${user.id.split("-")[0]}`;
+        console.log("[WA] instanceName definido:", instName);
+        setInstanceName(instName);
+
+        loadConversasMaps();
+        whatsappService.getTemplates().then(setTemplates);
+    }, [user, loadConversasMaps]);
 
     // ─── Busca conversas da Evolution ────────────────────────────────────────────
-    const fetchConversas = useCallback(async (instName: string, uid: string) => {
-        if (!instName || !uid) return;
+    const fetchConversas = useCallback(async (instName: string) => {
+        if (!instName) return;
         setLoadingConversas(true);
         setDebugInfo("Buscando conversas...");
 
@@ -250,59 +235,86 @@ const WhatsApp = () => {
         try {
             const state = await evoFetch(`/instance/connectionState/${instName}`);
             const connState = state?.instance?.state ?? state?.state ?? state?.status;
+            console.log("[WA] connectionState:", JSON.stringify(state).slice(0, 300));
 
             if (!connState) {
                 const all = await evoFetch("/instance/fetchInstances", { method: "GET" });
+                console.log("[WA] fetchInstances:", JSON.stringify(all).slice(0, 400));
                 const instances: any[] = Array.isArray(all) ? all : [];
                 const connected = instances.filter(
                     (i) => i.connectionStatus === "open" || i.instance?.state === "open"
                 );
-
-                if (connected.length > 0) {
-                    const { data: allInsts } = await supabase
-                        .from("whatsapp_instancias")
-                        .select("instance_name, user_id")
-                        .eq("user_id", uid);
-
-                    const myInst = connected.find((i) => {
-                        const name = i.name ?? i.instanceName ?? i.instance?.instanceName;
-                        return allInsts?.some((db) => db.instance_name === name);
-                    });
-
-                    if (myInst) {
-                        const realName = myInst.name ?? myInst.instanceName ?? myInst.instance?.instanceName;
-                        instNameReal = realName;
-                        await supabase.from("whatsapp_instancias")
-                            .update({ instance_name: realName, status: "connected" })
-                            .eq("user_id", uid);
-                        setInstanceName(realName);
-                    }
+                const myInst = connected.find((i) => {
+                    const name = i.name ?? i.instanceName ?? i.instance?.instanceName;
+                    return name === instName;
+                });
+                if (myInst) {
+                    const realName = myInst.name ?? myInst.instanceName ?? myInst.instance?.instanceName;
+                    instNameReal = realName;
+                    setInstanceName(realName);
                 }
             }
-        } catch { }
+        } catch (e) { console.error("[WA] connectionState error:", e); }
 
         let rawChats: any[] = [];
-        for (const body of [
+        let lastDebug = "";
+        const bodies = [
             JSON.stringify({ where: {}, limit: 100 }),
             JSON.stringify({}),
             JSON.stringify({ limit: 100 }),
-        ]) {
+        ];
+        for (const body of bodies) {
             try {
                 const data = await evoFetch(`/chat/findChats/${instNameReal}`, { method: "POST", body });
+                console.log("[WA] findChats raw:", JSON.stringify(data).slice(0, 600));
+                const snippet = JSON.stringify(data).slice(0, 80);
+                lastDebug = snippet;
                 const chats = normalizeChats(data);
                 if (chats.length > 0) { rawChats = chats; break; }
-            } catch { }
+            } catch (e) {
+                console.error("[WA] findChats error:", e);
+                lastDebug = String(e).slice(0, 80);
+            }
         }
 
-        setDebugInfo(`${rawChats.length} chats (instância: ${instNameReal})`);
+        setDebugInfo(`${rawChats.length} chats · ${instNameReal} · API: ${lastDebug}`);
 
-        const map = await loadStatusMap(uid);
-        setStatusMap(map);
+        // Recarrega maps do backend para ter status atualizado
+        const { sMap } = await loadConversasMaps();
+
+        // ── Fallback: Evolution API vazia → usa conversas salvas no backend ──
+        if (rawChats.length === 0) {
+            try {
+                const backendConversas = await whatsappService.getConversas();
+                if (backendConversas.length > 0) {
+                    const lista: Conversa[] = backendConversas.map((c) => {
+                        const jid = `${c.telefone}@s.whatsapp.net`;
+                        return {
+                            id: jid,
+                            remoteJid: jid,
+                            nomeContato: c.nome ?? formatPhone(jid),
+                            telefone: formatPhone(jid),
+                            ultimaMensagem: "Toque para ver mensagens",
+                            timestamp: 0,
+                            unread: 0,
+                            status: c.status,
+                            fromMe: false,
+                        };
+                    });
+                    setConversas(lista);
+                    setLoadingConversas(false);
+                    return;
+                }
+            } catch (e) {
+                console.warn("[WA] fallback backend conversas error:", e);
+            }
+        }
 
         const lista: Conversa[] = rawChats
             .filter((c: any) => (c.remoteJid ?? c.id ?? c.jid ?? "").endsWith("@s.whatsapp.net"))
             .map((c: any) => {
                 const jid: string = c.remoteJid ?? c.id ?? c.jid ?? "";
+                const phone = jidToPhone(jid);
                 const nome = c.pushName ?? c.name ?? c.contactName ?? formatPhone(jid);
                 const lastMsg = c.lastMessage ?? c.Messages?.[0] ?? c.messages?.[0];
                 const ultima = extractMsgText(lastMsg) || (lastMsg ? "[mídia]" : "Nenhuma mensagem");
@@ -315,7 +327,7 @@ const WhatsApp = () => {
                     ultimaMensagem: ultima,
                     timestamp: Number(ts),
                     unread: c.unreadCount ?? c.unreadMessages ?? c._count?.Messages ?? 0,
-                    status: map[jid] ?? "pendentes",
+                    status: sMap[phone] ?? "pendentes",
                     fromMe: lastMsg?.key?.fromMe ?? false,
                 };
             })
@@ -323,7 +335,7 @@ const WhatsApp = () => {
 
         setConversas(lista);
         setLoadingConversas(false);
-    }, [evoFetch, loadStatusMap]);
+    }, [evoFetch, loadConversasMaps]);
 
     // ─── Busca mensagens ──────────────────────────────────────────────────────────
     const fetchMensagens = useCallback(async (conversa: Conversa, instName: string) => {
@@ -360,7 +372,7 @@ const WhatsApp = () => {
 
     // ─── Verifica conexão ─────────────────────────────────────────────────────────
     const checkConnection = useCallback(async () => {
-        if (!instanceName || !userId) return;
+        if (!instanceName) return;
         try {
             const data = await evoFetch(`/instance/connectionState/${instanceName}`);
             const state = data?.instance?.state ?? data?.state ?? data?.status;
@@ -368,46 +380,106 @@ const WhatsApp = () => {
                 setConnStatus("connected");
                 setQrCode(null);
                 if (pollRef.current) clearInterval(pollRef.current);
-                await supabase.from("whatsapp_instancias")
-                    .update({ status: "connected" })
-                    .eq("user_id", userId);
+
+                // Garante que o webhook esteja sempre configurado ao detectar conexão
+                if (!webhookConfigurado.current) {
+                    webhookConfigurado.current = true;
+                    await setupWebhook(instanceName);
+                }
+
+                if (!registradoNoMicroservico.current && user) {
+                    registradoNoMicroservico.current = true;
+                    await registrarCorretor(instanceName, user.id);
+                }
             } else {
-                setConnStatus("disconnected");
+                // não sobrescreve estados de QR code em andamento
+                setConnStatus((prev) =>
+                    prev === "qr_ready" || prev === "loading_qr" ? prev : "disconnected"
+                );
+                registradoNoMicroservico.current = false;
+                webhookConfigurado.current = false;
             }
-        } catch { setConnStatus("disconnected"); }
-    }, [evoFetch, instanceName, userId]);
+        } catch {
+            setConnStatus((prev) =>
+                prev === "qr_ready" || prev === "loading_qr" ? prev : "disconnected"
+            );
+        }
+    }, [evoFetch, instanceName, user, registrarCorretor]);
 
-    // ─── QR Code — cria instância + configura webhook automaticamente ─────────────
+    // ─── QR Code ─────────────────────────────────────────────────────────────────
     const fetchQrCode = useCallback(async () => {
-        if (!instanceName) return;
+        if (!instanceName) {
+            toast.error("Instância não definida. Faça login novamente.");
+            return;
+        }
+        if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
         setConnStatus("loading_qr"); setQrError(null);
+
+        // Extrai base64 de qualquer campo que a Evolution API possa usar
+        function extractBase64(data: any): string | null {
+            return data?.qrcode?.base64
+                ?? data?.hash?.qrcode?.base64
+                ?? data?.base64
+                ?? data?.qr
+                ?? data?.code
+                ?? data?.qrCode
+                ?? data?.data?.qrcode?.base64
+                ?? data?.data?.base64
+                ?? null;
+        }
+
         try {
-            // Tenta criar instância (ignora erro se já existir)
-            try {
-                await evoFetch(`/instance/create`, {
-                    method: "POST",
-                    body: JSON.stringify({ instanceName, qrcode: true, integration: "WHATSAPP-BAILEYS" }),
-                });
+            let base64: string | null = null;
 
-                // ✅ Configura webhook automaticamente logo após criar a instância
-                await setupWebhook(instanceName);
+            // ── Passo 1: tenta criar a instância
+            // Quando a instância é NOVA, o QR já vem na resposta do create (qrcode: true)
+            const createData = await evoFetch(`/instance/create`, {
+                method: "POST",
+                body: JSON.stringify({ instanceName, qrcode: true, integration: "WHATSAPP-BAILEYS" }),
+            });
+            console.log("[QR] create:", JSON.stringify(createData).slice(0, 400));
 
-            } catch { }
+            base64 = extractBase64(createData);
 
-            // Usa GET para conectar (compatível com Evolution v2 na AWS)
-            const data = await evoFetch(`/instance/connect/${instanceName}`, { method: "GET" });
-            const base64 = data?.base64 ?? data?.qrcode?.base64 ?? data?.qr ?? data?.code;
+            // ── Passo 2: se a instância já existia (create falhou / não retornou QR),
+            //             usa o endpoint de reconexão
+            if (!base64) {
+                const connectData = await evoFetch(`/instance/connect/${instanceName}`, { method: "GET" });
+                console.log("[QR] connect:", JSON.stringify(connectData).slice(0, 400));
+                base64 = extractBase64(connectData);
+
+                if (!base64) {
+                    // verifica se é erro de "instância não existe" e tenta recriar
+                    const errMsg: string = connectData?.response?.message?.[0] ?? connectData?.error ?? "";
+                    if (errMsg.toLowerCase().includes("does not exist") || errMsg.toLowerCase().includes("not found")) {
+                        // Instância pode ter sido deletada — aguarda 1s e tenta create novamente
+                        await new Promise(r => setTimeout(r, 1000));
+                        const retryData = await evoFetch(`/instance/create`, {
+                            method: "POST",
+                            body: JSON.stringify({ instanceName, qrcode: true, integration: "WHATSAPP-BAILEYS" }),
+                        });
+                        console.log("[QR] create retry:", JSON.stringify(retryData).slice(0, 400));
+                        base64 = extractBase64(retryData);
+                    }
+                }
+            }
+
             if (base64) {
                 setQrCode(base64.startsWith("data:") ? base64 : `data:image/png;base64,${base64}`);
                 setConnStatus("qr_ready");
                 if (pollRef.current) clearInterval(pollRef.current);
                 pollRef.current = setInterval(checkConnection, 3000);
+                await setupWebhook(instanceName);
             } else {
-                setQrError("QR Code não retornado pela API.");
+                const msg = "QR Code não retornado pela API. Verifique o console.";
+                setQrError(msg);
+                toast.error(msg);
                 setConnStatus("disconnected");
             }
         } catch (err: any) {
-            setQrError(`Erro: ${err.message}`);
+            const msg = err?.message ?? "Falha ao conectar com a API";
+            setQrError(msg);
+            toast.error(`Erro ao gerar QR: ${msg}`);
             setConnStatus("disconnected");
         }
     }, [evoFetch, instanceName, checkConnection, setupWebhook]);
@@ -439,9 +511,9 @@ const WhatsApp = () => {
     }, [instanceName, checkConnection]);
 
     useEffect(() => {
-        if (connStatus === "connected" && instanceName && userId)
-            fetchConversas(instanceName, userId);
-    }, [connStatus, instanceName, userId, fetchConversas]);
+        if (connStatus === "connected" && instanceName)
+            fetchConversas(instanceName);
+    }, [connStatus, instanceName, fetchConversas]);
 
     useEffect(() => {
         if (!selectedConversa || !instanceName || connStatus !== "connected") return;
@@ -454,19 +526,20 @@ const WhatsApp = () => {
 
     // ─── Muda status ──────────────────────────────────────────────────────────────
     async function changeStatus(jid: string, status: TabStatus) {
-        if (!userId) return;
-        setStatusMap((prev) => ({ ...prev, [jid]: status }));
+        const phone = jidToPhone(jid);
+        setStatusMap((prev) => ({ ...prev, [phone]: status }));
         setConversas((prev) => prev.map((c) => c.remoteJid === jid ? { ...c, status } : c));
         if (selectedConversa?.remoteJid === jid)
             setSelectedConversa((prev) => prev ? { ...prev, status } : prev);
-        await saveStatus(userId, jid, status);
+        const conversaId = conversaIdMap[phone];
+        if (conversaId) await whatsappService.updateConversaStatus(conversaId, status);
     }
 
     // ─── Enviar mensagem ──────────────────────────────────────────────────────────
     async function handleSend() {
         if (!selectedConversa || !message.trim() || !instanceName) return;
         setSending(true);
-        const phone = selectedConversa.remoteJid.replace("@s.whatsapp.net", "");
+        const phone = jidToPhone(selectedConversa.remoteJid);
         const text = message;
         setMessage("");
         setMensagens((prev) => [...prev, {
@@ -555,11 +628,14 @@ const WhatsApp = () => {
                         )}
                         {connStatus === "disconnected" && (
                             <button onClick={fetchQrCode} className="flex items-center gap-1.5 text-xs text-red-400 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 px-3 py-1.5 rounded-full transition-colors">
-                                <WifiOff className="w-3.5 h-3.5" /> Reconectar
+                                <WifiOff className="w-3.5 h-3.5" /> {qrError ? "Tentar novamente" : "Reconectar"}
                             </button>
                         )}
+                        {connStatus === "disconnected" && qrError && (
+                            <span className="text-xs text-red-400 max-w-[200px] truncate" title={qrError}>{qrError}</span>
+                        )}
                         <button
-                            onClick={() => instanceName && userId && fetchConversas(instanceName, userId)}
+                            onClick={() => instanceName && fetchConversas(instanceName)}
                             disabled={loadingConversas}
                             title={debugInfo}
                             className="w-9 h-9 rounded-xl bg-gray-100 dark:bg-[#22263a] hover:bg-gray-200 flex items-center justify-center text-gray-500 transition-colors"

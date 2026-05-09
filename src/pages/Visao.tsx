@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import {
     DollarSign,
     TrendingUp,
@@ -14,14 +14,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
 import { Sidebar } from "@/components/Sidebar";
 import {
-    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+    BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip,
     LineChart, Line, Legend, ResponsiveContainer,
 } from "recharts";
-
-
+import { useQuery } from "@tanstack/react-query";
+import { fluxoService, type FluxoItem } from "@/services/fluxo.service";
 
 type Transacao = {
     id: string;
@@ -40,8 +39,6 @@ type DespesaFixa = {
     diaVencimento: number;
     status: "ativa" | "inativa";
 };
-
-
 
 function formatCurrency(value: number) {
     return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -69,58 +66,58 @@ function keyFromDate(dateStr: string) {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function mapRowToDespesaFixa(r: Record<string, unknown>): DespesaFixa {
+function mapItemToTransacao(item: FluxoItem): Transacao {
     return {
-        id: String(r.id),
-        descricao: String(r.descricao_depesas ?? ""),
-        valor: Number(r.valor_despesas ?? 0),
-        categoria: String(r.categoria_despesas ?? ""),
-        diaVencimento: Number(r.dia_vencimento ?? 1),
-        status: r.status_despesas === "inativa" ? "inativa" : "ativa",
+        id: item.id,
+        descricao: item.descricao ?? "",
+        valor: Number(item.valor ?? 0),
+        tipo: item.tipo as "entrada" | "saida",
+        categoria: item.categoria ?? "",
+        data: item.data,
     };
 }
 
-
+function mapItemToDespesaFixa(item: FluxoItem): DespesaFixa {
+    return {
+        id: item.id,
+        descricao: item.descricao_despesas ?? item.descricao ?? "",
+        valor: Number(item.valor_despesas ?? 0),
+        categoria: item.categoria_despesas ?? "",
+        diaVencimento: item.dia_vencimento ?? 1,
+        status: item.status_despesas === "inativa" ? "inativa" : "ativa",
+    };
+}
 
 export default function Visao() {
     const hoje = new Date();
     const mesAtualKey = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}`;
 
     const [mesSelecionado, setMesSelecionado] = useState(mesAtualKey);
-    const [transacoes, setTransacoes] = useState<Transacao[]>([]);
-    const [despesasFixas, setDespesasFixas] = useState<DespesaFixa[]>([]);
-    const [loading, setLoading] = useState(true);
 
+    const { data: allItems = [] } = useQuery({
+        queryKey: ["fluxo-caixa"],
+        queryFn: () => fluxoService.getAll({ status: "confirmado" }),
+        staleTime: 1000 * 60 * 5,
+    });
 
+    const { data: fixasItems = [] } = useQuery({
+        queryKey: ["fluxo-despesas"],
+        queryFn: () => fluxoService.getAll({ tipo: "financeiro" }),
+        staleTime: 1000 * 60 * 5,
+    });
 
-    useEffect(() => {
-        async function load() {
-            setLoading(true);
+    const transacoes = useMemo<Transacao[]>(
+        () =>
+            allItems
+                .filter((item) => item.tipo === "entrada" || item.tipo === "saida")
+                .map(mapItemToTransacao),
+        [allItems]
+    );
 
-            // Entradas e saídas variáveis
-            const { data: transData } = await supabase
-                .from("financeiro")
-                .select("id, descricao, valor, tipo, categoria, data")
-                .eq("status", "confirmado")
-                .in("tipo", ["entrada", "saida"])
-                .order("data", { ascending: false });
-
-            // Despesas fixas
-            const { data: fixasData } = await supabase
-                .from("financeiro")
-                .select(`id, descricao_depesas, valor_despesas, categoria_despesas,
-                 dia_vencimento, status_despesas`)
-                .eq("tipo", "financeiro");
-
-            if (transData) setTransacoes(transData as Transacao[]);
-            if (fixasData) setDespesasFixas(fixasData.map(mapRowToDespesaFixa));
-
-            setLoading(false);
-        }
-        load();
-    }, []);
-
-
+    const despesasFixas = useMemo<DespesaFixa[]>(
+        () => fixasItems.map(mapItemToDespesaFixa),
+        [fixasItems]
+    );
 
     const mesesDisponiveis = useMemo(() => {
         const set = new Set<string>();
@@ -129,13 +126,9 @@ export default function Visao() {
         return Array.from(set).sort((a, b) => b.localeCompare(a));
     }, [transacoes]);
 
-
-
     function transacoesDo(mes: string) {
         return transacoes.filter((t) => keyFromDate(t.data) === mes);
     }
-
-
 
     function calcularBalanco(mes: string) {
         const trans = transacoesDo(mes);
@@ -143,11 +136,11 @@ export default function Visao() {
 
         const entradas = trans
             .filter((t) => t.tipo === "entrada")
-            .reduce((acc, t) => acc + Number(t.valor), 0);
+            .reduce((acc, t) => acc + t.valor, 0);
 
         const saidasVariaveis = trans
             .filter((t) => t.tipo === "saida")
-            .reduce((acc, t) => acc + Number(t.valor), 0);
+            .reduce((acc, t) => acc + t.valor, 0);
 
         const custoFixo = fixasAtivas.reduce((acc, d) => acc + d.valor, 0);
         const despesasTotais = saidasVariaveis + custoFixo;
@@ -160,19 +153,14 @@ export default function Visao() {
     const balanco = useMemo(() => calcularBalanco(mesSelecionado), [mesSelecionado, transacoes, despesasFixas]);
     const balancoAnterior = useMemo(() => calcularBalanco(getMesAnterior(mesSelecionado)), [mesSelecionado, transacoes, despesasFixas]);
 
-
-
     function variacao(atual: number, anterior: number) {
         if (anterior === 0) return atual > 0 ? 100 : 0;
         return ((atual - anterior) / anterior) * 100;
     }
 
-
     const risco = balanco.percentualDespesas > 70 ? "alto" : balanco.percentualDespesas > 40 ? "moderado" : "saudável";
     const riscoColor = risco === "alto" ? "text-red-500" : risco === "moderado" ? "text-yellow-500" : "text-green-500";
     const riscoBg = risco === "alto" ? "bg-red-500/10" : risco === "moderado" ? "bg-yellow-500/10" : "bg-green-500/10";
-
-
 
     const cards = [
         {
@@ -220,16 +208,12 @@ export default function Visao() {
         },
     ];
 
-
-
     const barData = [
         { name: "Entradas", valor: balanco.entradas, fill: "#22c55e" },
         { name: "Fixas", valor: balanco.custoFixo, fill: "#eab308" },
         { name: "Variáveis", valor: balanco.saidasVariaveis, fill: "#ef4444" },
         { name: "Lucro", valor: Math.max(0, balanco.lucroLiquido), fill: "#3b82f6" },
     ];
-
-
 
     const comparativoData = [
         { metrica: "Entradas", mesAtual: balanco.entradas, mesAnterior: balancoAnterior.entradas },
@@ -238,12 +222,8 @@ export default function Visao() {
         { metrica: "Lucro", mesAtual: balanco.lucroLiquido, mesAnterior: balancoAnterior.lucroLiquido },
     ];
 
-
-
     const transacoesMes = useMemo(() => transacoesDo(mesSelecionado), [mesSelecionado, transacoes]);
     const fixasAtivas = despesasFixas.filter((d) => d.status === "ativa");
-
-
 
     return (
         <div className="flex min-h-screen bg-background">
@@ -359,7 +339,7 @@ export default function Visao() {
                                     <Tooltip formatter={(value: number) => formatCurrency(value)} />
                                     <Bar dataKey="valor" radius={[6, 6, 0, 0]}>
                                         {barData.map((entry, i) => (
-                                            <rect key={i} fill={entry.fill} />
+                                            <Cell key={i} fill={entry.fill} />
                                         ))}
                                     </Bar>
                                 </BarChart>
@@ -412,7 +392,7 @@ export default function Visao() {
                                                     </p>
                                                 </div>
                                                 <span className="text-sm font-bold text-green-500">
-                                                    +{formatCurrency(Number(t.valor))}
+                                                    +{formatCurrency(t.valor)}
                                                 </span>
                                             </div>
                                         ))
@@ -465,7 +445,7 @@ export default function Visao() {
                                                             {t.categoria} • {new Date(t.data).toLocaleDateString("pt-BR")}
                                                         </p>
                                                     </div>
-                                                    <span className="text-sm font-bold text-red-500">-{formatCurrency(Number(t.valor))}</span>
+                                                    <span className="text-sm font-bold text-red-500">-{formatCurrency(t.valor)}</span>
                                                 </div>
                                             ))}
                                     </div>

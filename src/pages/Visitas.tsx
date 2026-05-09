@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 // ✅ REMOVIDO: useEffect — não precisamos mais dele, o React Query gerencia o ciclo de vida
 // ✅ ADICIONADO: useQuery e useQueryClient para cache automático
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -8,13 +8,13 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
-import { supabase } from "@/integrations/supabase/client";
-import { createVisita } from "@/integrations/supabase/visistas/createVisita";
-import { getVisitas } from "@/integrations/supabase/visistas/getVisitas";
-import { deleteVisita } from "@/integrations/supabase/visistas/deleteVisita";
+import { visitaService, type VisitaRaw } from "@/services/visita.service";
+import { leadService } from "@/services/lead.service";
+import { imovelService } from "@/services/imovel.service";
 import { Sidebar } from "@/components/Sidebar";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -58,41 +58,41 @@ const statusConfig = {
 // ✅ ADICIONADO: funções get para leads e imóveis extraídas do componente
 // Antes estavam inline no useEffect — agora são queryFns limpas para o React Query
 async function fetchLeads(): Promise<Lead[]> {
-  const { data: authData } = await supabase.auth.getUser();
-  if (!authData?.user) return [];
-
-  const { data, error } = await supabase
-    .from("leads")
-    .select("id, nome, telefone")
-    .eq("user_id", authData.user.id)
-    .order("nome", { ascending: true });
-
-  if (error) return [];
-  return data || [];
+  const leads = await leadService.getAll();
+  return leads.map((l) => ({ id: l.id, nome: l.name, telefone: l.telefone }));
 }
+
 async function fetchImoveis(): Promise<Imovel[]> {
-  const { data, error } = await supabase
-    .from("imoveis")
-    .select("id, titulo, endereco")
-    .order("titulo", { ascending: true });
-  if (error) throw error;
-  return (data || []).map((i) => ({ id: i.id, nome: i.titulo, endereco: i.endereco }));
+  const imoveis = await imovelService.getAll();
+  return imoveis.map((i) => ({ id: i.id, nome: i.titulo, endereco: i.endereco ?? '' }));
 }
 
 // ✅ ADICIONADO: função que formata os dados brutos de visitas
 // Antes estava inline dentro de carregarVisitas() — separar deixa o código mais limpo
-function formatarVisitas(data: any[]): Visita[] {
+const STATUS_MAP: Record<string, Visita["status"]> = {
+  agendada: "agendada",
+  confirmada: "confirmada",
+  realizada: "realizada",
+  cancelada: "cancelada",
+  reagendada: "reagendada",
+};
+
+function normalizeStatus(raw: string): Visita["status"] {
+  return STATUS_MAP[raw?.toLowerCase()] ?? "agendada";
+}
+
+function formatarVisitas(data: VisitaRaw[]): Visita[] {
   return data.map((v) => ({
     id: v.id,
     lead_id: v.lead_id,
     imovel_id: v.imovel_id,
     data: typeof v.data === "string" ? parseISO(v.data) : new Date(v.data),
     anotacoes: v.anotacoes,
-    status: "agendada" as const,
-    clienteNome: v.clienteNome || "Cliente não encontrado",
-    clienteTelefone: v.clienteTelefone || "",
-    imovelNome: v.imovelNome || "Imóvel não encontrado",
-    imovelEndereco: v.imovelEndereco || "",
+    status: normalizeStatus(v.status),
+    clienteNome: v.clienteNome ?? v.lead?.name ?? "Cliente não encontrado",
+    clienteTelefone: v.clienteTelefone ?? v.lead?.telefone ?? "",
+    imovelNome: v.imovelNome ?? v.imovel?.titulo ?? "Imóvel não encontrado",
+    imovelEndereco: v.imovelEndereco ?? v.imovel?.endereco ?? "",
   }));
 }
 
@@ -109,6 +109,7 @@ export default function Agenda() {
   const [salvando, setSalvando] = useState(false);
   const [novaVisita, setNovaVisita] = useState({
     lead_id: "", imovel_id: "", data: new Date(), horario: "09:00", anotacoes: "",
+    nome_cliente: "", telefone_cliente: "",
   });
 
   // ✅ ADICIONADO: queryClient para invalidar o cache após criar/excluir visita
@@ -117,35 +118,44 @@ export default function Agenda() {
   // ✅ MIGRADO: carregarVisitas() virou useQuery
   // Antes: useEffect chamava carregarVisitas() → setVisitas()
   // Agora: React Query chama getVisitas(), cacheia por 5min e expõe { data, isLoading }
-  const { data: visitasBrutas = [], isLoading: loadingVisitas } = useQuery({
+  const { data: visitasRaw = [], isLoading: loadingVisitas } = useQuery({
     queryKey: ["visitas"],
-    queryFn: async () => {
-      const { data, error } = await getVisitas();
-      if (error) throw error;
-      return formatarVisitas(data || []);
-    },
+    queryFn: () => visitaService.getAll(),
     staleTime: STALE,
   });
 
-  // ✅ MIGRADO: carregarLeads() virou useQuery
-  // queryKey: ["leads"] é a MESMA chave usada em Leads.tsx e Dashboard.tsx
-  // → se o usuário já visitou essas telas, os dados vêm do cache sem bater no banco
   const { data: leads = [], isLoading: loadingLeads } = useQuery({
-    queryKey: ["leads"],
+    queryKey: ["leads-select"],
     queryFn: fetchLeads,
     staleTime: STALE,
   });
 
-  // ✅ MIGRADO: carregarImoveis() virou useQuery com cache compartilhado
   const { data: imoveis = [], isLoading: loadingImoveis } = useQuery({
-    queryKey: ["imoveis"],
+    queryKey: ["imoveis-select"],
     queryFn: fetchImoveis,
     staleTime: STALE,
   });
 
-  // ✅ ADICIONADO: visitas agora é imutável (vem do cache)
-  // Para atualizar status localmente sem refetch, usamos setQueryData
-  const visitas = visitasBrutas;
+  // Cruza visitas com leads e imóveis locais para preencher nomes
+  const visitas = useMemo<Visita[]>(() => {
+    return visitasRaw.map((v) => {
+      const lead = leads.find((l) => l.id === v.lead_id);
+      const imovel = imoveis.find((i) => i.id === v.imovel_id);
+      return {
+        id: v.id,
+        lead_id: v.lead_id,
+        imovel_id: v.imovel_id,
+        data: typeof v.data === "string" ? parseISO(v.data) : new Date(v.data),
+        horario: v.horario,
+        anotacoes: v.anotacoes,
+        status: normalizeStatus(v.status),
+        clienteNome: v.clienteNome ?? v.lead?.name ?? lead?.nome ?? "Cliente não encontrado",
+        clienteTelefone: v.clienteTelefone ?? v.lead?.telefone ?? lead?.telefone ?? "",
+        imovelNome: v.imovelNome ?? v.imovel?.titulo ?? imovel?.nome ?? "Imóvel não encontrado",
+        imovelEndereco: v.imovelEndereco ?? v.imovel?.endereco ?? imovel?.endereco ?? "",
+      };
+    });
+  }, [visitasRaw, leads, imoveis]);
 
   const loading = loadingVisitas || loadingLeads || loadingImoveis;
 
@@ -168,18 +178,16 @@ export default function Agenda() {
     }
     setSalvando(true);
     try {
-      const { error } = await createVisita({
+      await visitaService.create({
         lead_id: novaVisita.lead_id,
         imovel_id: novaVisita.imovel_id,
         data: novaVisita.data.toISOString(),
         anotacoes: novaVisita.anotacoes || undefined,
+        nome_cliente: novaVisita.nome_cliente || undefined,
+        telefone_cliente: novaVisita.telefone_cliente || undefined,
       });
-      if (error) throw new Error(error);
-      setNovaVisita({ lead_id: "", imovel_id: "", data: new Date(), horario: "09:00", anotacoes: "" });
+      setNovaVisita({ lead_id: "", imovel_id: "", data: new Date(), horario: "09:00", anotacoes: "", nome_cliente: "", telefone_cliente: "" });
       setDialogAberto(false);
-
-      // ✅ MIGRADO: era await carregarVisitas() — agora invalida o cache
-      // O React Query vai buscar os dados atualizados automaticamente
       queryClient.invalidateQueries({ queryKey: ["visitas"] });
     } catch (err) {
       console.error("Erro ao criar visita:", err);
@@ -193,22 +201,23 @@ export default function Agenda() {
   // Agora usa setQueryData para atualizar o cache do React Query sem refetch
   // Isso mantém a UI responsiva e o cache consistente ao mesmo tempo
   const handleAtualizarStatus = async (id: string, status: Visita["status"]) => {
-    queryClient.setQueryData<Visita[]>(["visitas"], (old = []) =>
-      old.map((v) => (v.id === id ? { ...v, status } : v))
-    );
-    if (visitaSelecionada?.id === id) {
-      setVisitaSelecionada((prev) => prev ? { ...prev, status } : prev);
+    try {
+      await visitaService.updateStatus(id, status);
+      queryClient.setQueryData<VisitaRaw[]>(["visitas"], (old = []) =>
+        old.map((v) => (v.id === id ? { ...v, status } : v))
+      );
+      if (visitaSelecionada?.id === id) {
+        setVisitaSelecionada((prev) => prev ? { ...prev, status } : prev);
+      }
+    } catch (err) {
+      console.error("Erro ao atualizar status:", err);
     }
   };
 
   const handleExcluirVisita = async (id: string) => {
     try {
-      const { error } = await deleteVisita(id);
-      if (error) throw new Error(error);
-
-      // ✅ MIGRADO: era setVisitas(visitas.filter(...)) no estado local
-      // Agora atualiza o cache diretamente com setQueryData — sem refetch desnecessário
-      queryClient.setQueryData<Visita[]>(["visitas"], (old = []) =>
+      await visitaService.delete(id);
+      queryClient.setQueryData<VisitaRaw[]>(["visitas"], (old = []) =>
         old.filter((v) => v.id !== id)
       );
       setVisitaSelecionada(null);
@@ -225,7 +234,7 @@ export default function Agenda() {
   const visitasConfirmadas = visitas.filter((v) => v.status === "confirmada").length;
 
   const VisitaCard = ({ visita }: { visita: Visita }) => {
-    const config = statusConfig[visita.status];
+    const config = statusConfig[visita.status] ?? statusConfig.agendada;
     const passada = isBefore(startOfDay(visita.data), startOfDay(new Date())) && visita.status !== "realizada";
     return (
       <Card
@@ -400,7 +409,7 @@ export default function Agenda() {
                       <Card className="border-dashed">
                         <CardContent className="p-4 md:p-6 text-center">
                           <p className="text-sm text-muted-foreground">Nenhuma visita agendada para hoje</p>
-                          <Button variant="link" className="mt-2 text-sm" onClick={() => { setNovaVisita({ ...novaVisita, data: dia }); setDialogAberto(true); }}>
+                          <Button variant="link" className="mt-2 text-sm" onClick={() => { setNovaVisita((prev) => ({ ...prev, data: dia })); setDialogAberto(true); }}>
                             <Plus className="h-4 w-4 mr-1" /> Agendar visita
                           </Button>
                         </CardContent>
@@ -440,16 +449,46 @@ export default function Agenda() {
               <h4 className="font-medium text-xs md:text-sm text-muted-foreground flex items-center gap-2"><User className="h-4 w-4" />Selecionar Lead</h4>
               <div className="space-y-2">
                 <Label htmlFor="lead" className="text-xs md:text-sm">Lead / Cliente</Label>
-                <Select value={novaVisita.lead_id} onValueChange={(value) => setNovaVisita({ ...novaVisita, lead_id: value })}>
+                <Select
+                  value={novaVisita.lead_id}
+                  onValueChange={(value) => {
+                    const lead = leads.find((l) => l.id === value);
+                    setNovaVisita({
+                      ...novaVisita,
+                      lead_id: value,
+                      nome_cliente: lead?.nome ?? novaVisita.nome_cliente,
+                      telefone_cliente: lead?.telefone ?? novaVisita.telefone_cliente,
+                    });
+                  }}
+                >
                   <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Selecione um lead" /></SelectTrigger>
                   <SelectContent>
-                    {leads.length === 0 ? (
-                      <SelectItem value="" disabled>Nenhum lead cadastrado</SelectItem>
-                    ) : (
-                      leads.map((lead) => <SelectItem key={lead.id} value={lead.id}>{lead.nome} - {lead.telefone}</SelectItem>)
-                    )}
+                    {leads.length === 0
+                      ? <p className="py-2 px-3 text-sm text-muted-foreground">Nenhum lead cadastrado</p>
+                      : leads.map((lead) => <SelectItem key={lead.id} value={lead.id}>{lead.nome} - {lead.telefone}</SelectItem>)
+                    }
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Nome do cliente</Label>
+                  <Input
+                    value={novaVisita.nome_cliente}
+                    onChange={(e) => setNovaVisita({ ...novaVisita, nome_cliente: e.target.value })}
+                    placeholder="Nome para lembrete"
+                    className="h-9 text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Telefone (WhatsApp)</Label>
+                  <Input
+                    value={novaVisita.telefone_cliente}
+                    onChange={(e) => setNovaVisita({ ...novaVisita, telefone_cliente: e.target.value })}
+                    placeholder="Ex: 5511999999999"
+                    className="h-9 text-sm"
+                  />
+                </div>
               </div>
             </div>
             <div className="space-y-3 p-3 md:p-4 rounded-lg bg-muted/30">
@@ -459,11 +498,10 @@ export default function Agenda() {
                 <Select value={novaVisita.imovel_id} onValueChange={(value) => setNovaVisita({ ...novaVisita, imovel_id: value })}>
                   <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Selecione um imóvel" /></SelectTrigger>
                   <SelectContent>
-                    {imoveis.length === 0 ? (
-                      <SelectItem value="" disabled>Nenhum imóvel cadastrado</SelectItem>
-                    ) : (
-                      imoveis.map((imovel) => <SelectItem key={imovel.id} value={imovel.id}>{imovel.nome} - {imovel.endereco}</SelectItem>)
-                    )}
+                    {imoveis.length === 0
+                      ? <p className="py-2 px-3 text-sm text-muted-foreground">Nenhum imóvel cadastrado</p>
+                      : imoveis.map((imovel) => <SelectItem key={imovel.id} value={imovel.id}>{imovel.nome} - {imovel.endereco}</SelectItem>)
+                    }
                   </SelectContent>
                 </Select>
               </div>
@@ -518,15 +556,22 @@ export default function Agenda() {
             <>
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-3 text-base md:text-lg">
-                  <div className={cn("h-9 w-9 md:h-10 md:w-10 rounded-full flex items-center justify-center shrink-0", statusConfig[visitaSelecionada.status].color.split(" ")[0])}>
-                    <CalendarCheck className="h-4 w-4 md:h-5 md:w-5" />
-                  </div>
-                  <div>
-                    <span className="block text-sm md:text-base">Detalhes da Visita</span>
-                    <Badge className={cn("mt-1 text-xs font-medium border", statusConfig[visitaSelecionada.status].color)}>
-                      {statusConfig[visitaSelecionada.status].label}
-                    </Badge>
-                  </div>
+                  {(() => {
+                    const cfg = statusConfig[visitaSelecionada.status] ?? statusConfig.agendada;
+                    return (
+                      <>
+                        <div className={cn("h-9 w-9 md:h-10 md:w-10 rounded-full flex items-center justify-center shrink-0", cfg.color.split(" ")[0])}>
+                          <CalendarCheck className="h-4 w-4 md:h-5 md:w-5" />
+                        </div>
+                        <div>
+                          <span className="block text-sm md:text-base">Detalhes da Visita</span>
+                          <Badge className={cn("mt-1 text-xs font-medium border", cfg.color)}>
+                            {cfg.label}
+                          </Badge>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </DialogTitle>
               </DialogHeader>
               <div className="space-y-3 md:space-y-4 py-3 md:py-4">

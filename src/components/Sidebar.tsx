@@ -1,15 +1,17 @@
 import { NavLink } from "@/components/NavLink";
 import { useNavigate, useLocation } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { authService } from "@/services/auth.services";
 import { toast } from "sonner";
 import { useState } from "react";
 import { ChevronRight, Sun, Moon } from "lucide-react";
 import { useTheme } from "@/useTheme";
+import { useAuthStore } from "@/store/auth.store";
 import {
   Banknote, Wallet, CreditCard, Landmark, LayoutDashboard,
   Users, UserCheck, DollarSign, BarChart3, Home, LogOut,
   Filter, CheckSquare, MessageCircle, Rocket, Repeat,
-  Megaphone, Mic, Headphones, Bot, Calendar
+  Megaphone, Mic, Headphones, Bot, Calendar,
+  Building2, Mail,
 } from "lucide-react";
 
 const navigation = [
@@ -23,9 +25,11 @@ const navigation = [
   },
   {
     name: "Atendimento", icon: Bot, darkColor: "text-green-400", lightColor: "text-white",
+    somenteCorretor: true,
     children: [
       { name: "Mensagens", href: "/dashboard/whatsapp", icon: MessageCircle, darkColor: "text-green-400", lightColor: "text-white" },
       { name: "Automação", href: "/dashboard/automacoes", icon: Mic, darkColor: "text-green-300", lightColor: "text-white" },
+      { name: "Follow-ups", href: "/dashboard/Followups", icon: Repeat, darkColor: "text-emerald-300", lightColor: "text-white" },
     ]
   },
   {
@@ -38,9 +42,9 @@ const navigation = [
   },
   {
     name: "Campanhas", icon: Megaphone, darkColor: "text-emerald-400", lightColor: "text-white",
+    somenteCorretor: true,
     children: [
-      { name: "Disparos", href: "/dashboard/disparos", icon: Rocket, darkColor: "text-emerald-400", lightColor: "text-white" },
-      { name: "Follow-ups", href: "/dashboard/Followups", icon: Repeat, darkColor: "text-emerald-300", lightColor: "text-white" },
+      { name: "Disparos", href: "/dashboard/campanhas", icon: Rocket, darkColor: "text-emerald-400", lightColor: "text-white" },
     ]
   },
   { name: "Vendas", href: "/dashboard/vendas", icon: CreditCard, darkColor: "text-pink-400", lightColor: "text-white" },
@@ -116,18 +120,27 @@ const MobileBottomBar = () => {
   );
 };
 
+const imobiliariaNav = [
+  { name: "Painel", href: "/imobiliaria/dashboard", icon: Building2, darkColor: "text-blue-400", lightColor: "text-white" },
+  { name: "Minha Imobiliária", href: "/imobiliaria/perfil", icon: Building2, darkColor: "text-blue-300", lightColor: "text-white" },
+  { name: "Corretores", href: "/imobiliaria/corretores", icon: Users, darkColor: "text-cyan-400", lightColor: "text-white" },
+  { name: "Convites", href: "/imobiliaria/convites", icon: Mail, darkColor: "text-amber-400", lightColor: "text-white" },
+];
+
 export const Sidebar = () => {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const navigate = useNavigate();
   const { isDark, toggleTheme } = useTheme();
+  const { user } = useAuthStore();
+  const isImobiliaria = user?.tipo_conta === 'imobiliaria';
 
   const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      toast.error("Erro ao sair");
-    } else {
+    try {
+      await authService.logout();
       toast.success("Logout realizado com sucesso");
       navigate("/auth");
+    } catch {
+      toast.error("Erro ao sair");
     }
   };
 
@@ -148,9 +161,12 @@ export const Sidebar = () => {
           }
         `}
       >
-        <div className={`flex h-16 items-center justify-center border-b flex-shrink-0 ${isDark ? "border-white/10" : "border-white/5"}`}>
-          <span className="text-xl font-bold tracking-wide text-white opacity-0 group-hover:opacity-100 transition-all duration-300">
-            KELMOR CRM
+        <div className={`flex h-16 items-center justify-center px-3 border-b flex-shrink-0 ${isDark ? "border-white/10" : "border-white/5"}`}>
+          <span
+            className="text-white text-lg leading-none opacity-0 group-hover:opacity-100 transition-all duration-300 whitespace-nowrap"
+            style={{ fontWeight: 900, letterSpacing: "-0.04em" }}
+          >
+            kelmor
           </span>
         </div>
 
@@ -160,7 +176,38 @@ export const Sidebar = () => {
         >
           <style>{`nav::-webkit-scrollbar { display: none; }`}</style>
           <div className="flex flex-col gap-1">
-            {navigation.map((item) => {
+            {isImobiliaria && (
+              <div className="mb-1">
+                <p className={`text-[10px] font-semibold uppercase tracking-widest px-3 py-1.5 opacity-0 group-hover:opacity-100 transition-all ${isDark ? "text-slate-500" : "text-white/40"}`}>
+                  Imobiliária
+                </p>
+                {imobiliariaNav.map((item) => (
+                  <NavLink
+                    key={item.name}
+                    to={item.href}
+                    end={item.href === "/imobiliaria/dashboard"}
+                    className={`
+                      flex items-center gap-3 rounded-xl px-3 py-3
+                      transition-all duration-200
+                      ${isDark ? "text-slate-300 hover:bg-white/8 hover:text-white" : "text-white/70 hover:bg-white/5 hover:text-white"}
+                    `}
+                    activeClassName={
+                      isDark
+                        ? "bg-indigo-500/20 text-white font-medium border border-indigo-500/30"
+                        : "bg-gradient-to-r from-blue-600/30 to-indigo-600/30 text-white font-medium shadow-[0_0_15px_rgba(59,130,246,0.25)]"
+                    }
+                  >
+                    <item.icon className={`h-[22px] w-[22px] min-w-[22px] ${isDark ? item.darkColor : item.lightColor}`} />
+                    <span className="opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap text-sm">
+                      {item.name}
+                    </span>
+                  </NavLink>
+                ))}
+                <div className={`mx-3 my-2 border-t ${isDark ? "border-white/10" : "border-white/10"}`} />
+              </div>
+            )}
+
+            {navigation.filter((item) => !isImobiliaria || !item.somenteCorretor).map((item) => {
               const isOpen = openMenu === item.name;
 
               if ("children" in item) {
