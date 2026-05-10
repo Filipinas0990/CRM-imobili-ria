@@ -3,24 +3,22 @@ import { Sidebar } from "@/components/Sidebar";
 import {
     Send, Users, MessageCircle, CheckSquare, Search,
     Loader2, AlertCircle, CheckCircle2, Zap, RefreshCw,
-    Info
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { useAuthStore } from "@/store/auth.store";
+import { leadService } from "@/services/lead.service";
 
-const PROXY_URL = `${import.meta.env.VITE_SUPABASE_FUNCTIONS_URL}/evolution-proxy`;
+const PROXY = `${import.meta.env.VITE_API_URL}/api/v1/whatsapp/evolution`;
 const DAILY_LIMIT = 10;
-
 
 interface Lead {
     id: string;
-    nome: string;
+    name: string;
     telefone: string;
     interesse?: string;
     status?: string;
 }
 
 interface DisparoLog {
-    id: string;
     lead_id: string;
     lead_name: string;
     phone: string;
@@ -28,7 +26,6 @@ interface DisparoLog {
     success: boolean;
     message_preview: string;
 }
-
 
 function formatPhoneForEvo(phone: string): string {
     const digits = phone.replace(/\D/g, "");
@@ -68,7 +65,6 @@ const statusLabels: Record<string, string> = {
     proposta: "Proposta", fechado: "Fechado", perdido: "Perdido",
 };
 
-
 const avatarColors = [
     "#4F86F7", "#7C5CBF", "#E05FA0",
     "#F4874B", "#2BBFA4", "#5B6FD6",
@@ -86,63 +82,43 @@ function getInitials(name: string) {
     return clean.split(" ").slice(0, 2).map((n) => n[0] ?? "").join("").toUpperCase();
 }
 
-
 const Disparo = () => {
+    const user = useAuthStore((s) => s.user);
+    const accessToken = useAuthStore((s) => s.accessToken);
+
     const [leads, setLeads] = useState<Lead[]>([]);
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [message, setMessage] = useState(messageTemplates[0].text);
     const [searchTerm, setSearchTerm] = useState("");
     const [sending, setSending] = useState(false);
     const [sendingProgress, setSendingProgress] = useState(0);
-    const [instanceName, setInstanceName] = useState<string | null>(null);
-    const [userId, setUserId] = useState<string | null>(null);
     const [loadingLeads, setLoadingLeads] = useState(true);
     const [disparosHoje, setDisparosHoje] = useState(0);
     const [logs, setLogs] = useState<DisparoLog[]>([]);
     const [resultados, setResultados] = useState<{ success: number; fail: number } | null>(null);
     const [connStatus, setConnStatus] = useState<"checking" | "connected" | "disconnected">("checking");
 
+    const instanceName = user ? `inst-${user.id.split("-")[0]}` : null;
 
-    useEffect(() => {
-        async function init() {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
-            setUserId(user.id);
-
-            const instName = `inst-${user.id.slice(0, 8)}`;
-            const { data: inst } = await supabase
-                .from("whatsapp_instancias")
-                .select("instance_name")
-                .eq("user_id", user.id)
-                .single();
-            setInstanceName(inst?.instance_name ?? instName);
-
-
-            setLoadingLeads(true);
-            const { data: leadsData } = await supabase
-                .from("leads")
-                .select("id, nome, telefone, interesse, status")
-                .not("telefone", "is", null)
-                .order("criado_em", { ascending: false });
-            setLeads(leadsData ?? []);
-            setLoadingLeads(false);
-
-
-            await fetchDisparosHoje();
-        }
-        init();
-    }, []);
-
+    const evoFetch = useCallback(async (path: string, options?: RequestInit) => {
+        const cleanPath = path.startsWith("/") ? path.slice(1) : path;
+        const res = await fetch(`${PROXY}/${cleanPath}`, {
+            ...options,
+            headers: {
+                "Content-Type": "application/json",
+                ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+                ...(options?.headers ?? {}),
+            },
+        });
+        const text = await res.text();
+        try { return { ok: res.ok, data: JSON.parse(text) }; } catch { return { ok: res.ok, data: null }; }
+    }, [accessToken]);
 
     useEffect(() => {
         if (!instanceName) return;
         async function checkConn() {
             try {
-                const res = await fetch(
-                    `${PROXY_URL}?path=${encodeURIComponent(`/instance/connectionState/${instanceName}`)}`,
-                    { headers: { "Content-Type": "application/json" } }
-                );
-                const data = await res.json();
+                const { data } = await evoFetch(`/instance/connectionState/${instanceName}`);
                 const state = data?.instance?.state ?? data?.state;
                 setConnStatus(state === "open" ? "connected" : "disconnected");
             } catch {
@@ -150,40 +126,24 @@ const Disparo = () => {
             }
         }
         checkConn();
-    }, [instanceName]);
+    }, [instanceName, evoFetch]);
 
-    const fetchDisparosHoje = useCallback(async () => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-
-        const hoje = new Date().toISOString().split("T")[0];
-
-
-        const { count } = await supabase
-            .from("disparo_logs")
-            .select("*", { count: "exact", head: true })
-            .gte("sent_at", `${hoje}T00:00:00`)
-            .lte("sent_at", `${hoje}T23:59:59`);
-        setDisparosHoje(count ?? 0);
-
-
-        const { data } = await supabase
-            .from("disparo_logs")
-            .select("*")
-            .gte("sent_at", `${hoje}T00:00:00`)
-            .order("sent_at", { ascending: false })
-            .limit(20);
-        setLogs(data ?? []);
+    useEffect(() => {
+        setLoadingLeads(true);
+        leadService.getAll().then((data) => {
+            setLeads(data.filter((l) => l.telefone));
+            setLoadingLeads(false);
+        }).catch(() => setLoadingLeads(false));
     }, []);
-
 
     const remaining = DAILY_LIMIT - disparosHoje;
     const canSelect = Math.max(0, remaining);
+    const limitReached = disparosHoje >= DAILY_LIMIT;
 
     const filteredLeads = leads.filter(
         (l) =>
-            l.nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            l.telefone?.includes(searchTerm) ||
+            (l.name ?? "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (l.telefone ?? "").includes(searchTerm) ||
             (l.interesse ?? "").toLowerCase().includes(searchTerm.toLowerCase())
     );
 
@@ -203,16 +163,13 @@ const Disparo = () => {
         }
     };
 
-
     const personalizeMsg = (lead: Lead) =>
         message
-            .replace(/\{nome\}/g, lead.nome?.split(" ")[0] ?? "")
+            .replace(/\{nome\}/g, (lead.name ?? "").split(" ")[0] ?? "")
             .replace(/\{interesse\}/g, lead.interesse ?? "imóvel");
 
-
     const handleDisparo = async () => {
-        if (!instanceName || selectedIds.length === 0) return;
-        if (disparosHoje >= DAILY_LIMIT) return;
+        if (!instanceName || selectedIds.length === 0 || limitReached) return;
 
         const selectedLeads = leads.filter((l) => selectedIds.includes(l.id));
         setSending(true);
@@ -221,6 +178,7 @@ const Disparo = () => {
 
         let success = 0;
         let fail = 0;
+        const newLogs: DisparoLog[] = [];
 
         for (let i = 0; i < selectedLeads.length; i++) {
             const lead = selectedLeads[i];
@@ -228,43 +186,28 @@ const Disparo = () => {
             const text = personalizeMsg(lead);
 
             try {
-                const res = await fetch(
-                    `${PROXY_URL}?path=${encodeURIComponent(`/message/sendText/${instanceName}`)}`,
-                    {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ number: phone, text }),
-                    }
-                );
-                const ok = res.ok;
+                const { ok } = await evoFetch(`/message/sendText/${instanceName}`, {
+                    method: "POST",
+                    body: JSON.stringify({ number: phone, text }),
+                });
                 ok ? success++ : fail++;
-
-
-                await supabase.from("disparo_logs").insert({
-                    user_id: userId,
-                    lead_id: lead.id,
-                    lead_name: lead.nome,
-                    phone: lead.telefone,
-                    success: ok,
+                newLogs.push({
+                    lead_id: lead.id, lead_name: lead.name,
+                    phone: lead.telefone, success: ok,
                     message_preview: text.slice(0, 120),
                     sent_at: new Date().toISOString(),
                 });
             } catch {
                 fail++;
-                await supabase.from("disparo_logs").insert({
-                    user_id: userId,
-                    lead_id: lead.id,
-                    lead_name: lead.nome,
-                    phone: lead.telefone,
-                    success: false,
+                newLogs.push({
+                    lead_id: lead.id, lead_name: lead.name,
+                    phone: lead.telefone, success: false,
                     message_preview: text.slice(0, 120),
                     sent_at: new Date().toISOString(),
                 });
             }
 
             setSendingProgress(i + 1);
-
-            // Delay entre mensagens para evitar bloqueio
             if (i < selectedLeads.length - 1) {
                 await new Promise((r) => setTimeout(r, 1800));
             }
@@ -273,21 +216,20 @@ const Disparo = () => {
         setResultados({ success, fail });
         setSelectedIds([]);
         setSending(false);
-        await fetchDisparosHoje();
+        setDisparosHoje((p) => p + success);
+        setLogs((p) => [...newLogs, ...p].slice(0, 50));
     };
-
 
     const selectedLeads = leads.filter((l) => selectedIds.includes(l.id));
     const previewLead = selectedLeads[0] ?? filteredLeads[0];
-    const limitReached = disparosHoje >= DAILY_LIMIT;
 
     return (
         <div className="h-screen flex bg-[#f5f6fa] dark:bg-[#0f1117] overflow-hidden transition-colors duration-200">
             <Sidebar />
 
-            <div className="ml-16 flex-1 flex flex-col overflow-hidden">
+            <div className="md:ml-16 flex-1 flex flex-col overflow-hidden">
 
-
+                {/* Header */}
                 <div className="h-16 bg-white dark:bg-[#1a1d27] border-b border-gray-200 dark:border-[#2a2f45] flex items-center px-8 justify-between shrink-0">
                     <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-xl bg-green-50 dark:bg-green-900/20 flex items-center justify-center">
@@ -295,12 +237,11 @@ const Disparo = () => {
                         </div>
                         <div>
                             <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100 leading-tight">Disparo WhatsApp</h1>
-                            <p className="text-xs text-gray-400 dark:text-gray-500">Portum</p>
+                            <p className="text-xs text-gray-400 dark:text-gray-500">Envio em massa</p>
                         </div>
                     </div>
 
                     <div className="flex items-center gap-3">
-
                         <span className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-medium
                             ${connStatus === "connected"
                                 ? "bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400"
@@ -312,7 +253,6 @@ const Disparo = () => {
                             {connStatus === "connected" ? "Conectado" : connStatus === "disconnected" ? "Desconectado" : "Verificando..."}
                         </span>
 
-
                         <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium
                             ${limitReached
                                 ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
@@ -323,7 +263,15 @@ const Disparo = () => {
                         </div>
 
                         <button
-                            onClick={fetchDisparosHoje}
+                            onClick={() => {
+                                if (!instanceName) return;
+                                evoFetch(`/instance/connectionState/${instanceName}`)
+                                    .then(({ data }) => {
+                                        const state = data?.instance?.state ?? data?.state;
+                                        setConnStatus(state === "open" ? "connected" : "disconnected");
+                                    })
+                                    .catch(() => setConnStatus("disconnected"));
+                            }}
                             className="w-9 h-9 rounded-xl bg-gray-100 dark:bg-[#22263a] hover:bg-gray-200 dark:hover:bg-[#2a2f45] flex items-center justify-center text-gray-500 dark:text-gray-400 transition-colors"
                         >
                             <RefreshCw className="w-4 h-4" />
@@ -331,9 +279,7 @@ const Disparo = () => {
                     </div>
                 </div>
 
-
                 <div className="flex-1 overflow-auto p-5">
-
 
                     {limitReached && (
                         <div className="mb-4 flex items-center gap-3 p-4 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800/30 rounded-xl text-sm text-red-600 dark:text-red-400">
@@ -342,14 +288,12 @@ const Disparo = () => {
                         </div>
                     )}
 
-
                     {connStatus === "disconnected" && (
                         <div className="mb-4 flex items-center gap-3 p-4 bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-800/30 rounded-xl text-sm text-yellow-700 dark:text-yellow-400">
                             <AlertCircle className="w-5 h-5 shrink-0" />
                             <span>WhatsApp desconectado. Acesse a página de <strong>Chat WhatsApp</strong> para reconectar antes de disparar.</span>
                         </div>
                     )}
-
 
                     {resultados && (
                         <div className="mb-4 flex items-center gap-3 p-4 bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800/30 rounded-xl text-sm">
@@ -358,15 +302,14 @@ const Disparo = () => {
                                 Disparo concluído! <strong>{resultados.success} enviados</strong>
                                 {resultados.fail > 0 && <span className="text-red-500"> · {resultados.fail} falhas</span>}
                             </span>
-                            <button onClick={() => setResultados(null)} className="ml-auto text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-xs">Fechar</button>
+                            <button onClick={() => setResultados(null)} className="ml-auto text-gray-400 hover:text-gray-600 text-xs">Fechar</button>
                         </div>
                     )}
 
                     <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
 
-
+                        {/* Coluna esquerda: leads */}
                         <div className="xl:col-span-2 space-y-4">
-
 
                             <div className="grid grid-cols-3 gap-4">
                                 {[
@@ -394,7 +337,6 @@ const Disparo = () => {
                                 ))}
                             </div>
 
-
                             <div className="flex gap-3">
                                 <div className="relative flex-1">
                                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -402,7 +344,7 @@ const Disparo = () => {
                                         placeholder="Buscar por nome, telefone ou interesse..."
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
-                                        className="w-full pl-9 pr-4 py-2.5 text-sm bg-white dark:bg-[#1a1d27] border border-gray-200 dark:border-[#2a2f45] rounded-xl text-gray-700 dark:text-gray-200 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-blue-300 dark:focus:border-blue-500 transition-colors"
+                                        className="w-full pl-9 pr-4 py-2.5 text-sm bg-white dark:bg-[#1a1d27] border border-gray-200 dark:border-[#2a2f45] rounded-xl text-gray-700 dark:text-gray-200 placeholder:text-gray-400 focus:outline-none focus:border-blue-300 transition-colors"
                                     />
                                 </div>
                                 <button
@@ -416,24 +358,21 @@ const Disparo = () => {
                                 </button>
                             </div>
 
-
                             <div className="bg-white dark:bg-[#1a1d27] rounded-2xl border border-gray-200 dark:border-[#2a2f45] shadow-sm overflow-hidden">
                                 <div className="max-h-[420px] overflow-y-auto [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:bg-gray-200 dark:[&::-webkit-scrollbar-thumb]:bg-gray-600">
                                     {loadingLeads ? (
                                         <div className="flex justify-center items-center py-12">
-                                            <Loader2 className="w-5 h-5 text-gray-300 dark:text-gray-600 animate-spin" />
+                                            <Loader2 className="w-5 h-5 text-gray-300 animate-spin" />
                                         </div>
                                     ) : filteredLeads.length === 0 ? (
                                         <div className="flex flex-col items-center justify-center py-12 gap-2">
                                             <Users className="w-8 h-8 text-gray-200 dark:text-gray-600" />
-                                            <p className="text-sm text-gray-400 dark:text-gray-500">Nenhum lead encontrado</p>
+                                            <p className="text-sm text-gray-400">Nenhum lead encontrado</p>
                                         </div>
                                     ) : (
                                         filteredLeads.map((lead) => {
                                             const isSelected = selectedIds.includes(lead.id);
                                             const isDisabled = !isSelected && (selectedIds.length >= canSelect || limitReached);
-                                            const avatarColor = getAvatarColor(lead.id);
-                                            const initials = getInitials(lead.nome ?? "");
                                             return (
                                                 <label
                                                     key={lead.id}
@@ -445,52 +384,33 @@ const Disparo = () => {
                                                                 : "hover:bg-gray-50 dark:hover:bg-[#22263a]"
                                                         }`}
                                                 >
-
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isSelected}
+                                                        disabled={isDisabled}
+                                                        onChange={(e) => handleSelectOne(lead.id, e.target.checked)}
+                                                        className="w-4 h-4 rounded accent-blue-500 shrink-0"
+                                                    />
                                                     <div
-                                                        onClick={(e) => {
-                                                            e.preventDefault();
-                                                            if (!isDisabled) handleSelectOne(lead.id, !isSelected);
-                                                        }}
-                                                        className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all
-                                                            ${isSelected
-                                                                ? "bg-blue-600 border-blue-600"
-                                                                : "border-gray-300 dark:border-gray-600 bg-white dark:bg-[#22263a]"
-                                                            }`}
+                                                        className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
+                                                        style={{ backgroundColor: getAvatarColor(lead.id) }}
                                                     >
-                                                        {isSelected && (
-                                                            <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 12 12">
-                                                                <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                                            </svg>
-                                                        )}
+                                                        {getInitials(lead.name ?? "")}
                                                     </div>
-
-
-                                                    <div
-                                                        className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-white text-sm font-bold select-none"
-                                                        style={{ backgroundColor: avatarColor }}
-                                                    >
-                                                        {initials}
-                                                    </div>
-
-
                                                     <div className="flex-1 min-w-0">
-                                                        <p className={`font-semibold text-sm truncate leading-tight
-                                                            ${isSelected ? "text-blue-600 dark:text-blue-400" : "text-gray-800 dark:text-gray-100"}`}>
-                                                            {lead.nome}
-                                                        </p>
-                                                        <p className="text-xs text-gray-400 dark:text-gray-500 truncate mt-0.5">
-                                                            {lead.telefone}
-                                                            {lead.interesse ? <span className="text-gray-300 dark:text-gray-600"> · </span> : ""}
-                                                            {lead.interesse}
-                                                        </p>
+                                                        <div className="flex items-center gap-2">
+                                                            <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">{lead.name}</p>
+                                                            {lead.status && (
+                                                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 ${statusColors[lead.status] ?? "bg-gray-100 text-gray-500"}`}>
+                                                                    {statusLabels[lead.status] ?? lead.status}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <div className="flex items-center gap-2 mt-0.5">
+                                                            <p className="text-xs text-gray-400">{lead.telefone}</p>
+                                                            {lead.interesse && <p className="text-xs text-gray-400 truncate">· {lead.interesse}</p>}
+                                                        </div>
                                                     </div>
-
-                                                    {/* Status badge */}
-                                                    {lead.status && (
-                                                        <span className={`text-xs px-2.5 py-1 rounded-full font-medium shrink-0 ${statusColors[lead.status] ?? "bg-gray-100 dark:bg-gray-700 text-gray-500"}`}>
-                                                            {statusLabels[lead.status] ?? lead.status}
-                                                        </span>
-                                                    )}
                                                 </label>
                                             );
                                         })
@@ -499,151 +419,80 @@ const Disparo = () => {
                             </div>
                         </div>
 
-
+                        {/* Coluna direita: mensagem + preview + histórico */}
                         <div className="space-y-4">
 
-                            <div className="bg-white dark:bg-[#1a1d27] rounded-2xl border border-gray-200 dark:border-[#2a2f45] shadow-sm p-5 space-y-4">
-                                <h2 className="text-sm font-bold text-gray-900 dark:text-gray-100">Mensagem</h2>
+                            {/* Templates */}
+                            <div className="bg-white dark:bg-[#1a1d27] rounded-2xl border border-gray-200 dark:border-[#2a2f45] shadow-sm p-4 space-y-3">
+                                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Template</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {messageTemplates.map((t) => (
+                                        <button
+                                            key={t.label}
+                                            onClick={() => setMessage(t.text)}
+                                            className={`text-xs px-2.5 py-1 rounded-full border transition-colors
+                                                ${message === t.text
+                                                    ? "bg-blue-500 text-white border-blue-500"
+                                                    : "bg-gray-50 dark:bg-[#22263a] text-gray-600 dark:text-gray-300 border-gray-200 dark:border-[#2a2f45] hover:border-blue-300"
+                                                }`}
+                                        >
+                                            {t.label}
+                                        </button>
+                                    ))}
+                                </div>
+                                <textarea
+                                    value={message}
+                                    onChange={(e) => setMessage(e.target.value)}
+                                    rows={5}
+                                    className="w-full text-sm bg-gray-50 dark:bg-[#22263a] border border-gray-200 dark:border-[#2a2f45] rounded-xl px-3 py-2.5 text-gray-700 dark:text-gray-200 placeholder:text-gray-400 focus:outline-none focus:border-blue-300 resize-none transition-colors"
+                                    placeholder="Digite sua mensagem..."
+                                />
+                            </div>
 
+                            {/* Preview */}
+                            {previewLead && (
+                                <div className="bg-white dark:bg-[#1a1d27] rounded-2xl border border-gray-200 dark:border-[#2a2f45] shadow-sm p-4 space-y-2">
+                                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Preview</p>
+                                    <div className="bg-[#dcf8c6] dark:bg-emerald-900/30 rounded-xl rounded-br-sm px-3 py-2.5 text-sm text-gray-800 dark:text-gray-100 leading-relaxed whitespace-pre-wrap">
+                                        {personalizeMsg(previewLead)}
+                                    </div>
+                                    <p className="text-[10px] text-gray-400">Para: {previewLead.name}</p>
+                                </div>
+                            )}
 
-                                <div>
-                                    <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">Templates rápidos</p>
-                                    <div className="flex flex-wrap gap-2">
-                                        {messageTemplates.map((t) => (
-                                            <button
-                                                key={t.label}
-                                                onClick={() => setMessage(t.text)}
-                                                className={`text-xs px-3 py-1.5 rounded-full border transition-colors
-                                                    ${message === t.text
-                                                        ? "bg-blue-600 text-white border-blue-600"
-                                                        : "border-gray-200 dark:border-[#2a2f45] text-gray-600 dark:text-gray-400 hover:border-blue-300 dark:hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400"
-                                                    }`}
-                                            >
-                                                {t.label}
-                                            </button>
+                            {/* Disparar */}
+                            <button
+                                onClick={handleDisparo}
+                                disabled={sending || selectedIds.length === 0 || limitReached || connStatus !== "connected"}
+                                className="w-full flex items-center justify-center gap-2 py-3 bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-2xl transition-colors shadow-lg shadow-green-500/20"
+                            >
+                                {sending ? (
+                                    <><Loader2 className="w-4 h-4 animate-spin" /> Enviando {sendingProgress}/{selectedIds.length}...</>
+                                ) : (
+                                    <><Send className="w-4 h-4" /> Disparar para {selectedIds.length} lead{selectedIds.length !== 1 ? "s" : ""}</>
+                                )}
+                            </button>
+
+                            {/* Histórico da sessão */}
+                            {logs.length > 0 && (
+                                <div className="bg-white dark:bg-[#1a1d27] rounded-2xl border border-gray-200 dark:border-[#2a2f45] shadow-sm p-4 space-y-2">
+                                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Histórico da sessão</p>
+                                    <div className="space-y-1.5 max-h-[220px] overflow-y-auto">
+                                        {logs.map((log, i) => (
+                                            <div key={i} className="flex items-center gap-2 text-xs">
+                                                {log.success
+                                                    ? <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />
+                                                    : <AlertCircle className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                                                }
+                                                <span className="text-gray-600 dark:text-gray-300 truncate">{log.lead_name}</span>
+                                                <span className="text-gray-400 shrink-0">{log.phone}</span>
+                                            </div>
                                         ))}
                                     </div>
                                 </div>
-
-
-                                <div>
-                                    <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">Sua mensagem</p>
-                                    <textarea
-                                        value={message}
-                                        onChange={(e) => setMessage(e.target.value)}
-                                        placeholder="Digite sua mensagem..."
-                                        rows={5}
-                                        className="w-full text-sm bg-gray-50 dark:bg-[#22263a] border border-gray-200 dark:border-[#2a2f45] rounded-xl px-4 py-3 text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-blue-300 dark:focus:border-blue-500 focus:bg-white dark:focus:bg-[#1a1d27] resize-none transition-colors"
-                                    />
-                                    <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1.5 flex items-center gap-1">
-                                        <Info className="w-3 h-3" />
-                                        Use <code className="font-mono bg-gray-100 dark:bg-[#22263a] px-1 rounded">{"{nome}"}</code> e <code className="font-mono bg-gray-100 dark:bg-[#22263a] px-1 rounded">{"{interesse}"}</code> para personalizar
-                                    </p>
-                                </div>
-
-
-                                {previewLead && (
-                                    <div>
-                                        <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">Preview</p>
-                                        <div className="p-3 bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800/30 rounded-xl text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-                                            {personalizeMsg(previewLead)}
-                                        </div>
-                                    </div>
-                                )}
-
-
-                                {sending && (
-                                    <div className="space-y-2">
-                                        <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-                                            <span className="flex items-center gap-1.5"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Enviando...</span>
-                                            <span>{sendingProgress} / {selectedLeads.length}</span>
-                                        </div>
-                                        <div className="w-full h-1.5 bg-gray-100 dark:bg-[#22263a] rounded-full overflow-hidden">
-                                            <div
-                                                className="h-full bg-blue-600 rounded-full transition-all duration-500"
-                                                style={{ width: `${(sendingProgress / selectedLeads.length) * 100}%` }}
-                                            />
-                                        </div>
-                                    </div>
-                                )}
-
-
-                                <button
-                                    onClick={handleDisparo}
-                                    disabled={sending || selectedIds.length === 0 || limitReached || connStatus !== "connected"}
-                                    className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-semibold bg-green-600 hover:bg-green-700 text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                                >
-                                    {sending ? (
-                                        <><Loader2 className="w-4 h-4 animate-spin" /> Enviando...</>
-                                    ) : (
-                                        <><Send className="w-4 h-4" /> Iniciar Disparo ({selectedIds.length})</>
-                                    )}
-                                </button>
-                            </div>
-
-
-                            <div className="bg-white dark:bg-[#1a1d27] rounded-2xl border border-gray-200 dark:border-[#2a2f45] shadow-sm p-5">
-                                <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-3">Como funciona?</h3>
-                                <ol className="space-y-2 text-sm text-gray-500 dark:text-gray-400">
-                                    {[
-                                        "Selecione até 10 leads por dia",
-                                        "Escolha ou personalize a mensagem",
-                                        'Clique em "Iniciar Disparo"',
-                                        "As mensagens são enviadas via Evolution API",
-                                        "Acompanhe os logs abaixo",
-                                    ].map((step, i) => (
-                                        <li key={i} className="flex items-start gap-2.5">
-                                            <span className="w-5 h-5 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">
-                                                {i + 1}
-                                            </span>
-                                            {step}
-                                        </li>
-                                    ))}
-                                </ol>
-                            </div>
+                            )}
                         </div>
                     </div>
-
-
-                    {logs.length > 0 && (
-                        <div className="mt-5 bg-white dark:bg-[#1a1d27] rounded-2xl border border-gray-200 dark:border-[#2a2f45] shadow-sm overflow-hidden">
-                            <div className="px-5 py-4 border-b border-gray-100 dark:border-[#2a2f45]">
-                                <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100">Log de Disparos de Hoje</h3>
-                            </div>
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-sm">
-                                    <thead>
-                                        <tr className="border-b border-gray-100 dark:border-[#2a2f45]">
-                                            {["Lead", "Telefone", "Horário", "Preview", "Status"].map((h) => (
-                                                <th key={h} className="text-left px-5 py-3 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{h}</th>
-                                            ))}
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {logs.map((log) => (
-                                            <tr key={log.id} className="border-b border-gray-50 dark:border-[#22263a] last:border-0 hover:bg-gray-50 dark:hover:bg-[#22263a] transition-colors">
-                                                <td className="px-5 py-3 font-medium text-gray-800 dark:text-gray-100">{log.lead_name}</td>
-                                                <td className="px-5 py-3 text-gray-500 dark:text-gray-400">{log.phone}</td>
-                                                <td className="px-5 py-3 text-gray-400 dark:text-gray-500 whitespace-nowrap">
-                                                    {new Date(log.sent_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-                                                </td>
-                                                <td className="px-5 py-3 text-gray-400 dark:text-gray-500 max-w-xs truncate">{log.message_preview}</td>
-                                                <td className="px-5 py-3">
-                                                    <span className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-medium
-                                                        ${log.success
-                                                            ? "bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400"
-                                                            : "bg-red-50 text-red-500 dark:bg-red-900/20 dark:text-red-400"
-                                                        }`}>
-                                                        {log.success ? <><CheckCircle2 className="w-3 h-3" /> Enviado</> : <><AlertCircle className="w-3 h-3" /> Falhou</>}
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    )}
                 </div>
             </div>
         </div>

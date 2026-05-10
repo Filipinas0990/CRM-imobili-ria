@@ -97,7 +97,7 @@ export function LeadDetailDrawer({
 
 
 
-                    {/* INTERESSE / OBSERVAÇÕES */}
+
                     {lead.interesse && (
                         <div className="space-y-2">
                             <p className="text-sm font-semibold">
@@ -117,7 +117,7 @@ export function LeadDetailDrawer({
                         </div>
                     </div>
 
-                    {/* STATUS */}
+
                     <div className="space-y-2">
                         <p className="text-sm font-semibold">Status</p>
                         <Badge variant="outline">
@@ -125,7 +125,7 @@ export function LeadDetailDrawer({
                         </Badge>
                     </div>
 
-                    {/* HISTÓRICO */}
+
                     <div className="space-y-3">
                         <p className="text-sm font-semibold">Histórico</p>
 
@@ -147,9 +147,9 @@ export function LeadDetailDrawer({
                     </div>
                 </div>
 
-                {/* AÇÕES */}
+
                 <div className="p-6 border-t space-y-3">
-                    {/* AGENDAR FOLLOW-UP */}
+
                     <Button
                         variant="outline"
                         className="w-full flex items-center gap-2"

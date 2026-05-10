@@ -600,6 +600,49 @@ const WhatsApp = () => {
             )}
 
             <div className="ml-16 flex-1 flex flex-col overflow-hidden">
+
+                {/* ── Verificando conexão ── */}
+                {connStatus === "checking" && (
+                    <div className="flex-1 flex items-center justify-center">
+                        <div className="flex flex-col items-center gap-3">
+                            <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+                            <p className="text-sm text-gray-400">Verificando conexão...</p>
+                        </div>
+                    </div>
+                )}
+
+                {/* ── WhatsApp desconectado ── */}
+                {(connStatus === "disconnected" || connStatus === "loading_qr" || connStatus === "qr_ready") && (
+                    <div className="flex-1 flex flex-col items-center justify-center gap-6 p-8">
+                        <div className="w-24 h-24 rounded-3xl bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center">
+                            <MessageCircle className="w-12 h-12 text-emerald-500" />
+                        </div>
+                        <div className="text-center">
+                            <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">WhatsApp desconectado</h2>
+                            <p className="text-sm text-gray-400 mt-2 max-w-xs">
+                                Conecte seu WhatsApp para enviar e receber mensagens diretamente pelo CRM.
+                            </p>
+                        </div>
+                        <button
+                            onClick={fetchQrCode}
+                            disabled={connStatus === "loading_qr"}
+                            className="flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-semibold rounded-2xl transition-colors shadow-lg shadow-emerald-500/20"
+                        >
+                            {connStatus === "loading_qr" ? (
+                                <><Loader2 className="w-5 h-5 animate-spin" /> Gerando QR Code...</>
+                            ) : (
+                                <><QrCode className="w-5 h-5" /> Conectar WhatsApp</>
+                            )}
+                        </button>
+                        {qrError && <p className="text-xs text-red-400 max-w-xs text-center">{qrError}</p>}
+                        <p className="text-xs text-gray-400">
+                            Instância: <span className="font-mono">{instanceName ?? "carregando..."}</span>
+                        </p>
+                    </div>
+                )}
+
+                {/* ── Chat (só renderiza quando conectado) ── */}
+                {connStatus === "connected" && <>
                 {/* Header */}
                 <div className="h-16 bg-white dark:bg-[#1a1d27] border-b border-gray-200 dark:border-[#2a2f45] flex items-center px-8 justify-between shrink-0">
                     <div className="flex items-center gap-3">
@@ -874,6 +917,8 @@ const WhatsApp = () => {
                         </div>
                     )}
                 </div>
+                </>}
+
             </div>
         </div>
     );

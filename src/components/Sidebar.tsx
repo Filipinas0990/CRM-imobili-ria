@@ -11,7 +11,7 @@ import {
   Users, UserCheck, DollarSign, BarChart3, Home, LogOut,
   Filter, CheckSquare, MessageCircle, Rocket, Repeat,
   Megaphone, Mic, Headphones, Bot, Calendar,
-  Building2, Mail,
+  Building2, Mail, TrendingUp, UserCircle,
 } from "lucide-react";
 
 const navigation = [
@@ -122,9 +122,12 @@ const MobileBottomBar = () => {
 
 const imobiliariaNav = [
   { name: "Painel", href: "/imobiliaria/dashboard", icon: Building2, darkColor: "text-blue-400", lightColor: "text-white" },
-  { name: "Minha Imobiliária", href: "/imobiliaria/perfil", icon: Building2, darkColor: "text-blue-300", lightColor: "text-white" },
-  { name: "Corretores", href: "/imobiliaria/corretores", icon: Users, darkColor: "text-cyan-400", lightColor: "text-white" },
+  { name: "Pipeline equipe", href: "/imobiliaria/pipeline", icon: TrendingUp, darkColor: "text-indigo-400", lightColor: "text-white" },
+  { name: "Leads equipe", href: "/imobiliaria/equipe/leads", icon: Users, darkColor: "text-cyan-400", lightColor: "text-white" },
+  { name: "Vendas equipe", href: "/imobiliaria/equipe/vendas", icon: DollarSign, darkColor: "text-emerald-400", lightColor: "text-white" },
+  { name: "Corretores", href: "/imobiliaria/corretores", icon: UserCircle, darkColor: "text-cyan-300", lightColor: "text-white" },
   { name: "Convites", href: "/imobiliaria/convites", icon: Mail, darkColor: "text-amber-400", lightColor: "text-white" },
+  { name: "Minha Imobiliária", href: "/imobiliaria/perfil", icon: Building2, darkColor: "text-blue-300", lightColor: "text-white" },
 ];
 
 export const Sidebar = () => {

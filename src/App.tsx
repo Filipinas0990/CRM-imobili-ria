@@ -37,6 +37,9 @@ import MinhaImobiliaria from "./pages/imobiliaria/MinhaImobiliaria";
 import Corretores from "./pages/imobiliaria/Corretores";
 import Convites from "./pages/imobiliaria/Convites";
 import AceitarConvite from "./pages/AceitarConvite";
+import PipelineEquipe from "./pages/imobiliaria/PipelineEquipe";
+import LeadsEquipe from "./pages/imobiliaria/LeadsEquipe";
+import VendasEquipe from "./pages/imobiliaria/VendasEquipe";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -100,6 +103,9 @@ function AppRoutes() {
       <Route path="/imobiliaria/perfil" element={<ImobiliariaRoute><MinhaImobiliaria /></ImobiliariaRoute>} />
       <Route path="/imobiliaria/corretores" element={<ImobiliariaRoute><Corretores /></ImobiliariaRoute>} />
       <Route path="/imobiliaria/convites" element={<ImobiliariaRoute><Convites /></ImobiliariaRoute>} />
+      <Route path="/imobiliaria/pipeline" element={<ImobiliariaRoute><PipelineEquipe /></ImobiliariaRoute>} />
+      <Route path="/imobiliaria/equipe/leads" element={<ImobiliariaRoute><LeadsEquipe /></ImobiliariaRoute>} />
+      <Route path="/imobiliaria/equipe/vendas" element={<ImobiliariaRoute><VendasEquipe /></ImobiliariaRoute>} />
 
       <Route path="*" element={<NotFound />} />
     </Routes>
