@@ -48,6 +48,10 @@ supabase/migrations
 .env.production
 
 
+.claude/
+
+.claude
+
 
 
 

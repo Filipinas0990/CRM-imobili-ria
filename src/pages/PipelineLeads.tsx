@@ -47,7 +47,7 @@ import {
 } from "recharts";
 
 const ETAPAS = [
-    { id: "novo", title: "Novo Cliente", dot: "bg-purple-500" },
+    { id: "novo", title: "Novo Cliente", dot: "bg-blue-500" },
     { id: "contato", title: "Em contato", dot: "bg-yellow-500" },
     { id: "Visista", title: "Visita Marcada", dot: "bg-orange-500" },
     { id: "Proposta", title: "Proposta Enviada", dot: "bg-green-600" },
@@ -67,8 +67,8 @@ function getInitials(nome: string) {
 
 function getAvatarColor(nome: string) {
     const colors = [
-        "bg-purple-600",
         "bg-blue-600",
+        "bg-blue-500",
         "bg-pink-600",
         "bg-orange-500",
         "bg-teal-600",
@@ -176,7 +176,7 @@ function LeadCard({
 
             <div className="flex items-center justify-between mt-2 pt-2 border-t border-border">
                 {lead.gestor_responsavel && (
-                    <span className="text-xs bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 rounded-full px-2 py-0.5 font-medium">
+                    <span className="text-xs bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 rounded-full px-2 py-0.5 font-medium">
                         {lead.gestor_responsavel}
                     </span>
                 )}
@@ -339,7 +339,7 @@ export default function PipelineLeads() {
         { id: "estatisticas", label: "Estatísticas" },
     ];
 
-    const INTEREST_COLORS = ["#7c3aed", "#f59e0b", "#10b981", "#3b82f6", "#ef4444"];
+    const INTEREST_COLORS = ["#2563eb", "#f59e0b", "#10b981", "#3b82f6", "#ef4444"];
 
     return (
         <div className="min-h-screen bg-background">
@@ -369,14 +369,14 @@ export default function PipelineLeads() {
 
                 <div className="grid grid-cols-4 gap-4 mb-5">
                     {[
-                        { icon: <Users className="w-5 h-5 text-purple-600" />, label: "TOTAL DE LEADS", value: totalLeads },
-                        { icon: <UserCheck className="w-5 h-5 text-purple-600" />, label: "LEADS ATIVOS", value: leadsAtivos },
-                        { icon: <TrendingUp className="w-5 h-5 text-purple-600" />, label: "VISITAS MARCADAS", value: visitasMarcadas },
-                        { icon: <BarChart2 className="w-5 h-5 text-purple-600" />, label: "TAXA DE CONVERSÃO", value: `${taxaConversao}%` },
+                        { icon: <Users className="w-5 h-5 text-blue-600" />, label: "TOTAL DE LEADS", value: totalLeads },
+                        { icon: <UserCheck className="w-5 h-5 text-blue-600" />, label: "LEADS ATIVOS", value: leadsAtivos },
+                        { icon: <TrendingUp className="w-5 h-5 text-blue-600" />, label: "VISITAS MARCADAS", value: visitasMarcadas },
+                        { icon: <BarChart2 className="w-5 h-5 text-blue-600" />, label: "TAXA DE CONVERSÃO", value: `${taxaConversao}%` },
                     ].map((m, i) => (
                         <div key={i} className="bg-card rounded-xl border border-border p-4 shadow-sm">
                             <div className="flex items-center justify-between mb-3">
-                                <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-950 flex items-center justify-center">
+                                <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-950 flex items-center justify-center">
                                     {m.icon}
                                 </div>
                                 <span className="text-xs text-green-500 font-medium">↑ +0%</span>
@@ -413,7 +413,7 @@ export default function PipelineLeads() {
                                         key={etapa.id}
                                         className={clsx(
                                             "flex flex-col rounded-xl bg-card border border-border shadow-sm transition min-h-[200px]",
-                                            hoverCol === etapa.id && "ring-2 ring-purple-300"
+                                            hoverCol === etapa.id && "ring-2 ring-blue-300"
                                         )}
                                         onDragOver={(e) => { e.preventDefault(); setHoverCol(etapa.id); }}
                                         onDragLeave={() => setHoverCol(null)}
@@ -483,8 +483,8 @@ export default function PipelineLeads() {
                                 className={clsx(
                                     "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors",
                                     periodoEstat !== null
-                                        ? "bg-purple-600 text-white border-purple-600"
-                                        : "bg-card text-muted-foreground border-border hover:border-purple-300 hover:text-purple-600"
+                                        ? "bg-blue-600 text-white border-blue-600"
+                                        : "bg-card text-muted-foreground border-border hover:border-blue-300 hover:text-blue-600"
                                 )}
                             >
                                 <SlidersHorizontal className="w-3.5 h-3.5" />
@@ -507,7 +507,7 @@ export default function PipelineLeads() {
                                             className={clsx(
                                                 "w-full text-left px-4 py-2 text-sm transition-colors",
                                                 periodoEstat === op.value
-                                                    ? "text-purple-600 font-medium bg-purple-50 dark:bg-purple-950"
+                                                    ? "text-blue-600 font-medium bg-blue-50 dark:bg-blue-950"
                                                     : "text-foreground hover:bg-muted/50"
                                             )}
                                         >
@@ -518,12 +518,12 @@ export default function PipelineLeads() {
                             )}
                         </div>
 
-                        <div className="bg-purple-50 dark:bg-purple-950 border border-purple-100 dark:border-purple-900 rounded-xl p-5">
+                        <div className="bg-blue-50 dark:bg-blue-950 border border-blue-100 dark:border-blue-900 rounded-xl p-5">
                             <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-                                <TrendingUp className="w-4 h-4 text-purple-600" />
+                                <TrendingUp className="w-4 h-4 text-blue-600" />
                                 <span className="font-medium">Taxa de Conversão Geral</span>
                             </div>
-                            <p className="text-4xl font-bold text-purple-600">{taxaConversao}%</p>
+                            <p className="text-4xl font-bold text-blue-600">{taxaConversao}%</p>
                             <p className="text-sm text-muted-foreground mt-1">
                                 {visitasMarcadas} Visitas Marcadas de {leadsAtivos} Leads Ativos
                             </p>
@@ -538,7 +538,7 @@ export default function PipelineLeads() {
                                         <XAxis type="number" tick={{ fontSize: 11 }} />
                                         <YAxis dataKey="name" type="category" tick={{ fontSize: 11 }} width={100} />
                                         <Tooltip />
-                                        <Bar dataKey="quantidade" fill="#7c3aed" radius={[0, 4, 4, 0]} />
+                                        <Bar dataKey="quantidade" fill="#2563eb" radius={[0, 4, 4, 0]} />
                                     </BarChart>
                                 </ResponsiveContainer>
                             </div>
@@ -579,7 +579,7 @@ export default function PipelineLeads() {
                                         <XAxis dataKey="data" tick={{ fontSize: 11 }} />
                                         <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
                                         <Tooltip formatter={(value: any) => [`${value} lead(s)`, "Captados"]} />
-                                        <Line type="monotone" dataKey="leads" stroke="#7c3aed" strokeWidth={2} dot={{ fill: "#7c3aed", r: 4 }} />
+                                        <Line type="monotone" dataKey="leads" stroke="#2563eb" strokeWidth={2} dot={{ fill: "#2563eb", r: 4 }} />
                                     </LineChart>
                                 </ResponsiveContainer>
                             )}

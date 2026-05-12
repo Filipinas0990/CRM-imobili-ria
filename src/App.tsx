@@ -21,7 +21,7 @@ import PipelineLeads from "./pages/PipelineLeads";
 import Tarafas from "./pages/Tarefas";
 import WhatsApp from "./pages/WhatsApp";
 import DespesasFixas from "./pages/DespesasFixas";
-import Disparo from "./pages/Disparos";
+
 import Automacoes from "./pages/Automacoes";
 import Financiamentos from "./pages/Financiamentos";
 import Visitas from "./pages/Visitas";
@@ -75,7 +75,7 @@ function AppRoutes() {
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/dashboard/whatsapp" element={<ProtectedRoute><WhatsApp /></ProtectedRoute>} />
       <Route path="/dashboard/Followups" element={<ProtectedRoute><FollowUps /></ProtectedRoute>} />
-      <Route path="/dashboard/disparos" element={<ProtectedRoute><Disparo /></ProtectedRoute>} />
+
       <Route path="/dashboard/despesas" element={<ProtectedRoute><DespesasFixas /></ProtectedRoute>} />
       <Route path="/dashboard/visao" element={<ProtectedRoute><Visao /></ProtectedRoute>} />
       <Route path="/dashboard/tarefas" element={<ProtectedRoute><Tarafas /></ProtectedRoute>} />

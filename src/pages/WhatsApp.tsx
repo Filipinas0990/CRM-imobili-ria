@@ -132,6 +132,7 @@ const WhatsApp = () => {
     const [loadingConversas, setLoadingConversas] = useState(false);
     const [templates, setTemplates] = useState<any[]>([]);
     const [showTemplates, setShowTemplates] = useState(false);
+    const [qrTimeLeft, setQrTimeLeft] = useState(180);
     // phone (stripped) → TabStatus and phone → conversaId (backend UUID)
     const [, setStatusMap] = useState<Record<string, TabStatus>>({});
     const [conversaIdMap, setConversaIdMap] = useState<Record<string, string>>({});
@@ -139,6 +140,8 @@ const WhatsApp = () => {
     const bottomRef = useRef<HTMLDivElement>(null);
     const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const msgPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const autoRetryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const retryCountRef = useRef(0);
     const registradoNoMicroservico = useRef(false);
     const webhookConfigurado = useRef(false);
 
@@ -303,6 +306,7 @@ const WhatsApp = () => {
                     });
                     setConversas(lista);
                     setLoadingConversas(false);
+                    retryCountRef.current = 5; // para os retries, já temos dados do backend
                     return;
                 }
             } catch (e) {
@@ -335,6 +339,16 @@ const WhatsApp = () => {
 
         setConversas(lista);
         setLoadingConversas(false);
+
+        // Se não veio nenhuma conversa, agenda retry automático (a Evolution API
+        // demora alguns segundos para sincronizar após uma nova conexão)
+        if (lista.length === 0 && retryCountRef.current < 5) {
+            retryCountRef.current += 1;
+            const delay = retryCountRef.current * 5000; // 5s, 10s, 15s, 20s, 25s
+            if (autoRetryRef.current) clearTimeout(autoRetryRef.current);
+            autoRetryRef.current = setTimeout(() => fetchConversas(instNameReal), delay);
+            setDebugInfo(`Aguardando sincronização... tentativa ${retryCountRef.current}/5`);
+        }
     }, [evoFetch, loadConversasMaps]);
 
     // ─── Busca mensagens ──────────────────────────────────────────────────────────
@@ -511,8 +525,12 @@ const WhatsApp = () => {
     }, [instanceName, checkConnection]);
 
     useEffect(() => {
-        if (connStatus === "connected" && instanceName)
+        if (connStatus === "connected" && instanceName) {
+            retryCountRef.current = 0;
+            if (autoRetryRef.current) clearTimeout(autoRetryRef.current);
             fetchConversas(instanceName);
+        }
+        return () => { if (autoRetryRef.current) clearTimeout(autoRetryRef.current); };
     }, [connStatus, instanceName, fetchConversas]);
 
     useEffect(() => {
@@ -523,6 +541,18 @@ const WhatsApp = () => {
     }, [selectedConversa, instanceName, connStatus, fetchMensagens]);
 
     useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [mensagens]);
+
+    useEffect(() => {
+        if (connStatus !== "qr_ready") { setQrTimeLeft(180); return; }
+        setQrTimeLeft(180);
+        const timer = setInterval(() => {
+            setQrTimeLeft((t) => {
+                if (t <= 1) { clearInterval(timer); return 0; }
+                return t - 1;
+            });
+        }, 1000);
+        return () => clearInterval(timer);
+    }, [connStatus]);
 
     // ─── Muda status ──────────────────────────────────────────────────────────────
     async function changeStatus(jid: string, status: TabStatus) {
@@ -576,21 +606,40 @@ const WhatsApp = () => {
             {/* QR Modal */}
             {(connStatus === "loading_qr" || connStatus === "qr_ready") && (
                 <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-                    <div className="bg-white dark:bg-[#1a1d27] rounded-2xl p-8 flex flex-col items-center gap-4 max-w-sm w-full mx-4 shadow-2xl">
+                    <div className="bg-white dark:bg-[#1a1d27] rounded-2xl p-8 flex flex-col items-center gap-5 max-w-md w-full mx-4 shadow-2xl">
                         {connStatus === "loading_qr" ? (
-                            <><Loader2 className="w-10 h-10 text-blue-500 animate-spin" /><p className="text-gray-500 text-sm">Gerando QR Code...</p></>
+                            <>
+                                <Loader2 className="w-10 h-10 text-purple-600 animate-spin" />
+                                <p className="text-gray-500 text-sm">Gerando QR Code...</p>
+                            </>
                         ) : (
                             <>
-                                <div className="flex items-center gap-2 text-gray-800 dark:text-gray-100">
-                                    <QrCode className="w-5 h-5" /><span className="font-semibold">Conectar WhatsApp</span>
+                                <h2 className="text-center text-blue-600 font-bold text-lg leading-snug">
+                                    Leia o QR Code para iniciar a sessão com o WhatsApp
+                                </h2>
+                                <p className="text-center text-gray-500 text-sm leading-relaxed max-w-xs">
+                                    Antes de escanear o código QR, verifique se existem no máximo
+                                    três sessões ativas do WhatsApp.
+                                </p>
+
+                                {qrCode && (
+                                    <div className="p-3 bg-white border border-gray-200 rounded-xl shadow-inner">
+                                        <img src={qrCode} alt="QR Code" className="w-52 h-52" />
+                                    </div>
+                                )}
+
+                                {qrError && <p className="text-red-500 text-xs text-center">{qrError}</p>}
+
+                                <div className="w-full bg-gray-100 dark:bg-[#22263a] rounded-xl px-5 py-3 text-center">
+                                    <span className="text-blue-600 dark:text-blue-400 text-sm font-medium">
+                                        Escaneie o código QR code em até:{" "}
+                                        <span className="font-bold tabular-nums">
+                                            {String(Math.floor(qrTimeLeft / 60)).padStart(2, "0")}:{String(qrTimeLeft % 60).padStart(2, "0")}
+                                        </span>
+                                    </span>
                                 </div>
-                                {qrCode && <div className="p-3 bg-white border rounded-xl"><img src={qrCode} alt="QR Code" className="w-52 h-52" /></div>}
-                                <div className="text-center space-y-1">
-                                    <p className="text-gray-700 dark:text-gray-200 text-sm font-medium">Escaneie com seu celular</p>
-                                    <p className="text-gray-400 text-xs">WhatsApp → Menu (⋮) → Dispositivos conectados</p>
-                                </div>
-                                {qrError && <p className="text-red-500 text-xs">{qrError}</p>}
-                                <button onClick={fetchQrCode} className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1">
+
+                                <button onClick={fetchQrCode} className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1 transition-colors">
                                     <RefreshCw className="w-3 h-3" /> Gerar novo QR Code
                                 </button>
                             </>
