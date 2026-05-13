@@ -81,20 +81,6 @@ function normalizeStatus(raw: string): Visita["status"] {
   return STATUS_MAP[raw?.toLowerCase()] ?? "agendada";
 }
 
-function formatarVisitas(data: VisitaRaw[]): Visita[] {
-  return data.map((v) => ({
-    id: v.id,
-    lead_id: v.lead_id,
-    imovel_id: v.imovel_id,
-    data: typeof v.data === "string" ? parseISO(v.data) : new Date(v.data),
-    anotacoes: v.anotacoes,
-    status: normalizeStatus(v.status),
-    clienteNome: v.clienteNome ?? v.lead?.name ?? "Cliente não encontrado",
-    clienteTelefone: v.clienteTelefone ?? v.lead?.telefone ?? "",
-    imovelNome: v.imovelNome ?? v.imovel?.titulo ?? "Imóvel não encontrado",
-    imovelEndereco: v.imovelEndereco ?? v.imovel?.endereco ?? "",
-  }));
-}
 
 const STALE = 1000 * 60 * 5; // ✅ 5 minutos de cache — mesmo padrão de Leads e Dashboard
 
@@ -182,6 +168,7 @@ export default function Agenda() {
         lead_id: novaVisita.lead_id,
         imovel_id: novaVisita.imovel_id,
         data: novaVisita.data.toISOString(),
+        horario: novaVisita.horario || undefined,
         anotacoes: novaVisita.anotacoes || undefined,
         nome_cliente: novaVisita.nome_cliente || undefined,
         telefone_cliente: novaVisita.telefone_cliente || undefined,
@@ -506,26 +493,40 @@ export default function Agenda() {
                 </Select>
               </div>
             </div>
-            <div className="space-y-2">
-              <Label className="text-xs md:text-sm">Data da Visita</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start text-left font-normal bg-transparent h-9 text-sm">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {format(novaVisita.data, "dd/MM/yyyy", { locale: ptBR })}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={novaVisita.data}
-                    onSelect={(d) => d && setNovaVisita({ ...novaVisita, data: d })}
-                    initialFocus
-                    className="p-3 pointer-events-auto"
-                    locale={ptBR}
-                  />
-                </PopoverContent>
-              </Popover>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label className="text-xs md:text-sm">Data da Visita</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-start text-left font-normal bg-transparent h-9 text-sm">
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {format(novaVisita.data, "dd/MM/yyyy", { locale: ptBR })}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={novaVisita.data}
+                      onSelect={(d) => d && setNovaVisita({ ...novaVisita, data: d })}
+                      initialFocus
+                      className="p-3 pointer-events-auto"
+                      locale={ptBR}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs md:text-sm flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5" />
+                  Horário
+                </Label>
+                <Input
+                  type="time"
+                  value={novaVisita.horario}
+                  onChange={(e) => setNovaVisita({ ...novaVisita, horario: e.target.value })}
+                  className="h-9 text-sm"
+                />
+              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="anotacoes" className="text-xs md:text-sm">Anotações (opcional)</Label>
