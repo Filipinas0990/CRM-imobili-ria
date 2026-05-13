@@ -431,7 +431,7 @@ export default function Balanco() {
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-5 gap-4 mb-8">
+        <div className="grid grid-cols-4 gap-4 mb-8">
           <Card className="border-l-4 border-l-orange-400">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-2">
@@ -490,18 +490,6 @@ export default function Balanco() {
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-blue-400">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center">
-                  <DollarSign className="w-3.5 h-3.5 text-blue-500" />
-                </div>
-                <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Saldo Projetado</span>
-              </div>
-              <p className={`text-xl font-bold ${kpis.saldoProjetado >= 0 ? "text-blue-600" : "text-red-600"}`}>{fmtBRL(kpis.saldoProjetado)}</p>
-              <p className="text-xs text-muted-foreground mt-1">Previsão de fechamento</p>
-            </CardContent>
-          </Card>
         </div>
 
         {/* Tabs */}
