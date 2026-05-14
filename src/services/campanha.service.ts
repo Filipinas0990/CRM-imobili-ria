@@ -49,12 +49,12 @@ export interface Campanha {
 
 export const campanhaService = {
   async getFlows(): Promise<CampanhaFlow[]> {
-    const { data } = await api.get<any[]>('/flows');
+    const { data } = await api.get<any[]>('/whatsapp/flows');
     return (data ?? []).map((f) => ({ id: f.id, name: f.name ?? f.nome ?? '' }));
   },
 
   async getFlowById(id: string): Promise<CampanhaFlowDetail> {
-    const { data } = await api.get<any>(`/flows/${id}`);
+    const { data } = await api.get<any>(`/whatsapp/flows/${id}`);
     const nodes = (data.nodes ?? data.nos ?? []).map((n: any) => ({
       id: n.id,
       type: n.type as string,
@@ -70,21 +70,21 @@ export const campanhaService = {
       intervalo_segundos: payload.intervalo_segundos,
     };
     if (payload.funil_id) body.funil_id = payload.funil_id;
-    const { data } = await api.post<CampanhaIniciadaResponse>('/campanhas', body);
+    const { data } = await api.post<CampanhaIniciadaResponse>('/whatsapp/campanhas', body);
     return data;
   },
 
   async getProgresso(id: string): Promise<CampanhaProgresso> {
-    const { data } = await api.get<CampanhaProgresso>(`/campanhas/${id}/progresso`);
+    const { data } = await api.get<CampanhaProgresso>(`/whatsapp/campanhas/${id}/progresso`);
     return data;
   },
 
   async cancelar(id: string): Promise<void> {
-    await api.delete(`/campanhas/${id}`);
+    await api.delete(`/whatsapp/campanhas/${id}`);
   },
 
   async listar(): Promise<Campanha[]> {
-    const { data } = await api.get<Campanha[]>('/campanhas');
+    const { data } = await api.get<Campanha[]>('/whatsapp/campanhas');
     return data ?? [];
   },
 };
