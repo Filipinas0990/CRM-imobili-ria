@@ -45,6 +45,7 @@ const navigation = [
     somenteCorretor: true,
     children: [
       { name: "Disparos", href: "/dashboard/campanhas", icon: Rocket, darkColor: "text-emerald-400", lightColor: "text-white" },
+      { name: "Histórico", href: "/dashboard/campanhas/historico", icon: BarChart3, darkColor: "text-emerald-300", lightColor: "text-white" },
     ]
   },
   { name: "Vendas", href: "/dashboard/vendas", icon: CreditCard, darkColor: "text-pink-400", lightColor: "text-white" },

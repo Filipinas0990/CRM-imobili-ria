@@ -1,46 +1,34 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import {
   Filter, Users, Send, Search, CheckSquare, Square,
-  Image, Video, Mic, Bold, Italic, Strikethrough, Code2,
-  Clock, ChevronDown, Wifi, Info, Zap,
+  Bold, Italic, Strikethrough, Code2,
+  Clock, ChevronDown, Zap, Info, Loader2,
 } from "lucide-react";
 import { Sidebar } from "@/components/Sidebar";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { leadService } from "@/services/lead.service";
+import { campanhaService } from "@/services/campanha.service";
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 const ETAPAS = [
-  { value: "todos",    label: "Todos os quadros",     cor: "#94a3b8" },
-  { value: "novo",     label: "Novo Cliente",          cor: "#3b82f6" },
-  { value: "contato",  label: "Em Contato",            cor: "#8b5cf6" },
-  { value: "Visista",  label: "Visita Marcada",        cor: "#f59e0b" },
-  { value: "Proposta", label: "Proposta Enviada",      cor: "#f97316" },
-  { value: "desistiu", label: "Cliente Desistiu",      cor: "#ef4444" },
-  { value: "bolsao",   label: "Bolsão",                cor: "#22c55e" },
+  { value: "",                 label: "Todos os quadros",  cor: "#94a3b8" },
+  { value: "novo_cliente",     label: "Novo Cliente",      cor: "#3b82f6" },
+  { value: "em_contato",       label: "Em Contato",        cor: "#8b5cf6" },
+  { value: "visita_marcada",   label: "Visita Marcada",    cor: "#f59e0b" },
+  { value: "proposta_enviada", label: "Proposta Enviada",  cor: "#f97316" },
+  { value: "cliente_desistiu", label: "Cliente Desistiu",  cor: "#ef4444" },
 ];
 
-const FUNIS = [
-  { value: "manual",     label: "Mensagem manual" },
-  { value: "prospeccao", label: "Prospecção Inicial" },
-  { value: "followup",   label: "Follow-up de Visita" },
-  { value: "proposta",   label: "Apresentação de Proposta" },
-  { value: "reativacao", label: "Reativação de Lead" },
-];
-
-const TEMPLATES: Record<string, string> = {
-  prospeccao: "Olá {nome}! Tudo bem? 😊 Vi que você tem interesse em imóveis. Tenho uma oportunidade {incrível|especial|exclusiva} que pode te interessar! Posso te apresentar?",
-  followup:   "Oi {nome}! {Como foi a visita|O que achou do imóvel|Você gostou} que fizemos juntos? Fico à disposição para tirar {qualquer dúvida|suas dúvidas}! 😊",
-  proposta:   "Olá {nome}! Preparei uma {proposta especial|oferta exclusiva|apresentação} do imóvel para você. Quando podemos {conversar|bater um papo|falar}?",
-  reativacao: "Oi {nome}! Faz um tempo que não nos falamos. {Surgiram novas oportunidades|Chegaram imóveis novos|Temos novidades} que podem te interessar! 🏠",
-};
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 function formatFone(fone: string) {
   const d = fone.replace(/\D/g, "");
   if (d.length === 13) return `+${d.slice(0,2)} (${d.slice(2,4)}) ${d.slice(4,9)}-${d.slice(9)}`;
@@ -50,44 +38,65 @@ function formatFone(fone: string) {
 
 // ─── Componente ───────────────────────────────────────────────────────────────
 export default function Campanhas() {
-  const { data: leadsAll = [] } = useQuery({
-    queryKey: ["leads"],
-    queryFn: () => leadService.getAll(),
-  });
+  const navigate = useNavigate();
 
-  const [filtroStatus, setFiltroStatus]     = useState("todos");
-  const [busca, setBusca]                   = useState("");
-  const [selecionados, setSelecionados]     = useState<Set<string>>(new Set());
-  const [mensagem, setMensagem]             = useState("");
-  const [funil, setFunil]                   = useState("manual");
-  const [intervalo, setIntervalo]           = useState(5);
-  const [midiaAtiva, setMidiaAtiva]         = useState<"imagem" | "video" | "audio" | null>(null);
-  const [showEtapas, setShowEtapas]         = useState(false);
-  const [showFunis, setShowFunis]           = useState(false);
+  // ── Estado ────────────────────────────────────────────────────────────────
+  const [filtroStatus, setFiltroStatus] = useState("");
+  const [busca, setBusca]               = useState("");
+  const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
+  const [mensagem, setMensagem]         = useState("");
+  const [funilId, setFunilId]           = useState("");
+  const [intervalo, setIntervalo]       = useState(60);
+  const [showEtapas, setShowEtapas]     = useState(false);
+  const [showFunis, setShowFunis]       = useState(false);
+  const [confirmOpen, setConfirmOpen]   = useState(false);
+  const [isEnviando, setIsEnviando]     = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Leads filtrados pelo estágio
-  const leadsFiltrados = useMemo(() => {
-    if (filtroStatus === "todos") return leadsAll;
-    return leadsAll.filter(l => l.status === filtroStatus);
-  }, [leadsAll, filtroStatus]);
+  // ── Dados da API ──────────────────────────────────────────────────────────
+  const { data: leadsAll = [], isFetching: leadsLoading } = useQuery({
+    queryKey: ["leads-campanha", filtroStatus],
+    queryFn: () => leadService.getAll(filtroStatus ? { status: filtroStatus } : undefined),
+    staleTime: 0,
+  });
 
-  // Leads filtrados + busca
+  const { data: flows = [] } = useQuery({
+    queryKey: ["flows-campanha"],
+    queryFn: campanhaService.getFlows,
+  });
+
+  const { data: flowDetail } = useQuery({
+    queryKey: ["flow-detail", funilId],
+    queryFn: () => campanhaService.getFlowById(funilId),
+    enabled: !!funilId,
+  });
+
+  // Ao carregar detalhe do flow, preenche a mensagem
+  useEffect(() => {
+    if (!flowDetail) return;
+    const msgNode = flowDetail.nodes.find((n) => n.type === "message");
+    if (msgNode) setMensagem(msgNode.message);
+  }, [flowDetail]);
+
+  // ── Leads visíveis (busca local) ──────────────────────────────────────────
   const leadsVisiveis = useMemo(() => {
-    if (!busca.trim()) return leadsFiltrados;
+    if (!busca.trim()) return leadsAll;
     const q = busca.toLowerCase();
-    return leadsFiltrados.filter(l =>
-      l.name.toLowerCase().includes(q) ||
-      l.telefone.includes(q)
+    return leadsAll.filter(
+      (l) => l.name.toLowerCase().includes(q) || l.telefone.includes(q)
     );
-  }, [leadsFiltrados, busca]);
+  }, [leadsAll, busca]);
 
   const totalSelecionados = selecionados.size;
-  const todosVisiveisSelecionados = leadsVisiveis.length > 0 &&
-    leadsVisiveis.every(l => selecionados.has(l.id));
+  const todosVisiveisSelecionados =
+    leadsVisiveis.length > 0 && leadsVisiveis.every((l) => selecionados.has(l.id));
 
+  const tempoMin = Math.ceil((totalSelecionados * intervalo) / 60);
+  const etapaAtual = ETAPAS.find((e) => e.value === filtroStatus) ?? ETAPAS[0];
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
   function toggleLead(id: string) {
-    setSelecionados(prev => {
+    setSelecionados((prev) => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
@@ -96,26 +105,24 @@ export default function Campanhas() {
 
   function toggleTodos() {
     if (todosVisiveisSelecionados) {
-      setSelecionados(prev => {
+      setSelecionados((prev) => {
         const next = new Set(prev);
-        leadsVisiveis.forEach(l => next.delete(l.id));
+        leadsVisiveis.forEach((l) => next.delete(l.id));
         return next;
       });
     } else {
-      setSelecionados(prev => {
+      setSelecionados((prev) => {
         const next = new Set(prev);
-        leadsVisiveis.forEach(l => next.add(l.id));
+        leadsVisiveis.forEach((l) => next.add(l.id));
         return next;
       });
     }
   }
 
-  function selecionarFunil(value: string) {
-    setFunil(value);
+  function selecionarFunil(id: string) {
+    setFunilId(id);
     setShowFunis(false);
-    if (value !== "manual" && TEMPLATES[value]) {
-      setMensagem(TEMPLATES[value]);
-    }
+    if (!id) setMensagem("");
   }
 
   function inserirFormatacao(tag: string) {
@@ -125,21 +132,17 @@ export default function Campanhas() {
     const end   = el.selectionEnd;
     const sel   = mensagem.slice(start, end);
     const wrap: Record<string, string> = {
-      bold: `*${sel || "texto"}*`,
+      bold:   `*${sel || "texto"}*`,
       italic: `_${sel || "texto"}_`,
       strike: `~${sel || "texto"}~`,
-      code: `\`\`\`${sel || "código"}\`\`\``,
+      code:   `\`\`\`${sel || "código"}\`\`\``,
     };
     const novo = mensagem.slice(0, start) + wrap[tag] + mensagem.slice(end);
     setMensagem(novo);
     setTimeout(() => el.focus(), 0);
   }
 
-  const tempoMin  = Math.ceil((totalSelecionados * intervalo) / 60);
-  const etapaAtual = ETAPAS.find(e => e.value === filtroStatus)!;
-  const funilAtual  = FUNIS.find(f => f.value === funil)!;
-
-  function handleEnviar() {
+  function handleEnviarClick() {
     if (totalSelecionados === 0) {
       toast.error("Selecione ao menos um lead");
       return;
@@ -148,11 +151,37 @@ export default function Campanhas() {
       toast.error("Escreva uma mensagem antes de enviar");
       return;
     }
-    toast.info(`Envio iniciado para ${totalSelecionados} lead${totalSelecionados !== 1 ? "s" : ""}`, {
-      description: "Funcionalidade de disparo será integrada ao backend em breve.",
-    });
+    setConfirmOpen(true);
   }
 
+  async function handleConfirmar() {
+    setIsEnviando(true);
+    try {
+      const resp = await campanhaService.iniciar({
+        leads_ids: Array.from(selecionados),
+        mensagem,
+        funil_id: funilId || undefined,
+        intervalo_segundos: intervalo,
+      });
+      toast.success(resp.message ?? "Campanha iniciada!");
+      navigate(`/dashboard/campanhas/progresso/${resp.id}`);
+    } catch (err: any) {
+      const msg =
+        err.response?.data?.message ??
+        err.response?.data?.error ??
+        "Erro ao iniciar campanha";
+      toast.error(msg);
+    } finally {
+      setIsEnviando(false);
+      setConfirmOpen(false);
+    }
+  }
+
+  const funilAtualLabel = funilId
+    ? (flows.find((f) => f.id === funilId)?.name ?? "Carregando...")
+    : "Mensagem manual";
+
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="flex min-h-screen bg-[#f1f5f9] dark:bg-[#0f1117]">
       <Sidebar />
@@ -168,12 +197,12 @@ export default function Campanhas() {
             </h1>
             <p className="text-sm text-muted-foreground">Disparo de mensagens em massa via WhatsApp</p>
           </div>
-          <div className="flex items-center gap-2 text-sm">
-            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-800">
-              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-              Instância conectada
-            </span>
-          </div>
+          <button
+            onClick={() => navigate("/dashboard/campanhas/historico")}
+            className="text-sm text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
+          >
+            Ver histórico
+          </button>
         </div>
 
         {/* ── 3-column layout ─────────────────────────────────────────────── */}
@@ -183,7 +212,6 @@ export default function Campanhas() {
           {/* ║   COL 1 — Filtrar Kanban     ║ */}
           {/* ╚══════════════════════════════╝ */}
           <div className="rounded-2xl border bg-white dark:bg-card shadow-sm flex flex-col overflow-hidden">
-            {/* Header colorido azul */}
             <div className="bg-gradient-to-r from-blue-500 to-blue-600 px-5 py-4 flex-shrink-0">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
@@ -196,19 +224,21 @@ export default function Campanhas() {
                     <p className="text-xs text-blue-100">Escolha a etapa do funil</p>
                   </div>
                 </div>
-                <Badge className="bg-white/20 text-white border-0 font-bold">{leadsFiltrados.length}</Badge>
+                <Badge className="bg-white/20 text-white border-0 font-bold">
+                  {leadsLoading ? "..." : leadsAll.length}
+                </Badge>
               </div>
             </div>
 
             <div className="p-5 space-y-5 flex-1">
-              {/* Dropdown Quadro */}
+              {/* Dropdown Etapa */}
               <div className="space-y-2">
                 <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  Quadro (Ação)
+                  Etapa do Funil
                 </label>
                 <div className="relative">
                   <button
-                    onClick={() => setShowEtapas(v => !v)}
+                    onClick={() => setShowEtapas((v) => !v)}
                     className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border
                       bg-background text-sm font-medium hover:border-blue-300 transition-colors"
                   >
@@ -224,10 +254,14 @@ export default function Campanhas() {
                   {showEtapas && (
                     <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-white dark:bg-card
                       border rounded-lg shadow-lg py-1 max-h-56 overflow-y-auto">
-                      {ETAPAS.map(e => (
+                      {ETAPAS.map((e) => (
                         <button
                           key={e.value}
-                          onClick={() => { setFiltroStatus(e.value); setShowEtapas(false); setSelecionados(new Set()); }}
+                          onClick={() => {
+                            setFiltroStatus(e.value);
+                            setShowEtapas(false);
+                            setSelecionados(new Set());
+                          }}
                           className={cn(
                             "w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted/50 transition-colors",
                             filtroStatus === e.value && "bg-blue-50 dark:bg-blue-900/20 text-blue-600"
@@ -242,30 +276,34 @@ export default function Campanhas() {
                 </div>
               </div>
 
-              {/* Contagem de leads filtrados */}
+              {/* Contador */}
               <div className="flex items-center justify-between p-3 rounded-xl bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30">
                 <span className="text-sm font-medium text-blue-700 dark:text-blue-400">Leads nessa etapa</span>
-                <span className="text-2xl font-black text-blue-600 dark:text-blue-400">{leadsFiltrados.length}</span>
+                <span className="text-2xl font-black text-blue-600 dark:text-blue-400">
+                  {leadsLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : leadsAll.length}
+                </span>
               </div>
 
-              {/* Info sobre variações */}
+              {/* Info variáveis */}
               <div className="rounded-lg border border-blue-100 dark:border-blue-900/40 bg-blue-50 dark:bg-blue-900/10 p-3">
                 <div className="flex gap-2">
                   <Info className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
                   <div className="space-y-1">
-                    <p className="text-xs font-semibold text-blue-700 dark:text-blue-400">Anti-Spam ativo</p>
+                    <p className="text-xs font-semibold text-blue-700 dark:text-blue-400">Variáveis disponíveis</p>
                     <p className="text-xs text-blue-600 dark:text-blue-400/80">
-                      Use <code className="bg-blue-100 dark:bg-blue-900/40 px-1 rounded">{"{var1|var2|var3}"}</code> na mensagem para gerar variações automáticas e evitar bloqueio pelo Meta.
+                      <code className="bg-blue-100 dark:bg-blue-900/40 px-1 rounded">{"{nome}"}</code> — nome do lead
+                      <br />
+                      <code className="bg-blue-100 dark:bg-blue-900/40 px-1 rounded">{"{interesse}"}</code> — interesse do lead
                     </p>
                   </div>
                 </div>
               </div>
 
-              {/* Etapas quick select */}
+              {/* Acesso rápido */}
               <div className="space-y-2">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Acesso rápido</p>
                 <div className="flex flex-wrap gap-2">
-                  {ETAPAS.map(e => (
+                  {ETAPAS.map((e) => (
                     <button
                       key={e.value}
                       onClick={() => { setFiltroStatus(e.value); setSelecionados(new Set()); }}
@@ -277,7 +315,7 @@ export default function Campanhas() {
                       )}
                       style={filtroStatus === e.value ? { backgroundColor: e.cor } : {}}
                     >
-                      {e.value === "todos" ? "Todos" : e.label.split(" ")[0]}
+                      {e.value === "" ? "Todos" : e.label.split(" ")[0]}
                     </button>
                   ))}
                 </div>
@@ -289,7 +327,6 @@ export default function Campanhas() {
           {/* ║   COL 2 — Selecionar Leads   ║ */}
           {/* ╚══════════════════════════════╝ */}
           <div className="rounded-2xl border bg-white dark:bg-card shadow-sm flex flex-col overflow-hidden">
-            {/* Header colorido roxo */}
             <div className="bg-gradient-to-r from-violet-500 to-purple-600 px-5 py-4 flex-shrink-0">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
@@ -300,7 +337,7 @@ export default function Campanhas() {
                   <div>
                     <h2 className="font-bold text-sm text-white">Selecionar Leads</h2>
                     <p className="text-xs text-purple-100">
-                      {totalSelecionados} de {leadsFiltrados.length} selecionados
+                      {totalSelecionados} de {leadsAll.length} selecionados
                     </p>
                   </div>
                 </div>
@@ -316,7 +353,7 @@ export default function Campanhas() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                 <Input
                   value={busca}
-                  onChange={e => setBusca(e.target.value)}
+                  onChange={(e) => setBusca(e.target.value)}
                   placeholder="Buscar por nome ou WhatsApp..."
                   className="pl-9 h-9 text-sm"
                 />
@@ -335,7 +372,7 @@ export default function Campanhas() {
                     ? <CheckSquare className="w-4 h-4 text-purple-500" />
                     : <Square className="w-4 h-4 text-muted-foreground" />
                   }
-                  {todosVisiveisSelecionados ? "Desmarcar todos" : "Selecionar"}
+                  {todosVisiveisSelecionados ? "Desmarcar todos" : "Selecionar todos"}
                 </div>
                 <Badge variant="secondary" className="font-semibold">
                   {leadsVisiveis.length} lead{leadsVisiveis.length !== 1 ? "s" : ""}
@@ -345,12 +382,16 @@ export default function Campanhas() {
 
             {/* Lista de leads */}
             <div className="flex-1 overflow-y-auto divide-y">
-              {leadsVisiveis.length === 0 ? (
+              {leadsLoading ? (
+                <div className="flex items-center justify-center h-full py-16 text-muted-foreground">
+                  <Loader2 className="w-6 h-6 animate-spin" />
+                </div>
+              ) : leadsVisiveis.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full py-16 text-muted-foreground">
                   <Users className="w-10 h-10 mb-2 opacity-30" />
                   <p className="text-sm">Nenhum lead encontrado</p>
                 </div>
-              ) : leadsVisiveis.map(lead => {
+              ) : leadsVisiveis.map((lead) => {
                 const sel = selecionados.has(lead.id);
                 return (
                   <button
@@ -363,13 +404,13 @@ export default function Campanhas() {
                   >
                     <div className={cn(
                       "w-4 h-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-all",
-                      sel
-                        ? "bg-purple-500 border-purple-500"
-                        : "border-gray-300 dark:border-gray-600"
+                      sel ? "bg-purple-500 border-purple-500" : "border-gray-300 dark:border-gray-600"
                     )}>
-                      {sel && <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                      </svg>}
+                      {sel && (
+                        <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold text-foreground truncate">{lead.name}</p>
@@ -388,7 +429,6 @@ export default function Campanhas() {
           {/* ║   COL 3 — Compor Mensagem    ║ */}
           {/* ╚══════════════════════════════╝ */}
           <div className="rounded-2xl border bg-white dark:bg-card shadow-sm flex flex-col overflow-hidden">
-            {/* Header colorido verde */}
             <div className="bg-gradient-to-r from-emerald-500 to-green-600 px-5 py-4 flex-shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center text-white font-black text-sm">3</div>
@@ -412,26 +452,35 @@ export default function Campanhas() {
                 </label>
                 <div className="relative">
                   <button
-                    onClick={() => setShowFunis(v => !v)}
+                    onClick={() => setShowFunis((v) => !v)}
                     className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border
                       bg-background text-sm font-medium hover:border-green-300 transition-colors"
                   >
-                    {funilAtual.label}
+                    {funilAtualLabel}
                     <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform", showFunis && "rotate-180")} />
                   </button>
                   {showFunis && (
                     <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-white dark:bg-card
-                      border rounded-lg shadow-lg py-1">
-                      {FUNIS.map(f => (
+                      border rounded-lg shadow-lg py-1 max-h-48 overflow-y-auto">
+                      <button
+                        onClick={() => selecionarFunil("")}
+                        className={cn(
+                          "w-full flex items-center px-3 py-2 text-sm hover:bg-muted/50 transition-colors text-left",
+                          !funilId && "bg-green-50 dark:bg-green-900/20 text-green-600 font-medium"
+                        )}
+                      >
+                        Mensagem manual
+                      </button>
+                      {flows.map((f) => (
                         <button
-                          key={f.value}
-                          onClick={() => selecionarFunil(f.value)}
+                          key={f.id}
+                          onClick={() => selecionarFunil(f.id)}
                           className={cn(
                             "w-full flex items-center px-3 py-2 text-sm hover:bg-muted/50 transition-colors text-left",
-                            funil === f.value && "bg-green-50 dark:bg-green-900/20 text-green-600 font-medium"
+                            funilId === f.id && "bg-green-50 dark:bg-green-900/20 text-green-600 font-medium"
                           )}
                         >
-                          {f.label}
+                          {f.name}
                         </button>
                       ))}
                     </div>
@@ -439,52 +488,11 @@ export default function Campanhas() {
                 </div>
               </div>
 
-              {/* Anexar Mídia */}
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  Anexar Mídia
-                </label>
-                <div className="flex gap-2">
-                  {([
-                    { tipo: "imagem" as const, icon: Image,  label: "Imagem" },
-                    { tipo: "video"  as const, icon: Video,  label: "Vídeo" },
-                    { tipo: "audio"  as const, icon: Mic,    label: "Áudio" },
-                  ]).map(({ tipo, icon: Icon, label }) => (
-                    <button
-                      key={tipo}
-                      onClick={() => setMidiaAtiva(midiaAtiva === tipo ? null : tipo)}
-                      className={cn(
-                        "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border text-xs font-medium transition-all",
-                        midiaAtiva === tipo
-                          ? "bg-blue-500 border-blue-500 text-white"
-                          : "bg-background hover:bg-muted/40 text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      <Icon className="w-3.5 h-3.5" />
-                      {label}
-                    </button>
-                  ))}
-                </div>
-                {midiaAtiva && (
-                  <label className="flex items-center justify-center gap-2 p-3 rounded-lg border-2 border-dashed
-                    border-blue-300 dark:border-blue-700 text-sm text-blue-500 cursor-pointer
-                    hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors">
-                    <input type="file"
-                      accept={midiaAtiva === "imagem" ? "image/*" : midiaAtiva === "video" ? "video/*" : "audio/*"}
-                      className="hidden"
-                      onChange={() => toast.info("Upload disponível após integração com backend")}
-                    />
-                    Clique para selecionar {midiaAtiva === "imagem" ? "uma imagem" : midiaAtiva === "video" ? "um vídeo" : "um áudio"}
-                  </label>
-                )}
-              </div>
-
               {/* Mensagem de texto */}
               <div className="space-y-2">
                 <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   Mensagem de Texto
                 </label>
-                {/* Toolbar de formatação */}
                 <div className="flex items-center gap-1 p-1 rounded-lg border bg-muted/30">
                   {([
                     { tag: "bold",   icon: Bold,          title: "Negrito (*texto*)" },
@@ -507,40 +515,43 @@ export default function Campanhas() {
                 <Textarea
                   ref={textareaRef}
                   value={mensagem}
-                  onChange={e => setMensagem(e.target.value)}
-                  placeholder={"Digite sua mensagem...\n\nDica: use {opção1|opção2} para variações anti-spam"}
+                  onChange={(e) => setMensagem(e.target.value)}
+                  placeholder={"Digite sua mensagem...\n\nExemplo: Olá {nome}! Tenho uma proposta sobre {interesse}."}
                   className="min-h-[140px] resize-none text-sm leading-relaxed"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Use <code className="bg-muted px-1 rounded">{"{texto1|texto2|texto3}"}</code> para rotacionar variações e evitar spam
+                  Use{" "}
+                  <code className="bg-muted px-1 rounded">{"{nome}"}</code> e{" "}
+                  <code className="bg-muted px-1 rounded">{"{interesse}"}</code>{" "}
+                  para personalizar a mensagem por lead.
                 </p>
               </div>
 
-              {/* Intervalo */}
+              {/* Intervalo anti-ban */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
                     <Clock className="w-3 h-3" />
-                    Intervalo entre envios
+                    Intervalo anti-ban
                   </label>
                   <span className="text-sm font-bold text-blue-500">{intervalo}s</span>
                 </div>
                 <input
                   type="range"
-                  min={3}
-                  max={60}
-                  step={1}
+                  min={30}
+                  max={3600}
+                  step={15}
                   value={intervalo}
-                  onChange={e => setIntervalo(Number(e.target.value))}
+                  onChange={(e) => setIntervalo(Number(e.target.value))}
                   className="w-full accent-blue-500 cursor-pointer"
                 />
                 <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>3s (rápido)</span>
                   <span>30s</span>
-                  <span>60s (seguro)</span>
+                  <span>30min</span>
+                  <span>1h</span>
                 </div>
                 <p className="text-xs text-muted-foreground text-center">
-                  ≈ {tempoMin === 0 ? "0" : tempoMin} min para {totalSelecionados} lead{totalSelecionados !== 1 ? "s" : ""}
+                  ≈ {tempoMin} min para {totalSelecionados} lead{totalSelecionados !== 1 ? "s" : ""}
                 </p>
               </div>
             </div>
@@ -548,7 +559,7 @@ export default function Campanhas() {
             {/* ── Rodapé: botão enviar ─────────────────────────────────────── */}
             <div className="p-4 border-t bg-gray-50 dark:bg-muted/10 flex-shrink-0">
               <button
-                onClick={handleEnviar}
+                onClick={handleEnviarClick}
                 disabled={totalSelecionados === 0 || !mensagem.trim()}
                 className={cn(
                   "w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all",
@@ -567,9 +578,46 @@ export default function Campanhas() {
               )}
             </div>
           </div>
-
         </div>
       </main>
+
+      {/* ── Modal de confirmação ───────────────────────────────────────────── */}
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirmar Campanha</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2 text-sm text-muted-foreground">
+            <p>
+              Você vai enviar mensagens para{" "}
+              <span className="font-bold text-foreground">{totalSelecionados} leads</span>.
+            </p>
+            <p>
+              Tempo estimado:{" "}
+              <span className="font-bold text-foreground">≈ {tempoMin} minutos</span>{" "}
+              com intervalo de <span className="font-bold text-foreground">{intervalo}s</span> entre cada envio.
+            </p>
+            <p className="text-xs">
+              Isso evita bloqueio do WhatsApp por disparo em massa.
+            </p>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setConfirmOpen(false)} disabled={isEnviando}>
+              Cancelar
+            </Button>
+            <Button onClick={handleConfirmar} disabled={isEnviando} className="bg-blue-500 hover:bg-blue-600">
+              {isEnviando ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Iniciando...
+                </>
+              ) : (
+                "Confirmar e Disparar"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(npm uninstall *)",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(Get-ChildItem -Depth 2)",
+      "Bash(Select-Object FullName)"
     ]
   }
 }

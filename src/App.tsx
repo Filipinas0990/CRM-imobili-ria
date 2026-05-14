@@ -31,6 +31,8 @@ import Visao from "./pages/Visao";
 import Configuracoes from "./pages/Configuracoes";
 import FollowUps from "./pages/Followups";
 import Campanhas from "./pages/Campanhas";
+import CampanhaProgresso from "./pages/CampanhaProgresso";
+import CampanhaHistorico from "./pages/CampanhaHistorico";
 import ImobiliariaRoute from "./components/ImobiliariaRoute";
 import DashboardImobiliaria from "./pages/imobiliaria/DashboardImobiliaria";
 import MinhaImobiliaria from "./pages/imobiliaria/MinhaImobiliaria";
@@ -94,6 +96,8 @@ function AppRoutes() {
       <Route path="/dashboard/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
       <Route path="/dashboard/automacoes" element={<ProtectedRoute><Automacoes /></ProtectedRoute>} />
       <Route path="/dashboard/campanhas" element={<ProtectedRoute><Campanhas /></ProtectedRoute>} />
+      <Route path="/dashboard/campanhas/progresso/:id" element={<ProtectedRoute><CampanhaProgresso /></ProtectedRoute>} />
+      <Route path="/dashboard/campanhas/historico" element={<ProtectedRoute><CampanhaHistorico /></ProtectedRoute>} />
 
       {/* Rotas públicas */}
       <Route path="/aceitar-convite" element={<AceitarConvite />} />
