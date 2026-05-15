@@ -33,7 +33,7 @@ const TIPO_COLOR: Record<string, string> = {
 
 export default function Funis() {
   const navigate = useNavigate();
-<br />  const queryClient = useQueryClient();
+  const queryClient = useQueryClient();
   const [deletandoId, setDeletandoId] = useState<string | null>(null);
 
   const { data: funis = [], isLoading } = useQuery({
