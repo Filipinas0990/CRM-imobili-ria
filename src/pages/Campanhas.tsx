@@ -18,6 +18,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { leadService } from "@/services/lead.service";
 import { campanhaService } from "@/services/campanha.service";
+import { funilService } from "@/services/funil.service";
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 const ETAPAS = [
@@ -62,20 +63,20 @@ export default function Campanhas() {
 
   const { data: flows = [] } = useQuery({
     queryKey: ["flows-campanha"],
-    queryFn: campanhaService.getFlows,
+    queryFn: funilService.listar,
   });
 
   const { data: flowDetail } = useQuery({
     queryKey: ["flow-detail", funilId],
-    queryFn: () => campanhaService.getFlowById(funilId),
+    queryFn: () => funilService.getById(funilId),
     enabled: !!funilId,
   });
 
-  // Ao carregar detalhe do flow, preenche a mensagem
+  // Ao carregar detalhe do funil, preenche a mensagem com a primeira etapa de texto
   useEffect(() => {
     if (!flowDetail) return;
-    const msgNode = flowDetail.nodes.find((n) => n.type === "message");
-    if (msgNode) setMensagem(msgNode.message);
+    const primeiraEtapa = flowDetail.etapas?.find((e) => e.tipo === "texto");
+    if (primeiraEtapa) setMensagem(primeiraEtapa.conteudo);
   }, [flowDetail]);
 
   // ── Leads visíveis (busca local) ──────────────────────────────────────────
@@ -178,7 +179,7 @@ export default function Campanhas() {
   }
 
   const funilAtualLabel = funilId
-    ? (flows.find((f) => f.id === funilId)?.name ?? "Carregando...")
+    ? (flows.find((f) => f.id === funilId)?.nome ?? "Carregando...")
     : "Mensagem manual";
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -480,7 +481,7 @@ export default function Campanhas() {
                             funilId === f.id && "bg-green-50 dark:bg-green-900/20 text-green-600 font-medium"
                           )}
                         >
-                          {f.name}
+                          {f.nome}
                         </button>
                       ))}
                     </div>
