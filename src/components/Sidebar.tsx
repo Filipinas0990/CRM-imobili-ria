@@ -10,7 +10,7 @@ import {
   Banknote, Wallet, CreditCard, Landmark, LayoutDashboard,
   Users, UserCheck, DollarSign, BarChart3, Home, LogOut,
   Filter, CheckSquare, MessageCircle, Rocket, Repeat,
-  Megaphone, Mic, Headphones, Bot, Calendar,
+  Megaphone, Mic, Headphones, Bot, Calendar, Zap,
   Building2, Mail, TrendingUp, UserCircle,
 } from "lucide-react";
 
