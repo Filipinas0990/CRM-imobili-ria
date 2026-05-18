@@ -98,10 +98,13 @@ export default function IA() {
   useEffect(() => {
     if (iaConfig) {
       setConfig({
-        ...DEFAULT_CONFIG,
-        ...iaConfig,
-        openai_api_key: iaConfig.openai_api_key ?? "",
+        ativo: iaConfig.ativo ?? false,
         instancias: iaConfig.instancias ?? [],
+        openai_api_key: iaConfig.openai_api_key ?? "",
+        modelo: iaConfig.modelo ?? "gpt-4o-mini",
+        max_tokens: iaConfig.max_tokens ?? 500,
+        temperatura: iaConfig.temperatura ?? 0.7,
+        prompt_sistema: iaConfig.prompt_sistema ?? PROMPT_PADRAO,
         regras: iaConfig.regras ?? [],
       });
     }
@@ -437,7 +440,7 @@ export default function IA() {
                       Restaurar Padrão
                     </Button>
                     <span className="text-xs text-muted-foreground">
-                      {config.prompt_sistema.length} caracteres
+                      {(config.prompt_sistema ?? "").length} caracteres
                     </span>
                   </div>
                 </div>
