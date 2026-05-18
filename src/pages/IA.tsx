@@ -248,7 +248,9 @@ export default function IA() {
                   ) : instancias.length === 0 ? (
                     <p className="text-sm text-muted-foreground">Nenhuma instância encontrada.</p>
                   ) : (
-                    instancias.map((inst) => {
+                    instancias
+                    .filter((inst) => inst?.instance?.instanceName)
+                    .map((inst) => {
                       const name = inst.instance.instanceName;
                       const isConnected = inst.instance.state === "open";
                       const isChecked = config.instancias.includes(name);
