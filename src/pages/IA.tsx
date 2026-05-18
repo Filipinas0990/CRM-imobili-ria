@@ -5,20 +5,17 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select, SelectContent, SelectItem,
   SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { useAuthStore } from "@/store/auth.store";
-import { iaService, IAConfig, IARegra } from "@/services/ia.service";
+import { iaService, IARegra } from "@/services/ia.service";
 import {
-  Bot, Power, Key, Settings2, MessageSquare, Shield,
-  Eye, EyeOff, Plus, Trash2, Loader2, CheckCircle,
+  Bot, Power, MessageSquare, Shield,
+  Plus, Trash2, Loader2, CheckCircle,
   AlertCircle, Smartphone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -36,59 +33,33 @@ Regras importantes:
 - Sempre apresente informações reais dos imóveis (nunca invente dados)
 - Quando perguntar algo, faça uma pergunta por vez`;
 
-const MODELOS = [
-  {
-    value: "gpt-4o-mini",
-    label: "GPT-4o Mini (Econômico)",
-    desc: "GPT-4o Mini é o mais econômico e eficiente para atendimento",
-  },
-  {
-    value: "gpt-4o",
-    label: "GPT-4o (Mais Capaz)",
-    desc: "GPT-4o é o mais poderoso, ideal para respostas complexas",
-  },
-  {
-    value: "gpt-3.5-turbo",
-    label: "GPT-3.5 Turbo (Legado)",
-    desc: "GPT-3.5 Turbo é a versão legada, ainda funcional",
-  },
-];
-
 const STATUS_OPTIONS = [
   { value: "em_atendimento", label: "Em atendimento" },
   { value: "fechado", label: "Fechado" },
   { value: "pendente", label: "Pendente" },
 ];
 
-function getTemperaturaLabel(value: number): string {
-  if (value <= 0.3) return "Precisa";
-  if (value <= 0.6) return "Equilibrada";
-  if (value <= 0.8) return "Balanceada";
-  return "Criativa";
+interface Config {
+  ativo: boolean;
+  instancias: string[];
+  prompt_sistema: string;
+  regras: IARegra[];
 }
 
-const DEFAULT_CONFIG: IAConfig = {
+const DEFAULT_CONFIG: Config = {
   ativo: false,
   instancias: [],
-  openai_api_key: "",
-  modelo: "gpt-4o-mini",
-  max_tokens: 500,
-  temperatura: 0.7,
   prompt_sistema: PROMPT_PADRAO,
   regras: [],
 };
 
 export default function IA() {
-  const { user } = useAuthStore();
-  const isOwner = user?.role === "owner";
-
-  const [config, setConfig] = useState<IAConfig>(DEFAULT_CONFIG);
+  const [config, setConfig] = useState<Config>(DEFAULT_CONFIG);
   const [novaRegra, setNovaRegra] = useState<IARegra>({
     palavra_chave: "",
     novo_status: "em_atendimento",
     pausar_ia: true,
   });
-  const [mostrarApiKey, setMostrarApiKey] = useState(false);
 
   const { data: iaConfig, isLoading: loadingConfig } = useQuery({
     queryKey: ["ia-config"],
@@ -100,10 +71,6 @@ export default function IA() {
       setConfig({
         ativo: iaConfig.ativo ?? false,
         instancias: iaConfig.instancias ?? [],
-        openai_api_key: iaConfig.openai_api_key ?? "",
-        modelo: iaConfig.modelo ?? "gpt-4o-mini",
-        max_tokens: iaConfig.max_tokens ?? 500,
-        temperatura: iaConfig.temperatura ?? 0.7,
         prompt_sistema: iaConfig.prompt_sistema ?? PROMPT_PADRAO,
         regras: iaConfig.regras ?? [],
       });
@@ -116,7 +83,13 @@ export default function IA() {
   });
 
   const saveMutation = useMutation({
-    mutationFn: (payload: Partial<IAConfig>) => iaService.saveConfig(payload),
+    mutationFn: () =>
+      iaService.saveConfig({
+        ativo: config.ativo,
+        instancias: config.instancias,
+        prompt_sistema: config.prompt_sistema,
+        regras: config.regras,
+      }),
     onSuccess: () => toast.success("Configurações salvas com sucesso!"),
     onError: (err: any) => {
       const msg =
@@ -126,12 +99,6 @@ export default function IA() {
       toast.error(msg);
     },
   });
-
-  const handleSave = () => {
-    const payload: Partial<IAConfig> = { ...config };
-    if (!isOwner) delete payload.openai_api_key;
-    saveMutation.mutate(payload);
-  };
 
   const toggleInstancia = (name: string) => {
     setConfig((prev) => {
@@ -160,9 +127,6 @@ export default function IA() {
       regras: prev.regras.filter((_, i) => i !== index),
     }));
   };
-
-  const modeloAtual = MODELOS.find((m) => m.value === config.modelo);
-  const isLoading = loadingConfig;
 
   return (
     <div className="flex min-h-screen bg-[#f1f5f9] dark:bg-[#0f1117]">
@@ -195,7 +159,7 @@ export default function IA() {
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
-          {isLoading ? (
+          {loadingConfig ? (
             <div className="flex items-center justify-center h-64">
               <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
             </div>
@@ -249,168 +213,47 @@ export default function IA() {
                     <p className="text-sm text-muted-foreground">Nenhuma instância encontrada.</p>
                   ) : (
                     instancias
-                    .filter((inst) => inst?.instance?.instanceName)
-                    .map((inst) => {
-                      const name = inst.instance.instanceName;
-                      const isConnected = inst.instance.state === "open";
-                      const isChecked = config.instancias.includes(name);
-                      return (
-                        <label
-                          key={name}
-                          className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
-                        >
-                          <Checkbox
-                            checked={isChecked}
-                            onCheckedChange={() => toggleInstancia(name)}
-                          />
-                          <div
-                            className={cn(
-                              "w-2 h-2 rounded-full flex-shrink-0",
-                              isConnected ? "bg-green-500" : "bg-red-500"
-                            )}
-                          />
-                          <Smartphone className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                          <span className="text-sm flex-1">{name}</span>
-                          <Badge
-                            variant="outline"
-                            className={cn(
-                              "text-xs",
-                              isConnected
-                                ? "border-green-500 text-green-600 dark:text-green-400"
-                                : "border-red-500 text-red-600 dark:text-red-400"
-                            )}
+                      .filter((inst) => inst?.instance?.instanceName)
+                      .map((inst) => {
+                        const name = inst.instance.instanceName;
+                        const isConnected = inst.instance.state === "open";
+                        const isChecked = config.instancias.includes(name);
+                        return (
+                          <label
+                            key={name}
+                            className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
                           >
-                            {isConnected ? "Conectada" : "Desconectada"}
-                          </Badge>
-                        </label>
-                      );
-                    })
+                            <Checkbox
+                              checked={isChecked}
+                              onCheckedChange={() => toggleInstancia(name)}
+                            />
+                            <div
+                              className={cn(
+                                "w-2 h-2 rounded-full flex-shrink-0",
+                                isConnected ? "bg-green-500" : "bg-red-500"
+                              )}
+                            />
+                            <Smartphone className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                            <span className="text-sm flex-1">{name}</span>
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "text-xs",
+                                isConnected
+                                  ? "border-green-500 text-green-600 dark:text-green-400"
+                                  : "border-red-500 text-red-600 dark:text-red-400"
+                              )}
+                            >
+                              {isConnected ? "Conectada" : "Desconectada"}
+                            </Badge>
+                          </label>
+                        );
+                      })
                   )}
                 </div>
               </div>
 
-              {/* 3. Credenciais OpenAI — só para owner */}
-              {isOwner && (
-                <div className="bg-white dark:bg-card border rounded-xl p-5 space-y-4">
-                  <div className="flex items-center gap-3">
-                    <Key className="w-5 h-5 text-violet-500 flex-shrink-0" />
-                    <div>
-                      <p className="font-medium text-foreground">Credenciais OpenAI</p>
-                      <p className="text-xs text-muted-foreground">
-                        Insira a API Key da OpenAI. Cada empresa pode ter sua própria chave.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-sm">API Key da OpenAI</Label>
-                    <div className="relative">
-                      <Input
-                        type={mostrarApiKey ? "text" : "password"}
-                        value={config.openai_api_key ?? ""}
-                        onChange={(e) =>
-                          setConfig((prev) => ({ ...prev, openai_api_key: e.target.value }))
-                        }
-                        placeholder="sk-..."
-                        className="pr-10"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setMostrarApiKey((v) => !v)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        {mostrarApiKey ? (
-                          <EyeOff className="w-4 h-4" />
-                        ) : (
-                          <Eye className="w-4 h-4" />
-                        )}
-                      </button>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Obtenha sua chave em{" "}
-                      <a
-                        href="https://platform.openai.com/api-keys"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-violet-600 dark:text-violet-400 hover:underline"
-                      >
-                        platform.openai.com/api-keys
-                      </a>
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* 4. Configurações do Modelo */}
-              <div className="bg-white dark:bg-card border rounded-xl p-5 space-y-5">
-                <div className="flex items-center gap-3">
-                  <Settings2 className="w-5 h-5 text-violet-500 flex-shrink-0" />
-                  <p className="font-medium text-foreground">Configurações do Modelo</p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-sm">Modelo</Label>
-                    <Select
-                      value={config.modelo}
-                      onValueChange={(v) => setConfig((prev) => ({ ...prev, modelo: v }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {MODELOS.map((m) => (
-                          <SelectItem key={m.value} value={m.value}>
-                            {m.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {modeloAtual && (
-                      <p className="text-xs text-muted-foreground">{modeloAtual.desc}</p>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-sm">Máx. Tokens por Resposta</Label>
-                    <Input
-                      type="number"
-                      min={100}
-                      max={4000}
-                      value={config.max_tokens}
-                      onChange={(e) =>
-                        setConfig((prev) => ({ ...prev, max_tokens: Number(e.target.value) }))
-                      }
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Controla o tamanho máximo da resposta da IA
-                    </p>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm">Temperatura: {config.temperatura}</Label>
-                    <span className="text-xs text-muted-foreground font-medium">
-                      {getTemperaturaLabel(config.temperatura)}
-                    </span>
-                  </div>
-                  <Slider
-                    min={0}
-                    max={1}
-                    step={0.1}
-                    value={[config.temperatura]}
-                    onValueChange={([v]) =>
-                      setConfig((prev) => ({ ...prev, temperatura: Math.round(v * 10) / 10 }))
-                    }
-                    className="w-full"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Valores baixos = respostas mais previsíveis. Valores altos = respostas mais criativas.
-                  </p>
-                </div>
-              </div>
-
-              {/* 5. Prompt do Sistema */}
+              {/* 3. Prompt do Sistema */}
               <div className="bg-white dark:bg-card border rounded-xl p-5 space-y-4">
                 <div className="flex items-center gap-3">
                   <MessageSquare className="w-5 h-5 text-violet-500 flex-shrink-0" />
@@ -448,7 +291,7 @@ export default function IA() {
                 </div>
               </div>
 
-              {/* 6. Regras de Resposta */}
+              {/* 4. Regras de Resposta */}
               <div className="bg-white dark:bg-card border rounded-xl p-5 space-y-4">
                 <div className="flex items-center gap-3">
                   <Shield className="w-5 h-5 text-violet-500 flex-shrink-0" />
@@ -554,7 +397,7 @@ export default function IA() {
                 </div>
               </div>
 
-              {/* 7. Como Funciona (estático) */}
+              {/* 5. Como Funciona (estático) */}
               <div className="bg-white dark:bg-card border rounded-xl p-5 space-y-4">
                 <p className="font-medium text-foreground">Como funciona?</p>
                 <div className="grid grid-cols-2 gap-6">
@@ -589,7 +432,7 @@ export default function IA() {
               {/* Botão Salvar */}
               <div className="flex justify-end pb-6">
                 <Button
-                  onClick={handleSave}
+                  onClick={() => saveMutation.mutate()}
                   disabled={saveMutation.isPending}
                   className="bg-violet-600 hover:bg-violet-700 text-white gap-2"
                 >
