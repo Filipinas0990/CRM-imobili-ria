@@ -49,6 +49,7 @@ const navigation = [
       { name: "Histórico", href: "/dashboard/campanhas/historico", icon: BarChart3, darkColor: "text-emerald-300", lightColor: "text-white" },
     ]
   },
+  { name: "I.A.", href: "/dashboard/ia", icon: Bot, darkColor: "text-violet-400", lightColor: "text-white", somenteCorretor: true },
   { name: "Vendas", href: "/dashboard/vendas", icon: CreditCard, darkColor: "text-pink-400", lightColor: "text-white" },
   { name: "Tarefas", href: "/dashboard/tarefas", icon: CheckSquare, darkColor: "text-violet-400", lightColor: "text-white" },
   { name: "Visitas", href: "/dashboard/visitas", icon: Calendar, darkColor: "text-teal-400", lightColor: "text-white" },

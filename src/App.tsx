@@ -35,6 +35,7 @@ import CampanhaProgresso from "./pages/CampanhaProgresso";
 import CampanhaHistorico from "./pages/CampanhaHistorico";
 import Funis from "./pages/Funis";
 import FunilEditor from "./pages/FunilEditor";
+import IA from "./pages/IA";
 import ImobiliariaRoute from "./components/ImobiliariaRoute";
 import DashboardImobiliaria from "./pages/imobiliaria/DashboardImobiliaria";
 import MinhaImobiliaria from "./pages/imobiliaria/MinhaImobiliaria";
@@ -100,6 +101,7 @@ function AppRoutes() {
       <Route path="/dashboard/campanhas" element={<ProtectedRoute><Campanhas /></ProtectedRoute>} />
       <Route path="/dashboard/campanhas/progresso/:id" element={<ProtectedRoute><CampanhaProgresso /></ProtectedRoute>} />
       <Route path="/dashboard/campanhas/historico" element={<ProtectedRoute><CampanhaHistorico /></ProtectedRoute>} />
+      <Route path="/dashboard/ia" element={<ProtectedRoute><IA /></ProtectedRoute>} />
       <Route path="/dashboard/funis" element={<ProtectedRoute><Funis /></ProtectedRoute>} />
       <Route path="/dashboard/funis/novo" element={<ProtectedRoute><FunilEditor /></ProtectedRoute>} />
       <Route path="/dashboard/funis/:id/editar" element={<ProtectedRoute><FunilEditor /></ProtectedRoute>} />

@@ -4,7 +4,13 @@
       "Bash(npm uninstall *)",
       "Bash(npx tsc *)",
       "Bash(Get-ChildItem -Depth 2)",
-      "Bash(Select-Object FullName)"
+      "Bash(Select-Object FullName)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(git commit *)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\Filipe\\\\OneDrive\\\\Desktop\\\\FRONT-KELMOR\" -Force)",
+      "Bash(Select-Object Name, PSIsContainer)"
     ]
   }
 }
