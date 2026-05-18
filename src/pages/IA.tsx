@@ -101,6 +101,8 @@ export default function IA() {
         ...DEFAULT_CONFIG,
         ...iaConfig,
         openai_api_key: iaConfig.openai_api_key ?? "",
+        instancias: iaConfig.instancias ?? [],
+        regras: iaConfig.regras ?? [],
       });
     }
   }, [iaConfig]);
