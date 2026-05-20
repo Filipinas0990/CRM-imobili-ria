@@ -6,32 +6,38 @@ export function useAuthInit() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
     const store = useAuthStore.getState();
 
-    // Se já tem token em memória (ex: logo após o login), não precisa fazer nada
     if (store.accessToken) {
       setIsLoading(false);
       return;
     }
 
-    // Tenta renovar a sessão via cookie httpOnly
     api.post<{ access_token: string }>('/auth/refresh')
       .then(async ({ data }) => {
+        if (cancelled) return;
         const { data: user } = await api.get('/auth/me', {
           headers: { Authorization: `Bearer ${data.access_token}` }
         });
-        useAuthStore.getState().setAuth(user, data.access_token);
+        if (cancelled) return;
+        // Usa o token mais recente do store (pode ter sido renovado pelo interceptor)
+        const token = useAuthStore.getState().accessToken ?? data.access_token;
+        useAuthStore.getState().setAuth(user, token);
       })
       .catch(() => {
-        // Race condition: o refresh foi disparado ANTES do login completar.
-        // Só limpa a auth se o usuário ainda não logou nesse meio tempo.
+        if (cancelled) return;
         if (!useAuthStore.getState().accessToken) {
           useAuthStore.getState().clearAuth();
         }
       })
       .finally(() => {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return { isLoading };
