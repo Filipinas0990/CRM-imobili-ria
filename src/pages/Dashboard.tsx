@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sidebar } from "@/components/Sidebar";
 import LogoutButton from "@/components/LogoutButton";
+import { useAuthStore } from "@/store/auth.store";
 import {
   Users, Building2, CheckCircle2, CalendarCheck,
   TrendingUp, Flame, Thermometer, Snowflake,
@@ -42,6 +43,9 @@ function getMonthKey(dateStr: string) {
 }
 
 const Dashboard = () => {
+  const user = useAuthStore((s) => s.user);
+  const firstName = (user?.name || "").split(" ")[0] || "Corretor";
+
   const { data: leads = [], isLoading: loadingLeads } = useQuery({
     queryKey: ["leads"],
     queryFn: () => leadService.getAll(),
@@ -72,14 +76,15 @@ const Dashboard = () => {
   const vendasFechadas = vendas.filter((v) => v.status === "Fechada");
   const receitaTotal = vendasFechadas.reduce((s, v) => s + (v.valor || 0), 0);
 
-  const hoje = new Date();
-  hoje.setHours(0, 0, 0, 0);
-  const proximasVisitas = visitas
-    .filter((v) => {
-      const d = new Date(v.data);
-      return (v.status === "agendada" || v.status === "confirmada") && d >= hoje;
-    })
-    .sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime())
+  const hojeStr = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD" local-safe
+
+  const visitasFuturas = visitas.filter((v) => {
+    const dataStr = (v.data ?? "").slice(0, 10); // pega só "YYYY-MM-DD"
+    return (v.status === "agendada" || v.status === "confirmada") && dataStr >= hojeStr;
+  });
+
+  const proximasVisitas = visitasFuturas
+    .sort((a, b) => a.data.localeCompare(b.data))
     .slice(0, 5)
     .map((v) => {
       const lead = leads.find((l) => l.id === v.lead_id);
@@ -149,7 +154,7 @@ const Dashboard = () => {
     },
     {
       title: "Visitas Agendadas",
-      value: proximasVisitas.length,
+      value: visitasFuturas.length,
       sub: "Próximas confirmadas",
       icon: CalendarCheck,
       gradient: "from-orange-500 to-orange-600",
@@ -185,7 +190,8 @@ const Dashboard = () => {
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1">
                 {(() => {
                   const h = new Date().getHours();
-                  return h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
+                  const g = h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
+                  return `${g}, ${firstName}`;
                 })()}
               </p>
               <h1 className="text-2xl md:text-3xl font-black text-foreground tracking-tight">Dashboard</h1>

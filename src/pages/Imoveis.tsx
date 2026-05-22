@@ -4,7 +4,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Filter, MapPin, BedDouble, Bath, Maximize, Loader2 } from "lucide-react";
+import { Plus, Search, Filter, MapPin, BedDouble, Bath, Maximize, Loader2, AlertCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { imovelService, type Imovel } from "@/services/imovel.service";
@@ -25,6 +25,7 @@ const emptyForm = {
 const Imoveis = () => {
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [editing, setEditing] = useState<Imovel | null>(null);
   const [salvando, setSalvando] = useState(false);
   const [form, setForm] = useState<typeof emptyForm>(emptyForm);
@@ -58,12 +59,15 @@ const Imoveis = () => {
     setModalOpen(true);
   }
 
-  async function save() {
+  function requestSave() {
     if (!form.titulo?.trim()) {
       alert("Título é obrigatório");
       return;
     }
+    setConfirmOpen(true);
+  }
 
+  async function confirmedSave() {
     const payload = {
       titulo: form.titulo,
       descricao: form.descricao || undefined,
@@ -82,6 +86,7 @@ const Imoveis = () => {
       } else {
         await imovelService.create(payload);
       }
+      setConfirmOpen(false);
       setModalOpen(false);
       queryClient.invalidateQueries({ queryKey: ["imoveis"] });
       queryClient.invalidateQueries({ queryKey: ["imoveis-select"] });
@@ -222,9 +227,89 @@ const Imoveis = () => {
               <Input placeholder="Área (m²)" type="number" value={form.area} onChange={(e) => setForm({ ...form, area: e.target.value })} />
             </div>
 
-            <Button className="w-full mt-2" onClick={save} disabled={salvando}>
+            <Button className="w-full mt-2" onClick={requestSave}>
+              Revisar e Confirmar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      {/* DIALOG CONFIRMAÇÃO DE CADASTRO */}
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-amber-500" />
+              Confirmar {editing ? "alterações" : "cadastro"}
+            </DialogTitle>
+          </DialogHeader>
+
+          <p className="text-sm text-muted-foreground">
+            Revise as informações abaixo antes de confirmar.
+          </p>
+
+          <div className="rounded-lg border divide-y text-sm">
+            <div className="flex justify-between px-4 py-2.5">
+              <span className="text-muted-foreground">Título</span>
+              <span className="font-medium">{form.titulo}</span>
+            </div>
+            {form.tipo && (
+              <div className="flex justify-between px-4 py-2.5">
+                <span className="text-muted-foreground">Tipo</span>
+                <Badge variant="secondary">{form.tipo}</Badge>
+              </div>
+            )}
+            {form.endereco && (
+              <div className="flex justify-between px-4 py-2.5 gap-4">
+                <span className="text-muted-foreground shrink-0">Endereço</span>
+                <span className="font-medium text-right">{form.endereco}</span>
+              </div>
+            )}
+            {form.preco && (
+              <div className="flex justify-between px-4 py-2.5">
+                <span className="text-muted-foreground">Preço</span>
+                <span className="font-medium text-primary">
+                  R$ {Number(form.preco).toLocaleString("pt-BR")}
+                </span>
+              </div>
+            )}
+            <div className="flex justify-between px-4 py-2.5 gap-4">
+              <span className="text-muted-foreground">Detalhes</span>
+              <div className="flex items-center gap-3 font-medium">
+                {form.quartos && (
+                  <span className="flex items-center gap-1">
+                    <BedDouble className="w-3.5 h-3.5" /> {form.quartos}
+                  </span>
+                )}
+                {form.banheiros && (
+                  <span className="flex items-center gap-1">
+                    <Bath className="w-3.5 h-3.5" /> {form.banheiros}
+                  </span>
+                )}
+                {form.area && (
+                  <span className="flex items-center gap-1">
+                    <Maximize className="w-3.5 h-3.5" /> {form.area}m²
+                  </span>
+                )}
+                {!form.quartos && !form.banheiros && !form.area && (
+                  <span className="text-muted-foreground">—</span>
+                )}
+              </div>
+            </div>
+            {form.descricao && (
+              <div className="flex flex-col gap-1 px-4 py-2.5">
+                <span className="text-muted-foreground">Descrição</span>
+                <span className="font-medium">{form.descricao}</span>
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="outline" onClick={() => setConfirmOpen(false)} disabled={salvando}>
+              Voltar e editar
+            </Button>
+            <Button onClick={confirmedSave} disabled={salvando}>
               {salvando ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-              {salvando ? "Salvando..." : "Salvar"}
+              {salvando ? "Salvando..." : editing ? "Confirmar alterações" : "Confirmar cadastro"}
             </Button>
           </div>
         </DialogContent>

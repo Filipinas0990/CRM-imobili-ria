@@ -93,6 +93,7 @@ export default function Agenda() {
   const [visitaSelecionada, setVisitaSelecionada] = useState<Visita | null>(null);
   const [filtroStatus, setFiltroStatus] = useState<string>("todas");
   const [salvando, setSalvando] = useState(false);
+  const [confirmVisitaOpen, setConfirmVisitaOpen] = useState(false);
   const [novaVisita, setNovaVisita] = useState({
     lead_id: "", imovel_id: "", data: new Date(), horario: "09:00", anotacoes: "",
     nome_cliente: "", telefone_cliente: "",
@@ -157,11 +158,15 @@ export default function Agenda() {
 
   const handleHoje = () => setMesAtual(startOfMonth(new Date()));
 
-  const handleCriarVisita = async () => {
+  const handleRevisarVisita = () => {
     if (!novaVisita.lead_id || !novaVisita.imovel_id) {
       alert("Por favor, selecione um lead e um imóvel.");
       return;
     }
+    setConfirmVisitaOpen(true);
+  };
+
+  const handleCriarVisita = async () => {
     setSalvando(true);
     try {
       await visitaService.create({
@@ -174,6 +179,7 @@ export default function Agenda() {
         telefone_cliente: novaVisita.telefone_cliente || undefined,
       });
       setNovaVisita({ lead_id: "", imovel_id: "", data: new Date(), horario: "09:00", anotacoes: "", nome_cliente: "", telefone_cliente: "" });
+      setConfirmVisitaOpen(false);
       setDialogAberto(false);
       queryClient.invalidateQueries({ queryKey: ["visitas"] });
     } catch (err) {
@@ -542,9 +548,81 @@ export default function Agenda() {
           </div>
           <div className="flex justify-end gap-2 md:gap-3">
             <Button variant="outline" onClick={() => setDialogAberto(false)} className="h-9 text-sm">Cancelar</Button>
-            <Button onClick={handleCriarVisita} disabled={!novaVisita.lead_id || !novaVisita.imovel_id || salvando} className="h-9 text-sm">
-              {salvando ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
-              Agendar
+            <Button onClick={handleRevisarVisita} disabled={!novaVisita.lead_id || !novaVisita.imovel_id} className="h-9 text-sm">
+              <Plus className="h-4 w-4 mr-2" />
+              Revisar e Agendar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* DIALOG CONFIRMAÇÃO DE AGENDAMENTO */}
+      <Dialog open={confirmVisitaOpen} onOpenChange={setConfirmVisitaOpen}>
+        <DialogContent className="w-[calc(100vw-32px)] max-w-[440px] rounded-2xl p-4 md:p-6">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base md:text-lg">
+              <CalendarCheck className="h-5 w-5 text-amber-500" />
+              Confirmar agendamento
+            </DialogTitle>
+          </DialogHeader>
+
+          <p className="text-sm text-muted-foreground">
+            Revise as informações abaixo antes de confirmar.
+          </p>
+
+          <div className="rounded-lg border divide-y text-sm">
+            <div className="flex items-center gap-3 px-4 py-3">
+              <User className="h-4 w-4 text-primary shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">Cliente</p>
+                <p className="font-medium truncate">
+                  {novaVisita.nome_cliente || leads.find((l) => l.id === novaVisita.lead_id)?.nome || "—"}
+                </p>
+                {novaVisita.telefone_cliente && (
+                  <p className="text-xs text-muted-foreground">{novaVisita.telefone_cliente}</p>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-3 px-4 py-3">
+              <Home className="h-4 w-4 text-muted-foreground shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">Imóvel</p>
+                <p className="font-medium truncate">
+                  {imoveis.find((i) => i.id === novaVisita.imovel_id)?.nome || "—"}
+                </p>
+                {imoveis.find((i) => i.id === novaVisita.imovel_id)?.endereco && (
+                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                    <MapPin className="h-3 w-3 shrink-0" />
+                    {imoveis.find((i) => i.id === novaVisita.imovel_id)?.endereco}
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-3 px-4 py-3">
+              <CalendarIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+              <div>
+                <p className="text-xs text-muted-foreground">Data e Horário</p>
+                <p className="font-medium capitalize">
+                  {format(novaVisita.data, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                  {novaVisita.horario && <span className="ml-2 text-muted-foreground">às {novaVisita.horario}</span>}
+                </p>
+              </div>
+            </div>
+            {novaVisita.anotacoes && (
+              <div className="flex flex-col gap-1 px-4 py-3">
+                <p className="text-xs text-muted-foreground">Anotações</p>
+                <p className="font-medium">{novaVisita.anotacoes}</p>
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="outline" onClick={() => setConfirmVisitaOpen(false)} disabled={salvando}>
+              Voltar e editar
+            </Button>
+            <Button onClick={handleCriarVisita} disabled={salvando}>
+              {salvando ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
+              {salvando ? "Agendando..." : "Confirmar agendamento"}
             </Button>
           </div>
         </DialogContent>
