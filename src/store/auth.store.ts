@@ -7,6 +7,8 @@ export interface User {
   tipo_conta: 'corretor' | 'imobiliaria' | 'admin';
   role: 'owner' | 'member' | 'admin';
   organization_id: string | null;
+  features_ativas?: string[];
+  features_bloqueadas?: string[];
 }
 
 interface AuthState {

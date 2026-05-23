@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { authService } from "@/services/auth.services";
 import { toast } from "sonner";
 import { useState } from "react";
-import { ChevronRight, Sun, Moon } from "lucide-react";
+import { ChevronRight, Sun, Moon, Lock } from "lucide-react";
 import { useTheme } from "@/useTheme";
 import { useAuthStore } from "@/store/auth.store";
 import {
@@ -13,11 +13,15 @@ import {
   Megaphone, Mic, Headphones, Bot, Calendar, Zap,
   Building2, Mail, TrendingUp, UserCircle,
 } from "lucide-react";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, darkColor: "text-blue-400", lightColor: "text-white" },
   {
-    name: "Leads", icon: Users, darkColor: "text-cyan-400", lightColor: "text-white",
+    name: "Leads", icon: Users, darkColor: "text-cyan-400", lightColor: "text-white", featureKey: "leads",
     children: [
       { name: "Lista de Leads", href: "/dashboard/leads", icon: UserCheck, darkColor: "text-cyan-400", lightColor: "text-white" },
       { name: "Pipeline", href: "/dashboard/Pipeline", icon: Filter, darkColor: "text-cyan-300", lightColor: "text-white" },
@@ -25,7 +29,7 @@ const navigation = [
   },
   {
     name: "Atendimento", icon: Bot, darkColor: "text-green-400", lightColor: "text-white",
-    somenteCorretor: true,
+    somenteCorretor: true, featureKey: "whatsapp",
     children: [
       { name: "Mensagens", href: "/dashboard/whatsapp", icon: MessageCircle, darkColor: "text-green-400", lightColor: "text-white" },
       { name: "Automação", href: "/dashboard/automacoes", icon: Mic, darkColor: "text-green-300", lightColor: "text-white" },
@@ -33,7 +37,7 @@ const navigation = [
     ]
   },
   {
-    name: "Imóveis", icon: Home, darkColor: "text-orange-400", lightColor: "text-white",
+    name: "Imóveis", icon: Home, darkColor: "text-orange-400", lightColor: "text-white", featureKey: "imoveis",
     children: [
       { name: "Loteamentos", href: "/dashboard/loteamentos", icon: Landmark, darkColor: "text-orange-400", lightColor: "text-white" },
       { name: "Aluguéis", href: "/dashboard/alugueis", icon: Wallet, darkColor: "text-orange-300", lightColor: "text-white" },
@@ -42,26 +46,26 @@ const navigation = [
   },
   {
     name: "Campanhas", icon: Megaphone, darkColor: "text-emerald-400", lightColor: "text-white",
-    somenteCorretor: true,
+    somenteCorretor: true, featureKey: "campanhas",
     children: [
       { name: "Disparos", href: "/dashboard/campanhas", icon: Rocket, darkColor: "text-emerald-400", lightColor: "text-white" },
       { name: "Funis", href: "/dashboard/funis", icon: Zap, darkColor: "text-emerald-300", lightColor: "text-white" },
       { name: "Histórico", href: "/dashboard/campanhas/historico", icon: BarChart3, darkColor: "text-emerald-300", lightColor: "text-white" },
     ]
   },
-  { name: "I.A.", href: "/dashboard/ia", icon: Bot, darkColor: "text-violet-400", lightColor: "text-white", somenteCorretor: true },
-  { name: "Vendas", href: "/dashboard/vendas", icon: CreditCard, darkColor: "text-pink-400", lightColor: "text-white" },
-  { name: "Tarefas", href: "/dashboard/tarefas", icon: CheckSquare, darkColor: "text-violet-400", lightColor: "text-white" },
-  { name: "Visitas", href: "/dashboard/visitas", icon: Calendar, darkColor: "text-teal-400", lightColor: "text-white" },
+  { name: "I.A.", href: "/dashboard/ia", icon: Bot, darkColor: "text-violet-400", lightColor: "text-white", somenteCorretor: true, featureKey: "whatsapp-ia" },
+  { name: "Vendas", href: "/dashboard/vendas", icon: CreditCard, darkColor: "text-pink-400", lightColor: "text-white", featureKey: "vendas" },
+  { name: "Tarefas", href: "/dashboard/tarefas", icon: CheckSquare, darkColor: "text-violet-400", lightColor: "text-white", featureKey: "tarefas" },
+  { name: "Visitas", href: "/dashboard/visitas", icon: Calendar, darkColor: "text-teal-400", lightColor: "text-white", featureKey: "visitas" },
   {
-    name: "Fluxo de Caixa", icon: DollarSign, darkColor: "text-yellow-400", lightColor: "text-white",
+    name: "Fluxo de Caixa", icon: DollarSign, darkColor: "text-yellow-400", lightColor: "text-white", featureKey: "fluxo-caixa",
     children: [
       { name: "Finanças", href: "/dashboard/balanco", icon: DollarSign, darkColor: "text-yellow-400", lightColor: "text-white" },
       { name: "Despesas Fixas", href: "/dashboard/despesas", icon: DollarSign, darkColor: "text-yellow-300", lightColor: "text-white" },
       { name: "Balanço", href: "/dashboard/visao", icon: DollarSign, darkColor: "text-yellow-300", lightColor: "text-white" },
     ],
   },
-  { name: "Relatórios", href: "/dashboard/relatorios", icon: BarChart3, darkColor: "text-indigo-400", lightColor: "text-white" },
+  { name: "Relatórios", href: "/dashboard/relatorios", icon: BarChart3, darkColor: "text-indigo-400", lightColor: "text-white", featureKey: "relatorios" },
   { name: "Configurações", href: "/dashboard/configuracoes", icon: Home, darkColor: "text-gray-400", lightColor: "text-white" },
 ];
 
@@ -135,10 +139,17 @@ const imobiliariaNav = [
 
 export const Sidebar = () => {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [moduloBloqueado, setModuloBloqueado] = useState<string | null>(null);
   const navigate = useNavigate();
   const { isDark, toggleTheme } = useTheme();
   const { user } = useAuthStore();
   const isImobiliaria = user?.tipo_conta === 'imobiliaria';
+  const bloqueados = user?.features_bloqueadas ?? [];
+
+  function isBloqueado(featureKey?: string) {
+    if (!featureKey) return false;
+    return bloqueados.includes(featureKey);
+  }
 
   const handleLogout = async () => {
     try {
@@ -215,8 +226,31 @@ export const Sidebar = () => {
 
             {navigation.filter((item) => !isImobiliaria || !item.somenteCorretor).map((item) => {
               const isOpen = openMenu === item.name;
+              const locked = isBloqueado((item as any).featureKey);
 
               if ("children" in item) {
+                if (locked) {
+                  return (
+                    <button
+                      key={item.name}
+                      onClick={() => setModuloBloqueado(item.name)}
+                      className={`
+                        flex w-full items-center justify-between rounded-xl px-3 py-3
+                        transition-all duration-200 opacity-50 cursor-pointer
+                        ${isDark ? "text-slate-400 hover:bg-white/5" : "text-white/50 hover:bg-white/5"}
+                      `}
+                    >
+                      <div className="flex items-center gap-3">
+                        <item.icon className="h-[22px] w-[22px] min-w-[22px] text-white/40" />
+                        <span className="opacity-0 group-hover:opacity-100 whitespace-nowrap transition-all text-sm font-medium">
+                          {item.name}
+                        </span>
+                      </div>
+                      <Lock className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 text-white/40" />
+                    </button>
+                  );
+                }
+
                 return (
                   <div key={item.name}>
                     <button
@@ -267,6 +301,28 @@ export const Sidebar = () => {
                       </div>
                     )}
                   </div>
+                );
+              }
+
+              if (locked) {
+                return (
+                  <button
+                    key={item.name}
+                    onClick={() => setModuloBloqueado(item.name)}
+                    className={`
+                      flex w-full items-center justify-between rounded-xl px-3 py-3
+                      transition-all duration-200 opacity-50 cursor-pointer
+                      ${isDark ? "text-slate-400 hover:bg-white/5" : "text-white/50 hover:bg-white/5"}
+                    `}
+                  >
+                    <div className="flex items-center gap-3">
+                      <item.icon className="h-[22px] w-[22px] min-w-[22px] text-white/40" />
+                      <span className="opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap text-sm">
+                        {item.name}
+                      </span>
+                    </div>
+                    <Lock className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 text-white/40" />
+                  </button>
                 );
               }
 
@@ -340,6 +396,37 @@ export const Sidebar = () => {
       </aside>
 
       <MobileBottomBar />
+
+      {/* Modal — Módulo Bloqueado */}
+      <Dialog open={!!moduloBloqueado} onOpenChange={(open) => !open && setModuloBloqueado(null)}>
+        <DialogContent className="max-w-sm text-center">
+          <DialogHeader className="items-center">
+            <div className="w-14 h-14 rounded-full bg-violet-100 flex items-center justify-center mx-auto mb-2">
+              <Lock className="w-6 h-6 text-violet-500" />
+            </div>
+            <DialogTitle className="text-xl text-violet-600">{moduloBloqueado}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground leading-relaxed px-2">
+            Amplie seu alcance com o módulo <strong>{moduloBloqueado}</strong>. Solicite
+            mais informações ao nosso time de suporte e descubra os benefícios exclusivos
+            dessa ferramenta.
+          </p>
+          <div className="flex gap-3 justify-center mt-2">
+            <Button variant="outline" className="border-red-300 text-red-500 hover:bg-red-50" onClick={() => setModuloBloqueado(null)}>
+              Fechar
+            </Button>
+            <a
+              href="https://wa.me/5564993307382"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Button className="bg-violet-600 hover:bg-violet-700 text-white">
+                Falar com Suporte
+              </Button>
+            </a>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
