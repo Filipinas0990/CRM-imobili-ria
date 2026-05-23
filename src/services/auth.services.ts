@@ -29,36 +29,41 @@ interface AuthResponse {
   };
 }
 
-// Features bloqueadas no plano Basic — fallback caso o backend não retorne
-const BLOQUEADAS_POR_PLANO: Record<string, string[]> = {
-  basic: ['relatorios', 'whatsapp', 'whatsapp-ia', 'automacoes', 'campanhas'],
-  premium: [],
-  gold: [],
-};
+interface FeaturesResponse {
+  plano: string;
+  features_ativas: string[];
+  features_bloqueadas: string[];
+}
 
-function resolverFeaturesBloqueadas(user: AuthResponse['user']): string[] {
-  if (user.features_bloqueadas !== undefined) return user.features_bloqueadas;
-  if (user.plano) return BLOQUEADAS_POR_PLANO[user.plano] ?? [];
-  return [];
+async function carregarFeatures(token: string): Promise<Partial<FeaturesResponse>> {
+  try {
+    const { data } = await api.get<FeaturesResponse>('/me/features', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return data;
+  } catch {
+    // Fallback: backend doc diz que basic só bloqueia whatsapp-ia
+    return { features_bloqueadas: ['whatsapp-ia'] };
+  }
 }
 
 export const authService = {
   async login(payload: LoginPayload): Promise<void> {
     const { data } = await api.post<AuthResponse>('/auth/login', payload);
-    const userComFeatures = {
-      ...data.user,
-      features_bloqueadas: resolverFeaturesBloqueadas(data.user),
-    };
-    useAuthStore.getState().setAuth(userComFeatures, data.access_token);
+    const features = await carregarFeatures(data.access_token);
+    useAuthStore.getState().setAuth(
+      { ...data.user, ...features },
+      data.access_token,
+    );
   },
 
   async register(payload: RegisterPayload): Promise<void> {
     const { data } = await api.post<AuthResponse>('/auth/register', payload);
-    const userComFeatures = {
-      ...data.user,
-      features_bloqueadas: resolverFeaturesBloqueadas(data.user),
-    };
-    useAuthStore.getState().setAuth(userComFeatures, data.access_token);
+    const features = await carregarFeatures(data.access_token);
+    useAuthStore.getState().setAuth(
+      { ...data.user, ...features },
+      data.access_token,
+    );
   },
 
   async logout(): Promise<void> {
@@ -70,11 +75,8 @@ export const authService = {
     const { data } = await api.get<AuthResponse['user']>('/auth/me');
     const token = useAuthStore.getState().accessToken;
     if (token) {
-      const userComFeatures = {
-        ...data,
-        features_bloqueadas: resolverFeaturesBloqueadas(data),
-      };
-      useAuthStore.getState().setAuth(userComFeatures, token);
+      const features = await carregarFeatures(token);
+      useAuthStore.getState().setAuth({ ...data, ...features }, token);
     }
   },
 };
