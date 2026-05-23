@@ -210,7 +210,13 @@ const Auth = () => {
       setShowWelcome(true);
 
       setTimeout(() => {
-        navigate(user?.tipo_conta === "imobiliaria" ? "/imobiliaria/dashboard" : "/dashboard");
+        if (user?.tipo_conta === "admin") {
+          navigate("/admin/dashboard");
+        } else if (user?.tipo_conta === "imobiliaria") {
+          navigate("/imobiliaria/dashboard");
+        } else {
+          navigate("/dashboard");
+        }
       }, 3800);
     } catch (error: any) {
       const message =

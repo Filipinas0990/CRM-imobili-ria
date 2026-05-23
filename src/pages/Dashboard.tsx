@@ -185,18 +185,21 @@ const Dashboard = () => {
         <div className="p-4 md:p-8 space-y-6 md:space-y-8">
 
           {/* ── HEADER ── */}
-          <div className="flex items-start justify-between">
+          <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1">
+              <p className="text-sm text-muted-foreground capitalize mb-1">
+                {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}
+              </p>
+              <h1 className="text-3xl md:text-5xl font-black tracking-tight leading-none">
                 {(() => {
                   const h = new Date().getHours();
-                  const g = h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
-                  return `${g}, ${firstName}`;
+                  if (h < 12) return <>Bom dia, <span className="text-primary">{firstName}!</span></>;
+                  if (h < 18) return <>Boa tarde, <span className="text-primary">{firstName}!</span></>;
+                  return <>Boa noite, <span className="text-primary">{firstName}!</span></>;
                 })()}
-              </p>
-              <h1 className="text-2xl md:text-3xl font-black text-foreground tracking-tight">Dashboard</h1>
-              <p className="text-sm text-muted-foreground mt-1 capitalize">
-                {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}
+              </h1>
+              <p className="text-sm text-muted-foreground mt-2">
+                Aqui está o resumo do seu negócio hoje.
               </p>
             </div>
             <div className="hidden md:block">

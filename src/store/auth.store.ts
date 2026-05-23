@@ -4,7 +4,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  tipo_conta: 'corretor' | 'imobiliaria';
+  tipo_conta: 'corretor' | 'imobiliaria' | 'admin';
   role: 'owner' | 'member' | 'admin';
   organization_id: string | null;
 }

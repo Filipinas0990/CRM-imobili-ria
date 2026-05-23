@@ -46,6 +46,13 @@ import PipelineEquipe from "./pages/imobiliaria/PipelineEquipe";
 import LeadsEquipe from "./pages/imobiliaria/LeadsEquipe";
 import VendasEquipe from "./pages/imobiliaria/VendasEquipe";
 
+import AdminRoute from "./components/AdminRoute";
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminImobiliarias from "./pages/admin/AdminImobiliarias";
+import AdminImobiliariaDetalhe from "./pages/admin/AdminImobiliariaDetalhe";
+import AdminCorretores from "./pages/admin/AdminCorretores";
+import AdminCorretorDetalhe from "./pages/admin/AdminCorretorDetalhe";
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -117,6 +124,13 @@ function AppRoutes() {
       <Route path="/imobiliaria/pipeline" element={<ImobiliariaRoute><PipelineEquipe /></ImobiliariaRoute>} />
       <Route path="/imobiliaria/equipe/leads" element={<ImobiliariaRoute><LeadsEquipe /></ImobiliariaRoute>} />
       <Route path="/imobiliaria/equipe/vendas" element={<ImobiliariaRoute><VendasEquipe /></ImobiliariaRoute>} />
+
+      {/* Rotas do painel admin */}
+      <Route path="/admin/dashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+      <Route path="/admin/imobiliarias" element={<AdminRoute><AdminImobiliarias /></AdminRoute>} />
+      <Route path="/admin/imobiliarias/:id" element={<AdminRoute><AdminImobiliariaDetalhe /></AdminRoute>} />
+      <Route path="/admin/corretores" element={<AdminRoute><AdminCorretores /></AdminRoute>} />
+      <Route path="/admin/corretores/:id" element={<AdminRoute><AdminCorretorDetalhe /></AdminRoute>} />
 
       <Route path="*" element={<NotFound />} />
     </Routes>
