@@ -2,7 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { Sidebar } from "@/components/Sidebar";
 import {
   Wifi, Zap, MessageSquare, Tag, Send, BarChart3,
-  Megaphone, GitBranch, User, Clock, Bell, Shield,
+  Megaphone, GitBranch, User, Clock, Bell, Shield, Bot,
 } from "lucide-react";
 
 interface ConfigTile {
@@ -87,6 +87,19 @@ const SECTIONS: { title: string; tiles: ConfigTile[] }[] = [
         badge: "Em breve",
         color: "text-orange-600 dark:text-orange-400",
         bg: "bg-orange-50 dark:bg-orange-900/30",
+      },
+    ],
+  },
+  {
+    title: "Assistente IA",
+    tiles: [
+      {
+        icon: Bot,
+        label: "Assistente Filipe",
+        desc: "Cadastre leads e imóveis pelo WhatsApp",
+        href: "/dashboard/configuracoes/assistente",
+        color: "text-violet-600 dark:text-violet-400",
+        bg: "bg-violet-50 dark:bg-violet-900/30",
       },
     ],
   },

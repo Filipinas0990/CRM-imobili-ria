@@ -13,7 +13,9 @@
       "Bash(Select-Object Name, PSIsContainer)",
       "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\Filipe\\\\OneDrive\\\\Desktop\\\\FRONT-KELMOR\" -Recurse -File)",
       "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\Filipe\\\\OneDrive\\\\Desktop\\\\FRONT-KELMOR\" -Recurse -File -Filter \"*.tsx\" -o Name)",
-      "Bash(Select-String -Pattern \"\\(App|router|routes|main\\)\\\\.tsx\")"
+      "Bash(Select-String -Pattern \"\\(App|router|routes|main\\)\\\\.tsx\")",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\Filipe\\\\OneDrive\\\\Desktop\\\\FRONT-KELMOR\" -Recurse -Depth 3)",
+      "Bash(xargs grep -l \"phone\\\\|telefone\")"
     ]
   }
 }

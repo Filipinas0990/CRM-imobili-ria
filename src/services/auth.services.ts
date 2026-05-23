@@ -79,4 +79,13 @@ export const authService = {
       useAuthStore.getState().setAuth({ ...data, ...features }, token);
     }
   },
+
+  async getAssistenteConfig(): Promise<{ filipe_phone: string | null; meu_phone: string | null; configurado: boolean }> {
+    const { data } = await api.get('/auth/assistente/config');
+    return data;
+  },
+
+  async updateMe(payload: { phone: string }): Promise<void> {
+    await api.put('/auth/me', payload);
+  },
 };

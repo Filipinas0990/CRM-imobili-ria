@@ -6,7 +6,7 @@ import {
     Maximize, Landmark, MoreVertical, Share2, Eye,
     CheckCircle2, Building2, DollarSign, Car,
     Home, Store, Trees, Building, Warehouse,
-    Tractor, TreePine, Castle, TrendingUp, Loader2
+    Tractor, TreePine, Castle, TrendingUp, Loader2, Check
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -94,6 +94,7 @@ const SectionTitle = ({ icon, title }: { icon: React.ReactNode; title: string })
 const Loteamentos = () => {
     const [search, setSearch] = useState("");
     const [modalOpen, setModalOpen] = useState(false);
+    const [confirmOpen, setConfirmOpen] = useState(false);
     const [editing, setEditing] = useState<Imovel | null>(null);
     const [salvando, setSalvando] = useState(false);
     const [form, setForm] = useState<typeof emptyForm>(emptyForm);
@@ -151,6 +152,12 @@ const Loteamentos = () => {
         setModalOpen(true);
     }
 
+    function revisar() {
+        if (!form.titulo?.trim()) { alert("Título é obrigatório"); return; }
+        if (!form.tipo) { alert("Tipo é obrigatório"); return; }
+        setConfirmOpen(true);
+    }
+
     async function save() {
         if (!form.titulo?.trim()) { alert("Título é obrigatório"); return; }
         if (!form.tipo) { alert("Tipo é obrigatório"); return; }
@@ -196,6 +203,7 @@ const Loteamentos = () => {
             } else {
                 await imovelService.create(payload);
             }
+            setConfirmOpen(false);
             setModalOpen(false);
             queryClient.invalidateQueries({ queryKey: ["imoveis"] });
             queryClient.invalidateQueries({ queryKey: ["imoveis-select"] });
@@ -613,12 +621,84 @@ const Loteamentos = () => {
                         <Button variant="outline" onClick={() => setModalOpen(false)} className="border-gray-200 dark:border-slate-600 text-gray-600 dark:text-slate-300">
                             Cancelar
                         </Button>
-                        <Button onClick={save} disabled={salvando} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6">
+                        <Button onClick={editing ? save : revisar} disabled={salvando} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6">
                             {salvando && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                            {editing ? "Salvar Alterações" : "Criar Loteamento"}
+                            {editing ? "Salvar Alterações" : "Revisar e Cadastrar"}
                         </Button>
                     </div>
 
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+                <DialogContent className="max-w-[440px] rounded-2xl bg-white dark:bg-[#161e2e] border-gray-200 dark:border-slate-700 p-6">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-base font-bold text-gray-900 dark:text-white">
+                            <Building2 className="w-5 h-5 text-blue-600" />
+                            Confirmar cadastro
+                        </DialogTitle>
+                    </DialogHeader>
+                    <p className="text-sm text-gray-500 dark:text-slate-400">
+                        Revise as informações antes de cadastrar o loteamento.
+                    </p>
+                    <div className="rounded-lg border border-gray-200 dark:border-slate-700 divide-y divide-gray-100 dark:divide-slate-700 text-sm">
+                        <div className="flex items-start gap-3 px-4 py-3">
+                            <Building2 className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                            <div>
+                                <p className="text-xs text-gray-400 dark:text-slate-500">Nome</p>
+                                <p className="font-medium text-gray-900 dark:text-white">{form.titulo || "—"}</p>
+                            </div>
+                        </div>
+                        <div className="flex items-start gap-3 px-4 py-3">
+                            <Landmark className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
+                            <div>
+                                <p className="text-xs text-gray-400 dark:text-slate-500">Tipo / Status</p>
+                                <p className="font-medium text-gray-900 dark:text-white">{form.tipo || "—"} · {form.status}</p>
+                            </div>
+                        </div>
+                        {(form.cidade || form.estado) && (
+                            <div className="flex items-start gap-3 px-4 py-3">
+                                <MapPin className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
+                                <div>
+                                    <p className="text-xs text-gray-400 dark:text-slate-500">Localização</p>
+                                    <p className="font-medium text-gray-900 dark:text-white">
+                                        {[form.cidade, form.estado].filter(Boolean).join(", ")}
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+                        <div className="flex items-start gap-3 px-4 py-3">
+                            <DollarSign className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
+                            <div>
+                                <p className="text-xs text-gray-400 dark:text-slate-500">Valor</p>
+                                <p className="font-medium text-gray-900 dark:text-white">
+                                    {form.sob_consulta
+                                        ? "Sob consulta"
+                                        : form.preco
+                                            ? `${form.preco_varia ? "A partir de " : ""}R$ ${Number(form.preco).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
+                                            : "Não informado"}
+                                </p>
+                            </div>
+                        </div>
+                        {form.unidades_disponiveis && (
+                            <div className="flex items-start gap-3 px-4 py-3">
+                                <CheckCircle2 className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
+                                <div>
+                                    <p className="text-xs text-gray-400 dark:text-slate-500">Unidades disponíveis</p>
+                                    <p className="font-medium text-gray-900 dark:text-white">{form.unidades_disponiveis}</p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                    <div className="flex justify-end gap-2 pt-1">
+                        <Button variant="outline" onClick={() => setConfirmOpen(false)} disabled={salvando} className="border-gray-200 dark:border-slate-600 text-gray-600 dark:text-slate-300">
+                            Voltar e editar
+                        </Button>
+                        <Button onClick={save} disabled={salvando} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold">
+                            {salvando ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
+                            {salvando ? "Cadastrando..." : "Confirmar cadastro"}
+                        </Button>
+                    </div>
                 </DialogContent>
             </Dialog>
         </div>
