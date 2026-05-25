@@ -169,7 +169,7 @@ export const Sidebar = () => {
           border-r flex flex-col
           overflow-hidden
           hidden md:flex
-          bg-[linear-gradient(to_bottom,#07090f_0%,#07090f_55%,#0d1a4a_78%,#1a3a9f_100%)]
+          bg-[linear-gradient(to_bottom,#07090f_0%,#07090f_12%,#0d1a4a_35%,#1a3a9f_65%,#1a3a9f_100%)]
           border-blue-800/30
           shadow-[0_8px_40px_rgba(10,20,80,0.85)]
         `}
