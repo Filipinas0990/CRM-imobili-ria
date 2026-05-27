@@ -68,7 +68,7 @@ const SECTIONS: { title: string; tiles: ConfigTile[] }[] = [
         icon: Tag,
         label: "Etiquetas",
         desc: "Organize leads por categorias",
-        badge: "Em breve",
+        href: "/dashboard/configuracoes/etiquetas",
         color: "text-amber-600 dark:text-amber-400",
         bg: "bg-amber-50 dark:bg-amber-900/30",
       },

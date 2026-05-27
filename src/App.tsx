@@ -47,6 +47,7 @@ import PipelineEquipe from "./pages/imobiliaria/PipelineEquipe";
 import LeadsEquipe from "./pages/imobiliaria/LeadsEquipe";
 import VendasEquipe from "./pages/imobiliaria/VendasEquipe";
 
+import Etiquetas from "./pages/Etiquetas";
 import AdminRoute from "./components/AdminRoute";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminImobiliarias from "./pages/admin/AdminImobiliarias";
@@ -105,6 +106,7 @@ function AppRoutes() {
       <Route path="/dashboard/visitas" element={<ProtectedRoute><Visitas /></ProtectedRoute>} />
 
       <Route path="/dashboard/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
+      <Route path="/dashboard/configuracoes/etiquetas" element={<ProtectedRoute><Etiquetas /></ProtectedRoute>} />
       <Route path="/dashboard/configuracoes/assistente" element={<ProtectedRoute><AssistenteIA /></ProtectedRoute>} />
       <Route path="/dashboard/automacoes" element={<ProtectedRoute><Automacoes /></ProtectedRoute>} />
       <Route path="/dashboard/campanhas" element={<ProtectedRoute><Campanhas /></ProtectedRoute>} />

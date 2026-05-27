@@ -11,8 +11,10 @@ import {
     DialogTitle,
     DialogFooter,
 } from "@/components/ui/dialog";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { leadService } from "@/services/lead.service";
+import { etiquetaService } from "@/services/etiqueta.service";
+import { EtiquetaBadge, getIconComponent } from "@/pages/Etiquetas";
 import { toast } from "sonner";
 import {
     Users,
@@ -25,10 +27,12 @@ import {
     Phone,
     Mail,
     Calendar,
-    Star,
     MoreVertical,
     Archive,
     Trash2,
+    Tag,
+    Check,
+    Plus,
 } from "lucide-react";
 import {
     BarChart,
@@ -89,7 +93,31 @@ function LeadCard({
     onExcluir: (lead: any) => void;
 }) {
     const [menuOpen, setMenuOpen] = useState(false);
+    const [etiquetasOpen, setEtiquetasOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
+    const etiquetasRef = useRef<HTMLDivElement>(null);
+    const queryClient = useQueryClient();
+
+    const { data: todasEtiquetas = [] } = useQuery({
+        queryKey: ["etiquetas"],
+        queryFn: () => etiquetaService.getAll(),
+        enabled: etiquetasOpen,
+        staleTime: 1000 * 60 * 5,
+    });
+
+    const aplicarMutation = useMutation({
+        mutationFn: ({ leadId, etiquetaId }: { leadId: string; etiquetaId: string }) =>
+            etiquetaService.aplicarNoLead(leadId, etiquetaId),
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ["leads"] }),
+        onError: () => toast.error("Erro ao aplicar etiqueta"),
+    });
+
+    const removerMutation = useMutation({
+        mutationFn: ({ leadId, etiquetaId }: { leadId: string; etiquetaId: string }) =>
+            etiquetaService.removerDoLead(leadId, etiquetaId),
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ["leads"] }),
+        onError: () => toast.error("Erro ao remover etiqueta"),
+    });
 
     useEffect(() => {
         function handleClick(e: MouseEvent) {
@@ -101,12 +129,33 @@ function LeadCard({
         return () => document.removeEventListener("mousedown", handleClick);
     }, [menuOpen]);
 
+    useEffect(() => {
+        function handleClick(e: MouseEvent) {
+            if (etiquetasRef.current && !etiquetasRef.current.contains(e.target as Node)) {
+                setEtiquetasOpen(false);
+            }
+        }
+        if (etiquetasOpen) document.addEventListener("mousedown", handleClick);
+        return () => document.removeEventListener("mousedown", handleClick);
+    }, [etiquetasOpen]);
+
+    const etiquetasDoLead: any[] = lead.etiquetas ?? [];
+    const etiquetasIds = new Set(etiquetasDoLead.map((e: any) => e.id));
+
+    function toggleEtiqueta(etiquetaId: string) {
+        if (etiquetasIds.has(etiquetaId)) {
+            removerMutation.mutate({ leadId: lead.id, etiquetaId });
+        } else {
+            aplicarMutation.mutate({ leadId: lead.id, etiquetaId });
+        }
+    }
+
     return (
         <div
             draggable
             onDragStart={onDragStart}
             className={clsx(
-                "rounded-xl p-3 cursor-move shadow-sm hover:shadow-md transition-all border",
+                "relative rounded-xl p-3 cursor-move shadow-sm hover:shadow-md transition-all border",
                 lead._animate && "animate-fireworks",
                 lead.status === "desistiu"
                     ? "bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-900"
@@ -154,7 +203,18 @@ function LeadCard({
                         <MoreVertical className="w-4 h-4" />
                     </button>
                     {menuOpen && (
-                        <div className="absolute right-0 top-7 z-50 bg-card border border-border rounded-xl shadow-lg w-44 py-1">
+                        <div className="absolute right-0 top-7 z-50 bg-card border border-border rounded-xl shadow-lg w-48 py-1">
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setMenuOpen(false);
+                                    setEtiquetasOpen(true);
+                                }}
+                                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-foreground hover:bg-muted/50"
+                            >
+                                <Tag className="w-4 h-4 text-amber-500" />
+                                Gerenciar Etiquetas
+                            </button>
                             <button
                                 onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onMoverBolsao(lead.id); }}
                                 className="flex items-center gap-2 w-full px-3 py-2 text-sm text-foreground hover:bg-muted/50"
@@ -174,6 +234,15 @@ function LeadCard({
                 </div>
             </div>
 
+            {/* Badges de etiquetas */}
+            {etiquetasDoLead.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                    {etiquetasDoLead.map((et: any) => (
+                        <EtiquetaBadge key={et.id} etiqueta={et} />
+                    ))}
+                </div>
+            )}
+
             <div className="flex items-center justify-between mt-2 pt-2 border-t border-border">
                 {lead.gestor_responsavel && (
                     <span className="text-xs bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 rounded-full px-2 py-0.5 font-medium">
@@ -181,6 +250,52 @@ function LeadCard({
                     </span>
                 )}
             </div>
+
+            {/* Dropdown gerenciar etiquetas */}
+            {etiquetasOpen && (
+                <div
+                    ref={etiquetasRef}
+                    className="absolute z-50 mt-1 bg-card border border-border rounded-xl shadow-xl w-52 py-2 left-0"
+                    style={{ top: "100%" }}
+                >
+                    <p className="px-3 pb-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-widest border-b border-border mb-1">
+                        Etiquetas de {lead.name.split(" ")[0]}
+                    </p>
+                    {todasEtiquetas.length === 0 ? (
+                        <p className="px-3 py-2 text-xs text-muted-foreground">Nenhuma etiqueta criada.</p>
+                    ) : (
+                        todasEtiquetas.map((et) => {
+                            const Icon = getIconComponent(et.icon);
+                            const ativa = etiquetasIds.has(et.id);
+                            return (
+                                <button
+                                    key={et.id}
+                                    onClick={(e) => { e.stopPropagation(); toggleEtiqueta(et.id); }}
+                                    className="flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-muted/50 transition-colors"
+                                >
+                                    <div
+                                        className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0"
+                                        style={{ backgroundColor: et.color + "22" }}
+                                    >
+                                        <Icon className="w-3 h-3" style={{ color: et.color }} />
+                                    </div>
+                                    <span className="flex-1 text-left text-foreground">{et.name}</span>
+                                    {ativa && <Check className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />}
+                                </button>
+                            );
+                        })
+                    )}
+                    <div className="border-t border-border mt-1 pt-1 px-3">
+                        <button
+                            onClick={() => { setEtiquetasOpen(false); }}
+                            className="flex items-center gap-1.5 text-xs text-indigo-500 hover:text-indigo-600 py-1"
+                        >
+                            <Plus className="w-3 h-3" />
+                            Criar etiqueta
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

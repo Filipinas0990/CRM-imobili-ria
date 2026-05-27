@@ -3,15 +3,15 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { authService } from "@/services/auth.services";
 import { toast } from "sonner";
 import { useState } from "react";
-import { ChevronRight, Sun, Moon, Lock, Power } from "lucide-react";
+import { ChevronRight, Sun, Moon, Lock, Power, Phone } from "lucide-react";
 import { useTheme } from "@/useTheme";
 import { useAuthStore } from "@/store/auth.store";
 import {
   Banknote, Wallet, CreditCard, Landmark, LayoutDashboard,
   Users, UserCheck, DollarSign, BarChart3, Home,
   Filter, CheckSquare, MessageCircle, Rocket, Repeat,
-  Megaphone, Mic, Headphones, Bot, Calendar, Zap,
-  Building2, Mail, TrendingUp,
+  Megaphone, Mic, Bot, Calendar, Zap,
+  Building2, Mail, TrendingUp, Sparkles,
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -28,7 +28,7 @@ const navigation = [
     ]
   },
   {
-    name: "Atendimento", icon: Bot, darkColor: "text-green-400", lightColor: "text-white",
+    name: "Atendimento", icon: MessageCircle, darkColor: "text-green-400", lightColor: "text-white",
     somenteCorretor: true, featureKey: "whatsapp",
     children: [
       { name: "Mensagens", href: "/dashboard/whatsapp", icon: MessageCircle, darkColor: "text-green-400", lightColor: "text-white" },
@@ -54,7 +54,7 @@ const navigation = [
     ]
   },
   { name: "I.A.", href: "/dashboard/ia", icon: Bot, darkColor: "text-violet-400", lightColor: "text-white", somenteCorretor: true, featureKey: "whatsapp-ia" },
-  { name: "Assistente IA", href: "/dashboard/configuracoes/assistente", icon: Bot, darkColor: "text-violet-400", lightColor: "text-white", somenteCorretor: true },
+  { name: "Assistente IA", href: "/dashboard/configuracoes/assistente", icon: Sparkles, darkColor: "text-violet-400", lightColor: "text-white", somenteCorretor: true, featureKey: "assistente-filipe" },
   { name: "Vendas", href: "/dashboard/vendas", icon: CreditCard, darkColor: "text-pink-400", lightColor: "text-white", featureKey: "vendas" },
   { name: "Tarefas", href: "/dashboard/tarefas", icon: CheckSquare, darkColor: "text-violet-400", lightColor: "text-white", featureKey: "tarefas" },
   { name: "Visitas", href: "/dashboard/visitas", icon: Calendar, darkColor: "text-teal-400", lightColor: "text-white", featureKey: "visitas" },
@@ -325,7 +325,7 @@ export const Sidebar = () => {
           <a href="https://wa.me/5564993307382" target="_blank" rel="noopener noreferrer"
             className={`w-full flex items-center gap-3 px-3 py-2.5 transition-all rounded-xl text-sm ${isDark ? "text-slate-300 hover:text-white hover:bg-white/8" : "text-white/70 hover:text-white hover:bg-white/5"}`}
           >
-            <Headphones className="h-[24px] w-[24px] min-w-[24px] text-green-400" />
+            <Phone className="h-[24px] w-[24px] min-w-[24px] text-green-400" />
             <span className={T}>Suporte</span>
           </a>
 
@@ -370,7 +370,7 @@ export const Sidebar = () => {
               Fechar
             </Button>
             <a href="https://wa.me/5564993307382" target="_blank" rel="noopener noreferrer">
-              <Button className="bg-violet-600 hover:bg-violet-700 text-white">Falar com Suporte</Button>
+              <Button className="bg-blue-600 hover:bg-blue-700 text-white">Falar com Suporte</Button>
             </a>
           </div>
         </DialogContent>

@@ -1,4 +1,5 @@
 import { api } from '@/lib/api';
+import type { EtiquetaResumida } from '@/services/etiqueta.service';
 
 export interface Lead {
   id: string;
@@ -10,6 +11,7 @@ export interface Lead {
   temperatura?: number;
   gestor_responsavel?: string;
   observacoes?: string;
+  etiquetas?: EtiquetaResumida[];
   created_at: string;
   updated_at: string;
 }
