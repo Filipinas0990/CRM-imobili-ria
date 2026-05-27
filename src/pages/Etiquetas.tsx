@@ -333,7 +333,7 @@ export default function Etiquetas() {
     <div className="min-h-screen bg-background">
       <Sidebar />
 
-      <main className="md:ml-16 p-4 md:p-8 pb-24 md:pb-8 space-y-6 max-w-5xl">
+      <main className="md:ml-16 p-4 md:p-8 pb-24 md:pb-8 space-y-6 max-w-5xl mx-auto">
         {/* Voltar */}
         <button
           onClick={() => navigate("/dashboard/configuracoes")}
