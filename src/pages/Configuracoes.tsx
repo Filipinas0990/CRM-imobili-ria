@@ -1,8 +1,8 @@
 import { useNavigate } from "react-router-dom";
 import { Sidebar } from "@/components/Sidebar";
 import {
-  Wifi, Zap, MessageSquare, Tag, Send, BarChart3,
-  Megaphone, GitBranch, User, Clock, Bell, Shield, Bot,
+  Wifi, Zap, MessageSquare, Tag, Send,
+  Megaphone, GitBranch, User, Clock, Bell, Shield, Bot, Trophy,
 } from "lucide-react";
 
 interface ConfigTile {
@@ -73,12 +73,12 @@ const SECTIONS: { title: string; tiles: ConfigTile[] }[] = [
         bg: "bg-amber-50 dark:bg-amber-900/30",
       },
       {
-        icon: BarChart3,
-        label: "Relatórios",
-        desc: "Análise de desempenho e vendas",
-        badge: "Em breve",
-        color: "text-cyan-600 dark:text-cyan-400",
-        bg: "bg-cyan-50 dark:bg-cyan-900/30",
+        icon: Trophy,
+        label: "Metas",
+        desc: "Defina e acompanhe seus objetivos",
+        href: "/dashboard/configuracoes/metas",
+        color: "text-indigo-600 dark:text-indigo-400",
+        bg: "bg-indigo-50 dark:bg-indigo-900/30",
       },
       {
         icon: Clock,
