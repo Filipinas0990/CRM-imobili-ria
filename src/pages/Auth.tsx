@@ -186,7 +186,7 @@ function Confetes() {
 // ═════════════════════════════════════════════════════════════════════════════
 
 // Wrapper principal: imagem de fundo webp, fullscreen, centralizado
-const Page = styled.div`
+const Page = styled.div<{ $ready: boolean }>`
   min-height: 100vh;
   display: flex;
   align-items: center;
@@ -198,6 +198,8 @@ const Page = styled.div`
   background-repeat: no-repeat;
   position: relative;
   overflow: hidden;
+  opacity: ${p => p.$ready ? 1 : 0};
+  transition: opacity 0.45s ease;
 `;
 
 const ContentRow = styled.div`
@@ -901,6 +903,15 @@ const Auth = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
+  const [bgReady, setBgReady] = useState(false);
+
+  useEffect(() => {
+    const img = new window.Image();
+    img.onload = () => setBgReady(true);
+    img.src = loginBg;
+    if (img.complete) setBgReady(true);
+  }, []);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
@@ -1006,7 +1017,7 @@ const Auth = () => {
 
   // ─── RENDER PRINCIPAL ─────────────────────────────────────────────────────
   return (
-    <Page>
+    <Page $ready={bgReady}>
 
       {/* ══ COLUNA ESQUERDA (absoluta, esquerda da tela) ════════════════════ */}
       <LeftColumn>
