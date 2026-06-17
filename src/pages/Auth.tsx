@@ -35,7 +35,7 @@ const FEATURES = [
 // ─── TEXTOS DO CARD ───────────────────────────────────────────────────────────
 // ← ALTERE: frases que aparecem em loop com animação de digitação
 const TYPEWRITER_PHRASES = [
-  "É muito bom ter você aqui!",
+  "É muito bom ter você aqui",
   "Bem-vindo de volta!",
   "Pronto para fechar mais vendas?",
 ];
@@ -105,61 +105,61 @@ const GlobalFloatY = createGlobalStyle`
 // ─── CONFETES — losangos decorativos espalhados pelo fundo ───────────────────
 const CONFETES = [
   // canto superior esquerdo
-  { top:  50, left: 120, size:  9, color: '#3b82f6' },
-  { top:  90, left:  80, size:  7, color: '#93c5fd' },
+  { top: 50, left: 120, size: 9, color: '#3b82f6' },
+  { top: 90, left: 80, size: 7, color: '#93c5fd' },
   { top: 130, left: 160, size: 12, color: '#1d4ed8' },
-  { top:  30, left: 200, size:  8, color: '#bfdbfe' },
-  { top:  70, left: 240, size: 10, color: '#3b82f6' },
+  { top: 30, left: 200, size: 8, color: '#bfdbfe' },
+  { top: 70, left: 240, size: 10, color: '#3b82f6' },
   // centro superior
-  { top:  25, left: 440, size: 11, color: '#1d4ed8' },
-  { top:  60, left: 510, size:  8, color: '#93c5fd' },
-  { top:  35, left: 580, size: 13, color: '#3b82f6' },
-  { top:  80, left: 650, size:  7, color: '#bfdbfe' },
+  { top: 25, left: 440, size: 11, color: '#1d4ed8' },
+  { top: 60, left: 510, size: 8, color: '#93c5fd' },
+  { top: 35, left: 580, size: 13, color: '#3b82f6' },
+  { top: 80, left: 650, size: 7, color: '#bfdbfe' },
   // lado esquerdo central
-  { top: 300, left:  60, size: 10, color: '#3b82f6' },
-  { top: 360, left: 110, size:  8, color: '#1d4ed8' },
-  { top: 420, left:  50, size: 13, color: '#93c5fd' },
-  { top: 480, left: 140, size:  9, color: '#3b82f6' },
-  { top: 540, left:  80, size:  7, color: '#bfdbfe' },
+  { top: 300, left: 60, size: 10, color: '#3b82f6' },
+  { top: 360, left: 110, size: 8, color: '#1d4ed8' },
+  { top: 420, left: 50, size: 13, color: '#93c5fd' },
+  { top: 480, left: 140, size: 9, color: '#3b82f6' },
+  { top: 540, left: 80, size: 7, color: '#bfdbfe' },
   // rodapé esquerdo
   { top: 650, left: 130, size: 11, color: '#1d4ed8' },
-  { top: 700, left:  70, size:  8, color: '#3b82f6' },
+  { top: 700, left: 70, size: 8, color: '#3b82f6' },
   { top: 730, left: 200, size: 12, color: '#93c5fd' },
   // centro inferior
-  { top: 680, left: 380, size:  9, color: '#3b82f6' },
-  { top: 720, left: 460, size:  7, color: '#1d4ed8' },
+  { top: 680, left: 380, size: 9, color: '#3b82f6' },
+  { top: 720, left: 460, size: 7, color: '#1d4ed8' },
   { top: 700, left: 540, size: 11, color: '#bfdbfe' },
   // área central vazia — entre card e coroa/K
   { top: 100, left: 730, size: 10, color: '#3b82f6' },
-  { top: 160, left: 790, size:  7, color: '#bfdbfe' },
+  { top: 160, left: 790, size: 7, color: '#bfdbfe' },
   { top: 200, left: 740, size: 12, color: '#1d4ed8' },
-  { top: 250, left: 820, size:  8, color: '#93c5fd' },
+  { top: 250, left: 820, size: 8, color: '#93c5fd' },
   { top: 300, left: 760, size: 11, color: '#3b82f6' },
-  { top: 340, left: 850, size:  7, color: '#bfdbfe' },
-  { top: 380, left: 720, size:  9, color: '#1d4ed8' },
+  { top: 340, left: 850, size: 7, color: '#bfdbfe' },
+  { top: 380, left: 720, size: 9, color: '#1d4ed8' },
   { top: 420, left: 880, size: 10, color: '#3b82f6' },
-  { top: 460, left: 800, size:  8, color: '#93c5fd' },
+  { top: 460, left: 800, size: 8, color: '#93c5fd' },
   { top: 500, left: 750, size: 11, color: '#bfdbfe' },
-  { top: 540, left: 900, size:  7, color: '#3b82f6' },
+  { top: 540, left: 900, size: 7, color: '#3b82f6' },
   // lado direito — entre card e K
-  { top:  55, left: 980, size: 10, color: '#3b82f6' },
-  { top: 110, left:1030, size:  8, color: '#bfdbfe' },
-  { top:  40, left:1080, size: 12, color: '#1d4ed8' },
-  { top: 150, left: 960, size:  7, color: '#93c5fd' },
-  { top: 180, left:1010, size: 11, color: '#3b82f6' },
+  { top: 55, left: 980, size: 10, color: '#3b82f6' },
+  { top: 110, left: 1030, size: 8, color: '#bfdbfe' },
+  { top: 40, left: 1080, size: 12, color: '#1d4ed8' },
+  { top: 150, left: 960, size: 7, color: '#93c5fd' },
+  { top: 180, left: 1010, size: 11, color: '#3b82f6' },
   // canto superior direito (acima do worm)
-  { top:  20, left:1160, size:  9, color: '#bfdbfe' },
-  { top:  60, left:1220, size:  7, color: '#3b82f6' },
-  { top:  30, left:1300, size: 11, color: '#93c5fd' },
+  { top: 20, left: 1160, size: 9, color: '#bfdbfe' },
+  { top: 60, left: 1220, size: 7, color: '#3b82f6' },
+  { top: 30, left: 1300, size: 11, color: '#93c5fd' },
   // abaixo da coroa / ao lado do K
-  { top: 220, left: 970, size:  8, color: '#1d4ed8' },
-  { top: 270, left:1050, size: 10, color: '#bfdbfe' },
-  { top: 310, left: 990, size:  7, color: '#3b82f6' },
+  { top: 220, left: 970, size: 8, color: '#1d4ed8' },
+  { top: 270, left: 1050, size: 10, color: '#bfdbfe' },
+  { top: 310, left: 990, size: 7, color: '#3b82f6' },
   // entre K e esfera (lado direito inferior)
-  { top: 590, left: 960, size:  9, color: '#93c5fd' },
-  { top: 630, left:1020, size: 11, color: '#3b82f6' },
-  { top: 660, left: 940, size:  7, color: '#bfdbfe' },
-  { top: 700, left:1060, size:  8, color: '#1d4ed8' },
+  { top: 590, left: 960, size: 9, color: '#93c5fd' },
+  { top: 630, left: 1020, size: 11, color: '#3b82f6' },
+  { top: 660, left: 940, size: 7, color: '#bfdbfe' },
+  { top: 700, left: 1060, size: 8, color: '#1d4ed8' },
 ];
 
 function Confetes() {
@@ -691,15 +691,15 @@ const RocketSvg = () => (
   <svg width="110" height="176" viewBox="0 0 100 160" fill="none" style={{ overflow: "visible" }}>
     <defs>
       <linearGradient id="rk-body" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%"   stopColor="#e0eaff" />
+        <stop offset="0%" stopColor="#e0eaff" />
         <stop offset="100%" stopColor="#93c5fd" />
       </linearGradient>
       <linearGradient id="rk-tip" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%"   stopColor="#60a5fa" />
+        <stop offset="0%" stopColor="#60a5fa" />
         <stop offset="100%" stopColor="#1d4ed8" />
       </linearGradient>
       <linearGradient id="rk-wing" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%"   stopColor="#3b82f6" />
+        <stop offset="0%" stopColor="#3b82f6" />
         <stop offset="100%" stopColor="#1338a4" />
       </linearGradient>
     </defs>
@@ -711,7 +711,7 @@ const RocketSvg = () => (
     <path d="M50 8 C34 28 28 50 28 62 L72 62 C72 50 66 28 50 8Z" fill="url(#rk-tip)" />
     {/* janela */}
     <circle cx="50" cy="78" r="13" fill="#0f172a" />
-    <circle cx="45" cy="73" r="5"  fill="white" opacity="0.45" />
+    <circle cx="45" cy="73" r="5" fill="white" opacity="0.45" />
     {/* asa esquerda */}
     <path d="M28 92 L8 124 L28 118Z" fill="url(#rk-wing)" />
     {/* asa direita */}
@@ -719,15 +719,17 @@ const RocketSvg = () => (
     {/* chama externa */}
     <ellipse cx="50" cy="144" rx="15" ry="22" fill="#fbbf24" opacity="0.85" />
     {/* chama interna */}
-    <ellipse cx="50" cy="150" rx="8"  ry="13" fill="white" opacity="0.65" />
+    <ellipse cx="50" cy="150" rx="8" ry="13" fill="white" opacity="0.65" />
   </svg>
 );
 
 // Worm/tubo 3D — superior direito
 const WormTop = () => (
   <svg width="700" height="210" viewBox="0 0 700 210" fill="none"
-    style={{ display: "block", overflow: "visible",
-      filter: "drop-shadow(2px 12px 14px rgba(30,58,138,0.35))" }}>
+    style={{
+      display: "block", overflow: "visible",
+      filter: "drop-shadow(2px 12px 14px rgba(30,58,138,0.35))"
+    }}>
     <defs>
       <linearGradient id="wt-g" x1="1" y1="0.3" x2="0" y2="1">
         <stop offset="0%" stopColor="#93c5fd" />
@@ -745,8 +747,10 @@ const WormTop = () => (
 // Worm/tubo 3D — inferior esquerdo
 const WormBottom = () => (
   <svg width="340" height="210" viewBox="0 0 340 210" fill="none"
-    style={{ display: "block", background: "transparent", overflow: "visible",
-      filter: "drop-shadow(2px 12px 14px rgba(30,58,138,0.35))" }}>
+    style={{
+      display: "block", background: "transparent", overflow: "visible",
+      filter: "drop-shadow(2px 12px 14px rgba(30,58,138,0.35))"
+    }}>
     <defs>
       <linearGradient id="wb-g" x1="0" y1="0" x2="0.4" y2="1">
         <stop offset="0%" stopColor="#93c5fd" /><stop offset="50%" stopColor="#3b82f6" /><stop offset="100%" stopColor="#1d4ed8" />
@@ -793,13 +797,13 @@ const CloudSvg = () => (
       {/* base larga e achatada */}
       <ellipse cx="140" cy="145" rx="120" ry="42" fill="white" />
       {/* corcova esquerda */}
-      <ellipse cx="80"  cy="105" rx="62"  ry="58" fill="white" />
+      <ellipse cx="80" cy="105" rx="62" ry="58" fill="white" />
       {/* corcova central — a mais alta */}
-      <ellipse cx="150" cy="88"  rx="78"  ry="72" fill="white" />
+      <ellipse cx="150" cy="88" rx="78" ry="72" fill="white" />
       {/* corcova direita */}
-      <ellipse cx="218" cy="112" rx="55"  ry="48" fill="white" />
+      <ellipse cx="218" cy="112" rx="55" ry="48" fill="white" />
       {/* brilho no topo — simula luz batendo */}
-      <ellipse cx="145" cy="68"  rx="44"  ry="20" fill="white" opacity="0.6" />
+      <ellipse cx="145" cy="68" rx="44" ry="20" fill="white" opacity="0.6" />
     </g>
   </svg>
 );
